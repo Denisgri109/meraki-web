@@ -5,6 +5,112 @@ import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Search, Star, Clock, ArrowRight, ArrowLeft, Calendar, CheckCircle2, Sparkles, User, Scissors, SlidersHorizontal } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { loadStripe } from '@stripe/stripe-js';
+import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
+
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY as string);
+
+function CheckoutForm({ user, profile, selectedService, selectedMaster, selectedDate, selectedTime, onBookSuccess, submitting, setSubmitting }: any) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const supabase = createClient();
+
+  const handleBook = async () => {
+    if (!stripe || !elements || !user || !selectedService || !selectedMaster || !selectedDate || !selectedTime) return;
+    setSubmitting(true);
+    try {
+      const startTimeStr = `${selectedDate}T${selectedTime}:00`;
+      const startDate = new Date(startTimeStr);
+      
+      const requestBody = {
+        user_email: profile?.email,
+        customer_id: profile?.stripe_customer_id,
+      };
+
+      const { data: setupIntentData, error: setupError } = await supabase.functions.invoke('setup-intent', { body: requestBody });
+      if (setupError) throw setupError;
+
+      const cardElement = elements.getElement(CardElement);
+      const { setupIntent, error: confirmSetupError } = await stripe.confirmCardSetup(
+        setupIntentData.clientSecret,
+        { payment_method: { card: cardElement! } }
+      );
+
+      if (confirmSetupError) throw confirmSetupError;
+
+      const amountToPay = Math.round(selectedService.base_price * 100);
+      
+      const { data: paymentIntentData, error: piError } = await supabase.functions.invoke('create-payment-intent', {
+        body: {
+            amount: amountToPay,
+            currency: 'eur',
+            customer_id: setupIntentData.customerId,
+            payment_method_id: setupIntent.payment_method,
+            master_id: selectedMaster.id,
+            description: `Booking with ${selectedMaster.full_name}`,
+            capture_method: 'automatic',
+        }
+      });
+      if (piError) throw piError;
+
+      const { error: confirmPaymentError } = await stripe.confirmCardPayment(paymentIntentData.clientSecret);
+      if (confirmPaymentError) throw confirmPaymentError;
+
+      const { error: bookError } = await supabase.rpc(
+        'book_appointment_with_confirmation',
+        {
+            p_master_id: selectedMaster.id,
+            p_service_id: selectedService.id,
+            p_start_time: startDate.toISOString(),
+            p_stripe_setup_intent_id: setupIntentData.setupIntentId,
+            p_stripe_payment_intent_id: paymentIntentData.paymentIntentId,
+            p_deposit_amount: selectedService.base_price,
+            p_deposit_payment_intent_id: paymentIntentData.paymentIntentId,
+        }
+      );
+      if (bookError) throw bookError;
+
+      onBookSuccess();
+    } catch (err: any) {
+      console.error('Booking failed:', err);
+      let msg = err.message || 'Failed to create booking. Please try again.';
+      if (err.context && typeof err.context.json === 'function') {
+        try { const errData = await err.context.json(); if (errData && errData.error) msg = errData.error; } catch (e) {}
+      }
+      alert(msg);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="w-full">
+      <div className="p-4 bg-white/60 border border-white rounded-xl mb-6 shadow-sm">
+         <h4 className="font-bold text-[var(--color-text-primary)] mb-4 flex items-center gap-2">
+            💳 Payment Details
+         </h4>
+         <div className="p-4 bg-white rounded-lg border border-pink-100 shadow-inner">
+           <CardElement options={{
+             style: {
+               base: { fontSize: '16px', color: '#424770', '::placeholder': { color: '#aab7c4' } },
+               invalid: { color: '#9e2146' },
+             },
+           }} />
+         </div>
+         <p className="text-xs text-[var(--color-text-secondary)] mt-3">
+           You will be charged €{selectedService.base_price} today for your booking.
+         </p>
+      </div>
+      <button
+        onClick={handleBook}
+        disabled={submitting || !stripe || !elements}
+        className="w-full btn-primary py-4 text-lg font-bold shadow-xl shadow-pink-500/20 hover:shadow-2xl hover:shadow-pink-500/30 hover:-translate-y-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {submitting ? 'Confirming Appointment...' : 'Confirm & Book Appointment'}
+      </button>
+    </div>
+  );
+}
 
 interface Service {
   id: string;
@@ -30,7 +136,7 @@ const fallbackImages = [
 ];
 
 export default function BookingPage() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const router = useRouter();
   const supabase = createClient();
 
@@ -48,6 +154,7 @@ export default function BookingPage() {
   const [selectedMaster, setSelectedMaster] = useState<Master | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [selectedTime, setSelectedTime] = useState<string>('');
+  const [isMasterPreselected, setIsMasterPreselected] = useState(false);
 
   // Fetch initial data
   useEffect(() => {
@@ -59,7 +166,21 @@ export default function BookingPage() {
           supabase.from('profiles').select('id, full_name, avatar_url, specialties, city').eq('is_master', true).limit(20),
         ]);
         setServices((servicesRes.data as unknown as Service[]) || []);
-        setMasters((mastersRes.data as unknown as Master[]) || []);
+        const loadedMasters = (mastersRes.data as unknown as Master[]) || [];
+        setMasters(loadedMasters);
+
+        // Check for masterId parameter in the URL
+        if (typeof window !== 'undefined') {
+          const params = new URLSearchParams(window.location.search);
+          const masterIdUrl = params.get('masterId');
+          if (masterIdUrl) {
+            const preSelected = loadedMasters.find(m => m.id === masterIdUrl);
+            if (preSelected) {
+              setSelectedMaster(preSelected);
+              setIsMasterPreselected(true);
+            }
+          }
+        }
       } catch (err) {
         console.error('Error fetching booking data:', err);
       } finally {
@@ -73,37 +194,7 @@ export default function BookingPage() {
   // Time slots generator (mock available times for demo)
   const timeSlots = ['09:00', '09:30', '10:00', '10:30', '11:00', '13:00', '14:00', '15:30', '16:00', '17:00'];
 
-  const handleBook = async () => {
-    if (!user || !selectedService || !selectedMaster || !selectedDate || !selectedTime) return;
-    
-    setSubmitting(true);
-    try {
-      // Create date objects for start and end time
-      const startTimeStr = `${selectedDate}T${selectedTime}:00`;
-      const startDate = new Date(startTimeStr);
-      const endDate = new Date(startDate.getTime() + selectedService.duration_minutes * 60000);
-      
-      const { error } = await supabase.from('appointments').insert({
-        client_id: user.id,
-        master_id: selectedMaster.id,
-        service_id: selectedService.id,
-        start_time: startDate.toISOString(),
-        end_time: endDate.toISOString(),
-        total_price: selectedService.base_price,
-        status: 'pending'
-      });
 
-      if (error) throw error;
-      
-      // Move to success step
-      setStep(5);
-    } catch (err) {
-      console.error('Booking failed:', err);
-      alert('Failed to create booking. Please try again.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
 
   return (
     <div className="w-full max-w-4xl mx-auto animate-fade-in pb-20 relative">
@@ -111,6 +202,29 @@ export default function BookingPage() {
       {/* Decorative background blobs for extra vibrancy */}
       <div className="blob-pink fixed top-10 right-0 opacity-50 -z-10" />
       <div className="blob-purple fixed bottom-0 left-0 opacity-50 -z-10" />
+      <div className="blob-mint fixed top-1/3 left-0 opacity-30 -z-10" />
+      
+      {/* Colorful Step Progress Indicator */}
+      <div className="flex items-center justify-center gap-0 mb-8 px-4">
+        {['Service', 'Professional', 'Date & Time', 'Confirm'].map((label, idx) => {
+          const stepNum = idx + 1;
+          const isCompleted = step > stepNum;
+          const isActive = step === stepNum;
+          return (
+            <div key={label} className="flex items-center" style={{ flex: idx < 3 ? 1 : undefined }}>
+              <div className="flex flex-col items-center gap-1.5">
+                <div className={`step-dot ${isCompleted ? 'step-dot-completed' : isActive ? 'step-dot-active' : 'step-dot-inactive'}`} />
+                <span className={`text-[10px] font-bold uppercase tracking-wider whitespace-nowrap ${isActive ? 'text-[var(--color-brand-pink-dark)]' : isCompleted ? 'text-emerald-500' : 'text-[var(--color-text-muted)]'}`}>
+                  {label}
+                </span>
+              </div>
+              {idx < 3 && (
+                <div className={`step-line mx-2 ${isCompleted ? 'step-line-active' : 'step-line-inactive'}`} />
+              )}
+            </div>
+          );
+        })}
+      </div>
       
       {/* Hero Banner (Only show on step 1) */}
       {step === 1 && (
@@ -134,6 +248,11 @@ export default function BookingPage() {
         <div className="animate-fade-in relative z-10">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold text-[var(--color-text-primary)]">Select a Service</h2>
+            {isMasterPreselected && selectedMaster && (
+              <div className="text-sm font-semibold text-violet-600 bg-violet-100 px-3 py-1.5 rounded-full">
+                Booking with {selectedMaster.full_name}
+              </div>
+            )}
           </div>
           
           {/* Search Bar */}
@@ -168,7 +287,7 @@ export default function BookingPage() {
               ) : services.filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase())).map((service, idx) => (
                 <div
                   key={service.id}
-                  onClick={() => { setSelectedService(service); setStep(2); }}
+                  onClick={() => { setSelectedService(service); setStep(isMasterPreselected ? 3 : 2); }}
                   className="glass-card overflow-hidden hover:shadow-xl hover:-translate-y-2 hover:border-pink-500/30 transition-all duration-300 cursor-pointer group"
                 >
                   <div className="h-40 relative overflow-hidden">
@@ -259,8 +378,8 @@ export default function BookingPage() {
       {/* STEP 3: Select Date & Time */}
       {step === 3 && (
         <div className="animate-fade-in">
-          <button onClick={() => setStep(2)} className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] mb-6 transition-colors">
-            <ArrowLeft size={16} /> Back to Professionals
+          <button onClick={() => setStep(isMasterPreselected ? 1 : 2)} className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] mb-6 transition-colors">
+            <ArrowLeft size={16} /> Back to {isMasterPreselected ? 'Services' : 'Professionals'}
           </button>
 
           <h2 className="text-2xl font-bold text-[var(--color-text-primary)] mb-6">Select Date & Time</h2>
@@ -373,13 +492,19 @@ export default function BookingPage() {
                 </div>
               </div>
 
-              <button
-                onClick={handleBook}
-                disabled={submitting}
-                className="w-full btn-primary py-4 text-lg font-bold shadow-xl shadow-pink-500/20 hover:shadow-2xl hover:shadow-pink-500/30 hover:-translate-y-1 transition-all"
-              >
-                {submitting ? 'Confirming Appointment...' : 'Confirm & Book Appointment'}
-              </button>
+              <Elements stripe={stripePromise}>
+                <CheckoutForm 
+                  user={user}
+                  profile={profile}
+                  selectedService={selectedService}
+                  selectedMaster={selectedMaster}
+                  selectedDate={selectedDate}
+                  selectedTime={selectedTime}
+                  onBookSuccess={() => setStep(5)}
+                  submitting={submitting}
+                  setSubmitting={setSubmitting}
+                />
+              </Elements>
             </div>
           </div>
         </div>

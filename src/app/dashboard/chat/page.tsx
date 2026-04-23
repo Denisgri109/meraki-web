@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 import { MessageSquare, Send, Search, Phone, Video, MoreVertical, Smile } from 'lucide-react';
+import { useToast } from '@/components/Toast';
 
 interface Conversation {
   id: string;
@@ -31,6 +32,7 @@ export default function ChatPage() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { showToast } = useToast();
 
   useEffect(() => {
     if (!user) return;
@@ -196,13 +198,13 @@ export default function ChatPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[var(--color-surface-light)] transition-colors text-[var(--color-text-muted)]">
+                  <button onClick={() => showToast('Voice calls are not available on web', 'info')} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[var(--color-surface-light)] transition-colors text-[var(--color-text-muted)] cursor-pointer">
                     <Phone size={16} />
                   </button>
-                  <button className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[var(--color-surface-light)] transition-colors text-[var(--color-text-muted)]">
+                  <button onClick={() => showToast('Video calls are not available on web', 'info')} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[var(--color-surface-light)] transition-colors text-[var(--color-text-muted)] cursor-pointer">
                     <Video size={16} />
                   </button>
-                  <button className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[var(--color-surface-light)] transition-colors text-[var(--color-text-muted)]">
+                  <button onClick={() => showToast('More options coming soon', 'info')} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[var(--color-surface-light)] transition-colors text-[var(--color-text-muted)] cursor-pointer">
                     <MoreVertical size={16} />
                   </button>
                 </div>
@@ -235,7 +237,7 @@ export default function ChatPage() {
               {/* Input */}
               <div className="p-4 border-t border-[var(--color-border-light)]">
                 <div className="flex items-center gap-2">
-                  <button className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-[var(--color-surface-light)] transition-colors text-[var(--color-text-muted)]">
+                  <button onClick={() => showToast('Emoji picker coming soon', 'info')} className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-[var(--color-surface-light)] transition-colors text-[var(--color-text-muted)] cursor-pointer">
                     <Smile size={20} />
                   </button>
                   <input

@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
-import { Scissors, Plus, Clock, DollarSign, Edit3, ToggleLeft, ToggleRight, Sparkles } from 'lucide-react';
+import { useToast } from '@/components/Toast';
+import { Scissors, Plus, Clock, Edit3, ToggleLeft, ToggleRight, Sparkles, X, Loader2, Save } from 'lucide-react';
 
 interface Service {
   id: string;
@@ -13,21 +14,33 @@ interface Service {
   duration_minutes: number;
   category: string | null;
   is_active: boolean;
+  requires_consultation: boolean;
+  image_url: string | null;
 }
+
+const CATEGORIES = ['Nails', 'Lashes', 'Brows', 'Hair', 'Makeup', 'Skincare', 'Other'];
 
 export default function ServicesPage() {
   const { user } = useAuth();
   const supabase = createClient();
+  const { showToast } = useToast();
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  // Create/Edit modal
+  const [showModal, setShowModal] = useState(false);
+  const [editingService, setEditingService] = useState<Service | null>(null);
+  const [form, setForm] = useState({ name: '', description: '', base_price: '', duration_minutes: '60', category: 'Nails', requires_consultation: false });
+  const [saving, setSaving] = useState(false);
+
+  const fetchServices = async () => {
     if (!user) return;
-    const fetchServices = async () => {
-      const { data } = await supabase.from('services').select('*').eq('created_by', user.id).order('created_at', { ascending: false });
-      setServices((data as unknown as Service[]) || []);
-      setLoading(false);
-    };
+    const { data } = await supabase.from('services').select('*').eq('created_by', user.id).order('created_at', { ascending: false });
+    setServices((data as unknown as Service[]) || []);
+    setLoading(false);
+  };
+
+  useEffect(() => {
     fetchServices();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
@@ -35,6 +48,73 @@ export default function ServicesPage() {
   const toggleService = async (id: string, current: boolean) => {
     setServices((prev) => prev.map((s) => (s.id === id ? { ...s, is_active: !current } : s)));
     await supabase.from('services').update({ is_active: !current }).eq('id', id);
+    showToast(!current ? 'Service activated' : 'Service deactivated', 'info');
+  };
+
+  const openCreate = () => {
+    setEditingService(null);
+    setForm({ name: '', description: '', base_price: '', duration_minutes: '60', category: 'Nails', requires_consultation: false });
+    setShowModal(true);
+  };
+
+  const openEdit = (service: Service) => {
+    setEditingService(service);
+    setForm({
+      name: service.name,
+      description: service.description || '',
+      base_price: service.base_price.toString(),
+      duration_minutes: service.duration_minutes.toString(),
+      category: service.category || 'Nails',
+      requires_consultation: service.requires_consultation || false,
+    });
+    setShowModal(true);
+  };
+
+  const handleSave = async () => {
+    if (!form.name.trim()) { showToast('Please enter a service name', 'error'); return; }
+    if (!form.base_price || isNaN(Number(form.base_price)) || Number(form.base_price) <= 0) { showToast('Please enter a valid price', 'error'); return; }
+    if (!form.duration_minutes || isNaN(Number(form.duration_minutes)) || Number(form.duration_minutes) <= 0) { showToast('Please enter a valid duration', 'error'); return; }
+
+    setSaving(true);
+    try {
+      const payload = {
+        name: form.name.trim(),
+        description: form.description.trim() || null,
+        category: form.category,
+        base_price: Number(form.base_price),
+        duration_minutes: Number(form.duration_minutes),
+        requires_consultation: form.requires_consultation,
+      };
+
+      if (editingService) {
+        const { error } = await supabase.from('services').update(payload).eq('id', editingService.id);
+        if (error) throw error;
+        showToast('Service updated!', 'success');
+      } else {
+        const { data: serviceData, error: serviceError } = await supabase
+          .from('services')
+          .insert({ ...payload, created_by: user!.id, is_active: true })
+          .select()
+          .single();
+        if (serviceError) throw serviceError;
+
+        // Link to master_services
+        await supabase.from('master_services').insert({
+          master_id: user!.id,
+          service_id: (serviceData as any).id,
+          is_available: true,
+          custom_price: null,
+          custom_duration: null,
+        });
+        showToast('Service created!', 'success');
+      }
+      setShowModal(false);
+      fetchServices();
+    } catch (err: any) {
+      showToast(err.message || 'Failed to save service', 'error');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -55,7 +135,7 @@ export default function ServicesPage() {
 
       <div className="flex items-center justify-between mb-8">
         <h2 className="text-2xl font-bold text-[var(--color-text-primary)]">Service List</h2>
-        <button className="btn-pink shadow-lg hover:shadow-xl flex items-center gap-2 px-5 py-2.5 text-sm">
+        <button onClick={openCreate} className="btn-pink shadow-lg hover:shadow-xl flex items-center gap-2 px-5 py-2.5 text-sm cursor-pointer">
           <Plus size={16} />
           Add Service
         </button>
@@ -93,7 +173,7 @@ export default function ServicesPage() {
           <Sparkles size={48} className="mx-auto text-[var(--color-text-muted)] mb-4" />
           <p className="text-lg font-medium text-[var(--color-text-secondary)]">No services yet</p>
           <p className="text-sm text-[var(--color-text-muted)] mt-2">Add your first service to start receiving bookings</p>
-          <button className="btn-primary mt-4 px-6 py-2.5 text-sm inline-flex items-center gap-2">
+          <button onClick={openCreate} className="btn-primary mt-4 px-6 py-2.5 text-sm inline-flex items-center gap-2 cursor-pointer">
             <Plus size={16} />
             Add Your First Service
           </button>
@@ -111,6 +191,11 @@ export default function ServicesPage() {
                         {service.category}
                       </span>
                     )}
+                    {service.requires_consultation && (
+                      <span className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-amber-50 text-amber-600 border border-amber-100">
+                        Consultation
+                      </span>
+                    )}
                   </div>
                   {service.description && (
                     <p className="text-sm text-[var(--color-text-secondary)] mb-3 line-clamp-2 max-w-2xl">{service.description}</p>
@@ -126,7 +211,11 @@ export default function ServicesPage() {
                 </div>
 
                 <div className="flex items-center gap-3 shrink-0 self-end sm:self-center bg-[var(--color-surface-light)] p-2 rounded-xl border border-[var(--color-border-light)]">
-                  <button className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white hover:shadow-sm transition-all text-[var(--color-text-secondary)] hover:text-cyan-600">
+                  <button
+                    onClick={() => openEdit(service)}
+                    className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white hover:shadow-sm transition-all text-[var(--color-text-secondary)] hover:text-cyan-600 cursor-pointer"
+                    title="Edit service"
+                  >
                     <Edit3 size={18} />
                   </button>
                   <div className="w-[1px] h-6 bg-[var(--color-border)] opacity-60"></div>
@@ -145,6 +234,94 @@ export default function ServicesPage() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Create/Edit Service Modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)' }}>
+          <div className="glass-card p-6 w-full max-w-lg max-h-[85vh] overflow-y-auto animate-scale-in" style={{ background: 'white' }}>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-[var(--color-text-primary)]">{editingService ? 'Edit Service' : 'Create Service'}</h2>
+              <button onClick={() => setShowModal(false)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[var(--color-surface-light)] cursor-pointer"><X size={18} /></button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="label-upper">Service Name *</label>
+                <input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="input-glass" placeholder="e.g., Gel Manicure" />
+              </div>
+              <div>
+                <label className="label-upper">Description</label>
+                <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="input-glass resize-none" rows={3} placeholder="What this service includes..." />
+              </div>
+              <div>
+                <label className="label-upper">Category</label>
+                <div className="flex flex-wrap gap-2 mt-1">
+                  {CATEGORIES.map((cat) => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setForm({ ...form, category: cat })}
+                      className={`px-4 py-1.5 rounded-full text-xs font-semibold cursor-pointer transition-all ${
+                        form.category === cat
+                          ? 'bg-[var(--color-primary)] text-white'
+                          : 'bg-[var(--color-surface-light)] text-[var(--color-text-secondary)] border border-[var(--color-border-light)]'
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="label-upper">Price (£) *</label>
+                  <input type="number" step="0.01" value={form.base_price} onChange={(e) => setForm({ ...form, base_price: e.target.value })} className="input-glass" placeholder="50" />
+                </div>
+                <div>
+                  <label className="label-upper">Duration (min) *</label>
+                  <input type="number" value={form.duration_minutes} onChange={(e) => setForm({ ...form, duration_minutes: e.target.value })} className="input-glass" placeholder="60" />
+                </div>
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-xl bg-[var(--color-surface-light)] border border-[var(--color-border-light)]">
+                <div>
+                  <p className="text-sm font-semibold text-[var(--color-text-primary)]">Require Consultation</p>
+                  <p className="text-xs text-[var(--color-text-muted)]">Clients must answer questions before booking</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, requires_consultation: !form.requires_consultation })}
+                  className="cursor-pointer"
+                >
+                  {form.requires_consultation ? (
+                    <ToggleRight size={28} className="text-emerald-500" />
+                  ) : (
+                    <ToggleLeft size={28} className="text-[var(--color-text-muted)]" />
+                  )}
+                </button>
+              </div>
+
+              {/* Preview */}
+              <div className="p-4 rounded-xl bg-gradient-to-br from-pink-50 to-purple-50 border border-pink-100">
+                <p className="text-[10px] font-bold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Preview</p>
+                <p className="text-xs font-bold text-pink-600 uppercase tracking-wider">{form.category}</p>
+                <p className="font-bold text-[var(--color-text-primary)]">{form.name || 'Service Name'}</p>
+                <div className="flex items-center gap-4 mt-2 text-sm">
+                  <span className="font-bold text-emerald-600">£{form.base_price || '0'}</span>
+                  <span className="text-[var(--color-text-muted)]">{form.duration_minutes || '0'} min</span>
+                </div>
+              </div>
+
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="btn-primary w-full py-3 text-sm flex items-center justify-center gap-2 cursor-pointer"
+              >
+                {saving ? <><Loader2 size={16} className="animate-spin" /> Saving...</> : <><Save size={16} /> {editingService ? 'Save Changes' : 'Create Service'}</>}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

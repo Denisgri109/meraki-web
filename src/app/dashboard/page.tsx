@@ -235,9 +235,10 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Featured Section ─────────────────────────────── */}
-      <div className="glass-card p-8 mb-6 relative overflow-hidden">
+      <div className="glass-card gradient-border-glow p-8 mb-6 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-pink-200/30 to-transparent rounded-bl-full" />
         <div className="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-purple-200/20 to-transparent rounded-tr-full" />
+        <div className="blob-mint -top-16 left-1/3 opacity-40" style={{ width: '150px', height: '150px' }} />
         <div className="relative z-10 flex flex-col sm:flex-row items-center gap-6">
           <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-pink-400 to-purple-400 flex items-center justify-center shadow-lg animate-float shrink-0">
             <Heart size={32} className="text-white" />

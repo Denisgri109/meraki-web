@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Package, Search, Plus, AlertTriangle, TrendingDown, Box } from 'lucide-react';
+import { useToast } from '@/components/Toast';
 
 interface Product {
   id: string;
@@ -19,6 +20,7 @@ export default function InventoryPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const { showToast } = useToast();
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -47,7 +49,7 @@ export default function InventoryPage() {
           </div>
           <p className="text-[var(--color-text-secondary)]">Track product stock levels</p>
         </div>
-        <button className="btn-primary flex items-center gap-2 px-5 py-2.5 text-sm">
+        <button onClick={() => showToast('Add product from the Shop page (Owner only)', 'info')} className="btn-primary flex items-center gap-2 px-5 py-2.5 text-sm cursor-pointer">
           <Plus size={16} />
           Add Product
         </button>

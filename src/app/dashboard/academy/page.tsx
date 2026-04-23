@@ -67,7 +67,7 @@ export default function AcademyPage() {
         course_id: selectedCourse.id,
         amount_paid: selectedCourse.price,
         status: 'active'
-      });
+      } as any);
 
       if (error) {
         // If error is unique constraint, user is already enrolled

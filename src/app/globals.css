@@ -3,25 +3,27 @@
 /* ─── Meraki Design System Tokens ───────────────────────────────────── */
 @theme inline {
   /* Brand Pink */
-  --color-brand-pink: #E8A0B4;
-  --color-brand-pink-light: #FDE8ED;
-  --color-brand-pink-dark: #C47A90;
-  --color-brand-pink-muted: #D4A0B0;
+  --color-brand-pink: #E6A4B4;
+  --color-brand-pink-light: #FCEFF2;
+  --color-brand-pink-dark: #C47888;
+  --color-brand-pink-muted: #D1A4B0;
   --color-champagne: #F5E6E0;
   --color-rose-white: #FFF5F5;
+  --color-brand-purple: #C399D9; 
+  --color-brand-cyan: #72CFF9;
 
   /* Primary (Black CTA) */
-  --color-primary: #000000;
-  --color-primary-light: #333333;
+  --color-primary: #2D2D2D;
+  --color-primary-light: #4A4A4A;
   --color-primary-muted: #6B7280;
 
   /* Accent Colors — VIBRANT */
-  --color-accent: #E8A0B4;
-  --color-secondary: #A78BFA;
+  --color-accent: #E6A4B4;
+  --color-secondary: #C399D9;
   --color-coral: #FF7F7F;
   --color-peach: #FFDAB9;
   --color-lavender: #E6E6FA;
-  --color-mint: #B2DFDB;
+  --color-mint: #72CFF9;
   --color-sky: #87CEEB;
   --color-gold: #FFD700;
 
@@ -52,14 +54,7 @@
   --color-warning: #F59E0B;
   --color-info: #3B82F6;
 
-  /* Spacing scale */
-  --spacing-xs: 4px;
-  --spacing-sm: 8px;
-  --spacing-md: 16px;
-  --spacing-lg: 24px;
-  --spacing-xl: 32px;
-  --spacing-2xl: 48px;
-  --spacing-3xl: 64px;
+  /* Spacing scale removed to prevent conflict with Tailwind sizing (max-w-) */
 
   /* Border radius */
   --radius-sm: 6px;
@@ -177,10 +172,10 @@ body {
 
 .gradient-mesh {
   background:
-    radial-gradient(circle at 20% 30%, rgba(232, 160, 180, 0.12) 0%, transparent 60%),
-    radial-gradient(circle at 80% 70%, rgba(167, 139, 250, 0.08) 0%, transparent 60%),
-    radial-gradient(circle at 50% 90%, rgba(135, 206, 235, 0.06) 0%, transparent 50%),
-    #FFFFFF;
+    radial-gradient(circle at 10% 20%, rgba(195, 153, 217, 0.35) 0%, transparent 60%),
+    radial-gradient(circle at 90% 30%, rgba(230, 164, 180, 0.35) 0%, transparent 60%),
+    radial-gradient(circle at 50% 80%, rgba(114, 207, 249, 0.3) 0%, transparent 70%),
+    #FAFAFA;
 }
 
 /* ─── Button Styles ─────────────────────────────────────────────────── */
@@ -399,7 +394,7 @@ body {
   position: absolute;
   width: 300px;
   height: 300px;
-  background: radial-gradient(circle, rgba(232, 160, 180, 0.15), transparent 70%);
+  background: radial-gradient(circle, rgba(230, 164, 180, 0.35), transparent 70%);
   border-radius: 50%;
   filter: blur(60px);
   pointer-events: none;
@@ -409,8 +404,192 @@ body {
   position: absolute;
   width: 250px;
   height: 250px;
-  background: radial-gradient(circle, rgba(167, 139, 250, 0.1), transparent 70%);
+  background: radial-gradient(circle, rgba(195, 153, 217, 0.35), transparent 70%);
   border-radius: 50%;
   filter: blur(60px);
   pointer-events: none;
+}
+
+.blob-mint {
+  position: absolute;
+  width: 280px;
+  height: 280px;
+  background: radial-gradient(circle, rgba(114, 207, 249, 0.35), transparent 70%);
+  border-radius: 50%;
+  filter: blur(60px);
+  pointer-events: none;
+}
+
+.blob-coral {
+  position: absolute;
+  width: 260px;
+  height: 260px;
+  background: radial-gradient(circle, rgba(251, 146, 60, 0.1), transparent 70%);
+  border-radius: 50%;
+  filter: blur(60px);
+  pointer-events: none;
+}
+
+.blob-gold {
+  position: absolute;
+  width: 240px;
+  height: 240px;
+  background: radial-gradient(circle, rgba(251, 191, 36, 0.1), transparent 70%);
+  border-radius: 50%;
+  filter: blur(60px);
+  pointer-events: none;
+}
+
+/* ─── Section Backgrounds ──────────────────────────────────────────── */
+.section-warm {
+  background: linear-gradient(135deg, #FFF5F5 0%, #FDE8ED 30%, #F8F4FA 60%, #FFFFFF 100%);
+}
+
+.section-mint {
+  background: linear-gradient(135deg, #F0FDF9 0%, #ECFDF5 40%, #F0FDFA 70%, #FFFFFF 100%);
+}
+
+.section-lavender {
+  background: linear-gradient(135deg, #FAF5FF 0%, #F3E8FF 35%, #EDE9FE 60%, #FFFFFF 100%);
+}
+
+.section-peach {
+  background: linear-gradient(135deg, #FFFBF0 0%, #FFF7ED 40%, #FEF3C7 55%, #FFFFFF 100%);
+}
+
+/* ─── Gradient Section Divider ─────────────────────────────────────── */
+.section-divider {
+  height: 3px;
+  border: none;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent 0%, #E8A0B4 15%, #A78BFA 40%, #87CEEB 60%, #6EE7B7 80%, transparent 100%);
+  opacity: 0.5;
+  margin: 0;
+}
+
+/* ─── Category Pill Colors ─────────────────────────────────────────── */
+.pill-all {
+  background: linear-gradient(135deg, #1A1A1A, #333333);
+  color: white;
+}
+.pill-nails {
+  background: linear-gradient(135deg, #E8A0B4, #C47A90);
+  color: white;
+}
+.pill-lashes {
+  background: linear-gradient(135deg, #A78BFA, #8B5CF6);
+  color: white;
+}
+.pill-skincare {
+  background: linear-gradient(135deg, #6EE7B7, #34D399);
+  color: white;
+}
+.pill-brows {
+  background: linear-gradient(135deg, #FCD34D, #F59E0B);
+  color: white;
+}
+.pill-equipment {
+  background: linear-gradient(135deg, #93C5FD, #60A5FA);
+  color: white;
+}
+
+/* ─── Gradient Border Accent ───────────────────────────────────────── */
+.gradient-border-glow {
+  position: relative;
+}
+.gradient-border-glow::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  padding: 2px;
+  background: linear-gradient(135deg, #E8A0B4, #A78BFA, #87CEEB, #6EE7B7);
+  background-size: 300% 300%;
+  animation: gradient-shift 4s ease infinite;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* ─── Icon Gradient Badges ─────────────────────────────────────────── */
+.icon-badge {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  flex-shrink: 0;
+}
+.icon-badge-pink { background: linear-gradient(135deg, #F9A8D4, #E8A0B4); }
+.icon-badge-purple { background: linear-gradient(135deg, #C4B5FD, #A78BFA); }
+.icon-badge-blue { background: linear-gradient(135deg, #93C5FD, #60A5FA); }
+.icon-badge-green { background: linear-gradient(135deg, #6EE7B7, #34D399); }
+.icon-badge-amber { background: linear-gradient(135deg, #FCD34D, #F59E0B); }
+.icon-badge-coral { background: linear-gradient(135deg, #FCA5A5, #FB923C); }
+.icon-badge-cyan { background: linear-gradient(135deg, #67E8F9, #22D3EE); }
+.icon-badge-rose { background: linear-gradient(135deg, #FDA4AF, #FB7185); }
+
+/* ─── Card Top Accent Stripe ───────────────────────────────────────── */
+.card-accent-stripe {
+  position: relative;
+  overflow: hidden;
+}
+.card-accent-stripe::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #E8A0B4, #A78BFA, #87CEEB);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.card-accent-stripe:hover::after {
+  opacity: 1;
+}
+
+/* ─── Colorful Nav Indicator ───────────────────────────────────────── */
+.nav-active-gradient {
+  background: linear-gradient(135deg, #E8A0B4, #A78BFA) !important;
+  color: white !important;
+  box-shadow: 0 2px 10px rgba(167, 139, 250, 0.3);
+}
+
+/* ─── Step Indicator ───────────────────────────────────────────────── */
+.step-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+}
+.step-dot-active {
+  background: linear-gradient(135deg, #E8A0B4, #A78BFA);
+  box-shadow: 0 0 10px rgba(167, 139, 250, 0.4);
+  transform: scale(1.2);
+}
+.step-dot-completed {
+  background: linear-gradient(135deg, #34D399, #10B981);
+  box-shadow: 0 0 8px rgba(52, 211, 153, 0.3);
+}
+.step-dot-inactive {
+  background: #E5E7EB;
+}
+.step-line {
+  height: 2px;
+  flex: 1;
+  border-radius: 1px;
+  transition: background 0.3s ease;
+}
+.step-line-active {
+  background: linear-gradient(90deg, #34D399, #A78BFA);
+}
+.step-line-inactive {
+  background: #E5E7EB;
 }

@@ -121,11 +121,10 @@ export default function AvailabilityPage() {
                   <div className="flex items-center gap-4">
                     <button
                       onClick={() => toggleDay(day)}
-                      className="relative w-12 h-6 rounded-full transition-colors duration-300 cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--color-brand-cyan)]"
-                      style={{ backgroundColor: daySchedule.enabled ? 'var(--color-brand-cyan)' : 'var(--color-border)' }}
+                      className={`relative w-12 h-6 rounded-full transition-colors duration-300 cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 shadow-inner border border-black/10 ${daySchedule.enabled ? 'bg-cyan-500' : 'bg-slate-300'}`}
                     >
                       <span
-                        className="absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform duration-300 shadow-sm"
+                        className="absolute top-[2px] left-[2px] bg-white w-5 h-5 rounded-full transition-transform duration-300 shadow-sm border border-black/5"
                         style={{ transform: daySchedule.enabled ? 'translateX(24px)' : 'translateX(0)' }}
                       />
                     </button>

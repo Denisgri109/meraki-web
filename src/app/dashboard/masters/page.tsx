@@ -1,8 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { Users, Search, MapPin, Star, Mail, Phone, MoreVertical } from 'lucide-react';
+import { Users, Search, MapPin, Star, Mail, Phone, MoreVertical, Eye } from 'lucide-react';
+import { useToast } from '@/components/Toast';
+import { useRouter } from 'next/navigation';
 
 interface Master {
   id: string;
@@ -18,9 +20,13 @@ interface Master {
 
 export default function MastersPage() {
   const supabase = createClient();
+  const { showToast } = useToast();
+  const router = useRouter();
   const [masters, setMasters] = useState<Master[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchMasters = async () => {
@@ -123,9 +129,35 @@ export default function MastersPage() {
                       <Phone size={16} />
                     </a>
                   )}
-                  <button className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[var(--color-surface-light)] transition-colors text-[var(--color-text-muted)]">
-                    <MoreVertical size={16} />
-                  </button>
+                  <div className="relative" ref={dropdownRef}>
+                    <button
+                      onClick={() => setOpenDropdown(openDropdown === master.id ? null : master.id)}
+                      className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[var(--color-surface-light)] transition-colors text-[var(--color-text-muted)] cursor-pointer"
+                    >
+                      <MoreVertical size={16} />
+                    </button>
+                    {openDropdown === master.id && (
+                      <div className="absolute right-0 mt-1 w-44 bg-white rounded-xl shadow-lg border border-[var(--color-border-light)] py-1 z-50 animate-fade-in">
+                        <button
+                          onClick={() => { router.push('/dashboard/discover'); setOpenDropdown(null); }}
+                          className="w-full text-left px-4 py-2.5 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-light)] flex items-center gap-2 cursor-pointer"
+                        >
+                          <Eye size={14} /> View Profile
+                        </button>
+                        {master.email && (
+                          <a href={`mailto:${master.email}`} onClick={() => setOpenDropdown(null)} className="w-full text-left px-4 py-2.5 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-light)] flex items-center gap-2">
+                            <Mail size={14} /> Send Email
+                          </a>
+                        )}
+                        <button
+                          onClick={() => { showToast('Master management coming soon', 'info'); setOpenDropdown(null); }}
+                          className="w-full text-left px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 flex items-center gap-2 cursor-pointer"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-1 text-xs text-[var(--color-warning)]">

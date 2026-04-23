@@ -15,7 +15,7 @@ interface Appointment {
   status: string;
   notes: string | null;
   service?: { name: string; base_price?: number } | null;
-  master?: { full_name: string; specialty: string | null } | null;
+  master?: { full_name: string; specialties: string[] | null } | null;
   client?: { full_name: string } | null;
 }
 
@@ -53,7 +53,7 @@ export default function AppointmentsPage() {
           .select(`
             id, start_time, end_time, status, notes,
             service:services(name, base_price),
-            master:profiles!appointments_master_id_fkey(full_name, specialty),
+            master:profiles!appointments_master_id_fkey(full_name, specialties),
             client:profiles!appointments_client_id_fkey(full_name)
           `)
           .eq(col, user.id)

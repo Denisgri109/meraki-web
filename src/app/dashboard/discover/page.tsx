@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Search, MapPin, Star, TrendingUp, Heart, Sparkles, ArrowRight, Users } from 'lucide-react';
+import { useToast } from '@/components/Toast';
+import { useRouter } from 'next/navigation';
 
 interface Master {
   id: string;
@@ -28,9 +30,12 @@ const tagGradients = [
 
 export default function DiscoverPage() {
   const supabase = createClient();
+  const router = useRouter();
+  const { showToast } = useToast();
   const [search, setSearch] = useState('');
   const [masters, setMasters] = useState<Master[]>([]);
   const [loading, setLoading] = useState(true);
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const fetchMasters = async () => {
@@ -149,12 +154,24 @@ export default function DiscoverPage() {
           {filtered.map((master, idx) => (
             <div
               key={master.id}
+              onClick={() => router.push(`/dashboard/booking?masterId=${master.id}`)}
               className={`glass-card p-6 hover:shadow-xl hover:-translate-y-2 transition-all duration-300 cursor-pointer group relative animate-scale-in stagger-${Math.min(idx + 1, 6)}`}
               style={{ animationFillMode: 'both' }}
             >
               {/* Favorite Heart */}
-              <button className="absolute top-4 right-4 w-9 h-9 flex items-center justify-center rounded-full bg-white/80 hover:bg-white hover:scale-110 transition-all shadow-sm group/heart">
-                <Heart size={16} className="text-gray-300 group-hover/heart:text-pink-400 transition-colors" />
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setFavorites((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(master.id)) { next.delete(master.id); showToast('Removed from favorites', 'info'); }
+                    else { next.add(master.id); showToast('Added to favorites ❤️', 'success'); }
+                    return next;
+                  });
+                }}
+                className="absolute top-4 right-4 w-9 h-9 flex items-center justify-center rounded-full bg-white/80 hover:bg-white hover:scale-110 transition-all shadow-sm cursor-pointer"
+              >
+                <Heart size={16} className={favorites.has(master.id) ? 'text-pink-500 fill-pink-500' : 'text-gray-300 hover:text-pink-400'} />
               </button>
 
               <div className="flex items-center gap-4 mb-4">
