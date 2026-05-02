@@ -1,15 +1,23 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { ToastProvider } from '@/components/Toast';
 import { Footer } from '@/components/Footer';
 import { MainNavbar } from '@/components/MainNavbar';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { loading } = useAuth();
+  const router = useRouter();
+  const { loading, session } = useAuth();
 
-  if (loading) {
+  useEffect(() => {
+    if (!loading && !session) {
+      router.replace('/login');
+    }
+  }, [loading, router, session]);
+
+  if (loading || !session) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[var(--color-background)]">
         <div className="text-center animate-fade-in">
