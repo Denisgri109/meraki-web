@@ -51,6 +51,38 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function resolveUserRole(role: unknown): UserRole {
+  return role === 'master' || role === 'owner' ? role : 'client';
+}
+
+function createFallbackProfile(authUser: User): Profile {
+  const role = resolveUserRole(authUser.user_metadata?.role);
+  const fullName =
+    typeof authUser.user_metadata?.full_name === 'string'
+      ? authUser.user_metadata.full_name
+      : null;
+
+  return {
+    id: authUser.id,
+    full_name: fullName,
+    email: authUser.email ?? null,
+    phone: authUser.phone ?? null,
+    role,
+    is_master: role === 'master',
+    avatar_url: null,
+    bio: null,
+    city: null,
+    specialty: null,
+    push_token: null,
+    tos_accepted: null,
+    tos_accepted_at: null,
+    tos_version: null,
+    created_at: null,
+    updated_at: null,
+    stripe_customer_id: null,
+  };
+}
+
 // ─── Provider ──────────────────────────────────────────────────────────────
 // Stable module-level client — prevents lock contention from re-creation
 const supabase = createClient();
@@ -64,18 +96,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // ── Fetch profile from Supabase ──────────────────────────────────────
   const fetchProfile = useCallback(
-    async (userId: string) => {
+    async (authUser: User) => {
       try {
         const { data, error } = await supabase
           .from('profiles')
           .select('*')
-          .eq('id', userId)
-          .single();
+          .eq('id', authUser.id)
+          .maybeSingle();
 
         if (error) throw error;
-        setProfile(data as unknown as Profile);
+        setProfile((data as unknown as Profile | null) ?? createFallbackProfile(authUser));
       } catch (err) {
         console.error('Error fetching profile:', err);
+        setProfile((current) =>
+          current?.id === authUser.id ? current : createFallbackProfile(authUser)
+        );
       } finally {
         setLoading(false);
       }
@@ -86,48 +121,84 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // ── Bootstrap: get initial session ───────────────────────────────────
   useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (loading) setLoading(false);
-    }, 1500);
+    let isMounted = true;
 
-    supabase.auth.getSession().then(({ data: { session: s }, error }) => {
-      if (error) {
-        console.error('Error getting initial session:', error);
-        setSessionError(error);
+    const clearAuthState = () => {
+      if (!isMounted) return;
+      setSession(null);
+      setUser(null);
+      setProfile(null);
+      setLoading(false);
+    };
+
+    const loadInitialSession = async () => {
+      try {
+        const { data: { session: initialSession }, error } = await supabase.auth.getSession();
+        if (!isMounted) return;
+
+        if (error) {
+          console.error('Error getting initial session:', error);
+          setSessionError(error);
+        }
+
+        if (!initialSession) {
+          clearAuthState();
+          return;
+        }
+
+        const { data: { user: verifiedUser }, error: userError } = await supabase.auth.getUser();
+        if (!isMounted) return;
+
+        if (userError || !verifiedUser) {
+          if (userError) {
+            console.error('Error verifying initial user:', userError);
+            setSessionError(userError);
+          }
+          clearAuthState();
+          return;
+        }
+
+        const { data: { session: verifiedSession } } = await supabase.auth.getSession();
+        if (!isMounted) return;
+
+        if (!verifiedSession) {
+          clearAuthState();
+          return;
+        }
+
+        setSession({ ...verifiedSession, user: verifiedUser });
+        setUser(verifiedUser);
+        await fetchProfile(verifiedUser);
+      } catch (err) {
+        if (!isMounted) return;
+        console.error('Error getting initial session:', err);
+        clearAuthState();
       }
-      setSession(s);
-      setUser(s?.user ?? null);
-      if (s?.user) {
-        fetchProfile(s.user.id);
-      } else {
-        setLoading(false);
-      }
-    });
+    };
+
+    loadInitialSession();
 
     // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, s) => {
-      if (event === 'SIGNED_OUT') {
-        setSession(null);
-        setUser(null);
-        setProfile(null);
-        setLoading(false);
+    } = supabase.auth.onAuthStateChange((event, s) => {
+      if (event === 'SIGNED_OUT' || !s?.user) {
+        clearAuthState();
         setSessionError(null);
-      } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        setSessionError(null);
-        if (s?.user) {
-          setSession(s);
-          setUser(s.user);
-          await fetchProfile(s.user.id);
-        }
-      } else if (event === 'USER_UPDATED') {
-        if (s?.user) {
-          setSession(s);
-          setUser(s.user);
-          await fetchProfile(s.user.id);
-        }
+        return;
       }
+
+      setSessionError(null);
+      setSession(s);
+      setUser(s.user);
+
+      if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+        setLoading(true);
+      }
+
+      window.setTimeout(() => {
+        if (isMounted) fetchProfile(s.user);
+      }, 0);
     });
 
     // ── Visibility-based session refresh ────────────────────────────
@@ -135,15 +206,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // causing the JWT to expire. Force a refresh whenever the tab comes back.
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        supabase.auth.getSession().then(({ data: { session: s }, error }) => {
+        supabase.auth.getUser().then(async ({ data: { user: refreshedUser }, error }) => {
+          if (!isMounted) return;
           if (error) {
             console.warn('[Auth] visibility refresh error:', error.message);
             setSessionError(error);
             return;
           }
-          if (s) {
-            setSession(s);
-            setUser(s.user);
+
+          if (!refreshedUser) {
+            clearAuthState();
+            return;
+          }
+
+          const { data: { session: refreshedSession } } = await supabase.auth.getSession();
+          if (!isMounted) return;
+
+          if (refreshedSession) {
+            setSession({ ...refreshedSession, user: refreshedUser });
+            setUser(refreshedUser);
+            window.setTimeout(() => {
+              if (isMounted) fetchProfile(refreshedUser);
+            }, 0);
           }
         });
       }
@@ -157,7 +241,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, 4 * 60 * 1000);
 
     return () => {
-      clearTimeout(timeout);
+      isMounted = false;
       subscription.unsubscribe();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       clearInterval(keepAlive);
@@ -234,7 +318,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error } = await supabase.from('profiles').update(updates as any).eq('id', user.id);
       if (error) throw error;
-      await fetchProfile(user.id);
+      await fetchProfile(user);
       return { error: null };
     } catch (error) {
       return { error: error as Error };
@@ -242,7 +326,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const refreshProfile = async () => {
-    if (user) await fetchProfile(user.id);
+    if (user) await fetchProfile(user);
   };
 
   return (
@@ -251,7 +335,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         session,
         user,
         profile,
-        role: (profile?.role as UserRole) ?? null,
+        role: (profile?.role as UserRole | undefined) ?? (user ? resolveUserRole(user.user_metadata?.role) : null),
         loading,
         sessionError,
         signIn,

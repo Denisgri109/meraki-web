@@ -40,12 +40,15 @@ interface MainNavbarProps {
 export function MainNavbar({ transparent = false }: MainNavbarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { profile, role, signOut, loading } = useAuth();
+  const { user, profile, role, signOut, loading } = useAuth();
   const { getItemCount } = useCart();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const cartItemCount = getItemCount();
+  const displayName = profile?.full_name || (typeof user?.user_metadata?.full_name === 'string' ? user.user_metadata.full_name : null) || user?.email || 'User';
+  const displayEmail = profile?.email || user?.email || '';
+  const displayInitial = displayName.charAt(0).toUpperCase();
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -75,7 +78,7 @@ export function MainNavbar({ transparent = false }: MainNavbarProps) {
   }
 
   // Not authenticated
-  if (!profile) {
+  if (!user) {
     return (
       <header className={`${transparent ? 'absolute top-0 left-0 right-0 z-50' : 'sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100'} h-16 flex items-center justify-between px-6 lg:px-12`}>
         <Link href="/" className={`text-2xl font-[family-name:var(--font-playfair)] italic drop-shadow-sm ${transparent ? 'text-white drop-shadow-md' : 'text-[var(--color-primary)]'}`}>
@@ -166,10 +169,10 @@ export function MainNavbar({ transparent = false }: MainNavbarProps) {
                 className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-full hover:bg-[var(--color-brand-pink-light)] transition-all cursor-pointer"
               >
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[var(--color-brand-pink)] to-[var(--color-brand-pink-dark)] flex items-center justify-center text-white text-sm font-semibold">
-                  {profile?.full_name?.charAt(0)?.toUpperCase() || '?'}
+                  {displayInitial}
                 </div>
                 <span className="hidden sm:block text-sm font-medium text-[var(--color-text-primary)] max-w-[100px] truncate">
-                  {profile?.full_name?.split(' ')[0] || 'User'}
+                  {displayName.split(' ')[0] || 'User'}
                 </span>
                 <ChevronDown size={14} className={`text-[var(--color-text-muted)] transition-transform ${profileOpen ? 'rotate-180' : ''}`} />
               </button>
@@ -178,8 +181,8 @@ export function MainNavbar({ transparent = false }: MainNavbarProps) {
               {profileOpen && (
                 <div className="absolute right-0 mt-2 w-56 bg-white rounded-[var(--radius-xl)] shadow-lg border border-[var(--color-border-light)] py-2 animate-fade-in z-50">
                   <div className="px-4 py-3 border-b border-[var(--color-border-light)]">
-                    <p className="text-sm font-semibold text-[var(--color-text-primary)]">{profile?.full_name || 'User'}</p>
-                    <p className="text-xs text-[var(--color-text-muted)]">{profile?.email}</p>
+                    <p className="text-sm font-semibold text-[var(--color-text-primary)]">{displayName}</p>
+                    <p className="text-xs text-[var(--color-text-muted)]">{displayEmail}</p>
                     <span className="inline-block mt-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[var(--color-brand-pink-light)] text-[var(--color-brand-pink-dark)]">
                       {role || 'client'}
                     </span>

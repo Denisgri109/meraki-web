@@ -23,6 +23,9 @@ export default function DashboardPage() {
 
   const fetchDashboardInfo = useCallback(async () => {
     try {
+      setLoading(true);
+      let nextDbError: string | null = null;
+
       const { count: servicesCount, error: sErr } = await supabase
         .from('services')
         .select('*', { count: 'exact', head: true })
@@ -30,7 +33,7 @@ export default function DashboardPage() {
 
       if (sErr) {
         console.error('[Dashboard] services error:', sErr);
-        setDbError(sErr.message);
+        nextDbError = sErr.message;
       }
 
       let bookingsCount = 0;
@@ -46,6 +49,7 @@ export default function DashboardPage() {
           .eq('status', 'completed');
 
         if (bErr) console.error('[Dashboard] bookings error:', bErr);
+        if (bErr) nextDbError = bErr.message;
         bookingsCount = count || 0;
 
         const { data: apts, error: aErr } = await supabase
@@ -57,6 +61,7 @@ export default function DashboardPage() {
           .limit(3);
 
         if (aErr) console.error('[Dashboard] appointments error:', aErr);
+        if (aErr) nextDbError = aErr.message;
         upcomingApts = (apts as any[]) || [];
       }
 
@@ -65,7 +70,7 @@ export default function DashboardPage() {
         services: servicesCount || 0,
         appointments: upcomingApts,
       });
-      setDbError(null);
+      setDbError(nextDbError);
     } catch (err: any) {
       console.error('[Dashboard] fetch error:', err);
       setDbError(err?.message || 'Unknown error');
