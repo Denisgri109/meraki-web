@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
-import { MessageSquare, Send, Search, Phone, Video, MoreVertical, Smile } from 'lucide-react';
+import { MessageSquare, Send, Search, Smile, MoreVertical, Reply, Edit2, Trash2, X, Check, Paperclip, Loader2 } from 'lucide-react';
+import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
+import imageCompression from 'browser-image-compression';
 import { useToast } from '@/components/Toast';
 
 interface Conversation {
@@ -20,6 +22,16 @@ interface Message {
   sender_id: string;
   content: string;
   created_at: string;
+  edited_at: string | null;
+  is_deleted: boolean | null;
+  reply_to_id: string | null;
+  media_type?: string | null;
+  media_url?: string | null;
+  reply_to?: {
+    content: string | null;
+    sender_id: string;
+    media_type?: string | null;
+  } | null;
 }
 
 export default function ChatPage() {
@@ -31,71 +43,338 @@ export default function ChatPage() {
   const [newMessage, setNewMessage] = useState('');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState('');
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [uploadingMedia, setUploadingMedia] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+  const activeConversationRef = useRef(activeConversation);
   const { showToast } = useToast();
 
   useEffect(() => {
+    activeConversationRef.current = activeConversation;
+  }, [activeConversation]);
+
+  // Realtime messages subscription
+  useEffect(() => {
     if (!user) return;
-    const fetchConversations = async () => {
-      const { data } = await supabase
+    
+    const channel = supabase.channel('realtime_messages')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+        const newMsg = payload.new as any;
+        
+        // Append to chat if the active conversation matches
+        if (newMsg.conversation_id === activeConversationRef.current) {
+          setMessages((prev) => {
+            if (prev.find(m => m.id === newMsg.id)) return prev;
+            return [...prev, newMsg];
+          });
+          setTimeout(() => {
+            if (chatContainerRef.current) {
+              chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+            }
+          }, 100);
+        }
+
+        // Update the conversations list sideways menu
+        setConversations(prev => {
+          const updated = prev.map(c => {
+            if (c.id === newMsg.conversation_id) {
+              let displayMsg = newMsg.content;
+              if (!displayMsg && newMsg.media_type) {
+                displayMsg = newMsg.media_type === 'video' ? '🎥 Video' : '📷 Image';
+              }
+              return { ...c, last_message: displayMsg || null, last_message_at: newMsg.created_at };
+            }
+            return c;
+          });
+          return updated.sort((a, b) => new Date(b.last_message_at || 0).getTime() - new Date(a.last_message_at || 0).getTime());
+        });
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages' }, (payload) => {
+        const updated = payload.new as any;
+
+        // Update message in current chat (edits + deletes)
+        if (updated.conversation_id === activeConversationRef.current) {
+          setMessages((prev) =>
+            prev.map(m => m.id === updated.id ? { ...m, content: updated.content, edited_at: updated.edited_at, is_deleted: updated.is_deleted } : m)
+          );
+        }
+
+        // Update sidebar last_message if deleted
+        if (updated.is_deleted) {
+          setConversations(prev =>
+            prev.map(c => {
+              if (c.id === updated.conversation_id && c.last_message === updated.content) {
+                return { ...c, last_message: 'Message deleted' };
+              }
+              return c;
+            })
+          );
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, supabase]);
+
+  const fetchConversations = useCallback(async () => {
+    if (!user) return;
+    try {
+      const { data: conversationsData, error } = await supabase
         .from('conversations')
         .select('*')
-        .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
-        .order('updated_at', { ascending: false })
+        .or(`client_id.eq.${user.id},master_id.eq.${user.id}`)
+        .order('last_message_at', { ascending: false })
         .limit(30);
-      
-      // Map to our interface
-      const convos: Conversation[] = ((data as unknown as Array<Record<string, unknown>>) || []).map((c) => ({
-        id: c.id as string,
-        other_user_id: (c.user1_id === user.id ? c.user2_id : c.user1_id) as string,
-        other_name: (c.user1_id === user.id ? c.user2_name : c.user1_name) as string || 'User',
-        last_message: c.last_message as string | null,
-        last_message_at: c.updated_at as string | null,
-        unread_count: 0,
-      }));
+        
+      if (error || !conversationsData) {
+        setLoading(false);
+        return;
+      }
+
+      const otherUserIds = Array.from(new Set(conversationsData.map((c: any) => 
+        c.client_id === user.id ? c.master_id : c.client_id
+      ).filter(Boolean)));
+
+      let profilesData: any[] = [];
+      if (otherUserIds.length > 0) {
+        const { data } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', otherUserIds);
+        if (data) profilesData = data;
+      }
+
+      let messagesData: any[] = [];
+      if (conversationsData.length > 0) {
+        const { data } = await supabase
+          .from('messages')
+          .select('conversation_id, content, created_at, media_type')
+          .in('conversation_id', conversationsData.map(c => c.id))
+          .order('created_at', { ascending: false });
+        if (data) messagesData = data;
+      }
+
+      const convos: Conversation[] = conversationsData.map((c: any) => {
+        const otherId = c.client_id === user.id ? c.master_id : c.client_id;
+        const profile = profilesData.find((p) => p.id === otherId);
+        const lastMsg = messagesData.find((m) => m.conversation_id === c.id);
+        
+        let displayMsg = lastMsg?.content;
+        if (!displayMsg && lastMsg?.media_type) {
+          displayMsg = lastMsg.media_type === 'video' ? '🎥 Video' : '📷 Image';
+        }
+
+        return {
+          id: c.id as string,
+          other_user_id: otherId as string,
+          other_name: (profile?.full_name as string) || 'User',
+          last_message: displayMsg || null,
+          last_message_at: (c.last_message_at as string) || null,
+          unread_count: 0,
+        };
+      });
       setConversations(convos);
+    } catch (err) {
+      console.error('Failed to fetch conversations:', err);
+    } finally {
       setLoading(false);
-    };
-    fetchConversations();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  // Initial fetch
+  useEffect(() => {
+    fetchConversations();
+  }, [fetchConversations]);
+
+  // Re-fetch conversations when tab becomes visible after being backgrounded
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        fetchConversations();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [fetchConversations]);
 
   useEffect(() => {
     if (!activeConversation) return;
     const fetchMessages = async () => {
       const { data } = await supabase
         .from('messages')
-        .select('id, sender_id, content, created_at')
+        .select(`
+          id, sender_id, content, created_at, edited_at, is_deleted, reply_to_id,
+          media_type, media_url,
+          reply_to:reply_to_id(content, sender_id, media_type)
+        `)
         .eq('conversation_id', activeConversation)
         .order('created_at', { ascending: true })
         .limit(100);
       setMessages((data as unknown as Message[]) || []);
-      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+      setTimeout(() => {
+        if (chatContainerRef.current) {
+          chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+        }
+      }, 100);
     };
     fetchMessages();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeConversation]);
 
+  // Close menu on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.message-menu')) {
+        setOpenMenuId(null);
+      }
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(e.target as Node) && !target.closest('.emoji-toggle-btn')) {
+        setShowEmojiPicker(false);
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
+
+  const handleDelete = async (msgId: string) => {
+    const { error } = await supabase
+      .from('messages')
+      .update({ is_deleted: true })
+      .eq('id', msgId);
+    if (!error) {
+      setMessages(prev => prev.map(m => m.id === msgId ? { ...m, is_deleted: true } : m));
+      showToast('Message deleted', 'success');
+    }
+    setOpenMenuId(null);
+  };
+
+  const startEdit = (msg: Message) => {
+    setEditingMessageId(msg.id);
+    setEditContent(msg.content);
+    setOpenMenuId(null);
+  };
+
+  const cancelEdit = () => {
+    setEditingMessageId(null);
+    setEditContent('');
+  };
+
+  const saveEdit = async () => {
+    if (!editContent.trim() || !editingMessageId) return;
+    const { error } = await supabase
+      .from('messages')
+      .update({ content: editContent.trim(), edited_at: new Date().toISOString() })
+      .eq('id', editingMessageId);
+    if (!error) {
+      setMessages(prev => prev.map(m => m.id === editingMessageId ? { ...m, content: editContent.trim(), edited_at: new Date().toISOString() } : m));
+      showToast('Message edited', 'success');
+    }
+    setEditingMessageId(null);
+    setEditContent('');
+  };
+
+  const startReply = (msg: Message) => {
+    setReplyingTo(msg);
+    setOpenMenuId(null);
+  };
+
+  const cancelReply = () => {
+    setReplyingTo(null);
+  };
+
+  const onEmojiClick = (emojiData: EmojiClickData) => {
+    setNewMessage((prev) => prev + emojiData.emoji);
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !activeConversation || !user) return;
+    
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    
+    setUploadingMedia(true);
+    try {
+      let finalFile: File | Blob = file;
+      
+      const isVideo = file.type.startsWith('video/');
+      if (isVideo) {
+        if (file.size > 50 * 1024 * 1024) {
+          showToast('Video exceeds 50MB limit', 'error');
+          setUploadingMedia(false);
+          return;
+        }
+      } else if (file.type.startsWith('image/')) {
+        const options = {
+          maxSizeMB: 1,
+          maxWidthOrHeight: 1920,
+          useWebWorker: true,
+        };
+        finalFile = await imageCompression(file, options);
+      }
+
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
+      const filePath = `${user.id}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('chat_media')
+        .upload(filePath, finalFile);
+
+      if (uploadError) throw uploadError;
+
+      const { data: publicUrlData } = supabase.storage
+        .from('chat_media')
+        .getPublicUrl(filePath);
+
+      await supabase.from('messages').insert({
+        conversation_id: activeConversation,
+        sender_id: user.id,
+        content: null,
+        media_url: publicUrlData.publicUrl,
+        media_type: isVideo ? 'video' : 'image',
+        reply_to_id: replyingTo?.id || null,
+      });
+
+      await supabase.from('conversations').update({
+        last_message_at: new Date().toISOString()
+      }).eq('id', activeConversation);
+      
+      setReplyingTo(null);
+    } catch (error) {
+      console.error('Upload error:', error);
+      showToast('Failed to upload media', 'error');
+    } finally {
+      setUploadingMedia(false);
+    }
+  };
+
   const handleSend = async () => {
     if (!newMessage.trim() || !activeConversation || !user) return;
     const content = newMessage.trim();
+    const replyToId = replyingTo?.id || null;
     setNewMessage('');
-    
-    // Optimistic update
-    const tempMsg: Message = {
-      id: Date.now().toString(),
-      sender_id: user.id,
-      content,
-      created_at: new Date().toISOString(),
-    };
-    setMessages((prev) => [...prev, tempMsg]);
+    setReplyingTo(null);
 
     await supabase.from('messages').insert({
       conversation_id: activeConversation,
       sender_id: user.id,
       content,
+      reply_to_id: replyToId,
     });
-    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+
+    await supabase.from('conversations').update({
+      last_message_at: new Date().toISOString()
+    }).eq('id', activeConversation);
   };
 
   const formatTime = (dateStr: string) => {
@@ -103,130 +382,261 @@ export default function ChatPage() {
     return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   };
 
+  const activeConvo = conversations.find((c) => c.id === activeConversation);
+
   return (
-    <div className="max-w-6xl mx-auto animate-fade-in">
-      <div className="flex gap-6 h-[calc(100vh-10rem)]">
-        {/* Sidebar */}
-        <div className="w-80 shrink-0 flex flex-col glass-card overflow-hidden">
-          <div className="p-4 border-b border-[var(--color-border-light)]">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Messages</h2>
-              <span className="text-xs font-bold text-white bg-[var(--color-brand-pink)] px-2 py-0.5 rounded-full">
+    <div className="max-w-6xl mx-auto animate-fade-in h-[calc(100vh-7rem)]">
+      <div className="flex gap-4 h-full">
+
+        {/* ── Sidebar ─────────────────────────────────────────────── */}
+        <div className="w-80 shrink-0 flex flex-col rounded-2xl overflow-hidden shadow-[var(--shadow-elevated)] border border-[var(--color-border-light)] bg-white/90 backdrop-blur-xl">
+          {/* Sidebar header */}
+          <div className="px-5 pt-5 pb-4 border-b border-[var(--color-border-light)]">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-semibold text-[var(--color-text-primary)] tracking-tight">Messages</h2>
+              <span className="text-[11px] font-bold text-white bg-gradient-to-r from-[var(--color-brand-pink)] to-[var(--color-secondary)] px-2.5 py-0.5 rounded-full shadow-sm">
                 {conversations.length}
               </span>
             </div>
             <div className="relative">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
+              <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
               <input
                 type="text"
-                placeholder="Search conversations..."
+                placeholder="Search..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full bg-[var(--color-surface-light)] rounded-full pl-9 pr-4 py-2 text-sm outline-none focus:ring-2 focus:ring-[var(--color-brand-pink)]/20"
+                className="w-full bg-[var(--color-surface-light)] rounded-xl pl-9 pr-4 py-2 text-sm outline-none focus:ring-2 focus:ring-[var(--color-brand-pink)]/30 transition-all placeholder:text-[var(--color-text-muted)]"
               />
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto">
+          {/* Conversation list */}
+          <div className="flex-1 overflow-y-auto py-2">
             {loading ? (
               <div className="p-4 space-y-3">
                 {[...Array(5)].map((_, i) => (
-                  <div key={i} className="flex gap-3 animate-pulse">
+                  <div key={i} className="flex gap-3 px-3 animate-pulse">
                     <div className="w-10 h-10 rounded-full bg-[var(--color-surface-light)] shrink-0" />
-                    <div className="flex-1">
-                      <div className="h-3 bg-[var(--color-surface-light)] rounded w-2/3 mb-2" />
-                      <div className="h-3 bg-[var(--color-surface-light)] rounded w-full" />
+                    <div className="flex-1 pt-1">
+                      <div className="h-2.5 bg-[var(--color-surface-light)] rounded-full w-2/3 mb-2" />
+                      <div className="h-2 bg-[var(--color-surface-light)] rounded-full w-full" />
                     </div>
                   </div>
                 ))}
               </div>
             ) : conversations.length === 0 ? (
               <div className="p-8 text-center">
-                <MessageSquare size={32} className="mx-auto text-[var(--color-text-muted)] mb-2" />
-                <p className="text-sm text-[var(--color-text-muted)]">No conversations yet</p>
+                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[var(--color-brand-pink-light)] to-[var(--color-lavender)] flex items-center justify-center mx-auto mb-3">
+                  <MessageSquare size={24} className="text-[var(--color-brand-pink-dark)]" />
+                </div>
+                <p className="text-sm font-medium text-[var(--color-text-secondary)]">No conversations yet</p>
+                <p className="text-xs text-[var(--color-text-muted)] mt-1">Book a service to start chatting</p>
               </div>
             ) : (
               conversations
                 .filter((c) => !search || c.other_name.toLowerCase().includes(search.toLowerCase()))
-                .map((convo) => (
-                  <button
-                    key={convo.id}
-                    onClick={() => setActiveConversation(convo.id)}
-                    className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-[var(--color-surface-light)] transition-colors cursor-pointer text-left ${
-                      activeConversation === convo.id ? 'bg-[var(--color-surface-light)]' : ''
-                    }`}
-                  >
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[var(--color-brand-pink)] to-[var(--color-secondary)] flex items-center justify-center text-white font-semibold text-sm shrink-0">
-                      {convo.other_name.charAt(0)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-[var(--color-text-primary)] truncate">{convo.other_name}</p>
-                      <p className="text-xs text-[var(--color-text-muted)] truncate">{convo.last_message || 'No messages yet'}</p>
-                    </div>
-                    {convo.last_message_at && (
-                      <span className="text-[10px] text-[var(--color-text-muted)] shrink-0">{formatTime(convo.last_message_at)}</span>
-                    )}
-                  </button>
-                ))
+                .map((convo) => {
+                  const isActive = activeConversation === convo.id;
+                  return (
+                    <button
+                      key={convo.id}
+                      onClick={() => setActiveConversation(convo.id)}
+                      className={`w-full flex items-center gap-3 px-4 py-3 transition-all cursor-pointer text-left relative ${
+                        isActive
+                          ? 'bg-gradient-to-r from-[var(--color-brand-pink-light)] to-[var(--color-lavender)]/60'
+                          : 'hover:bg-[var(--color-surface-light)]'
+                      }`}
+                    >
+                      {isActive && (
+                        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-8 bg-gradient-to-b from-[var(--color-brand-pink)] to-[var(--color-secondary)] rounded-r-full" />
+                      )}
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold text-sm shrink-0 shadow-sm ${
+                        isActive
+                          ? 'bg-gradient-to-br from-[var(--color-brand-pink)] to-[var(--color-secondary)] text-white'
+                          : 'bg-gradient-to-br from-[var(--color-brand-pink-light)] to-[var(--color-lavender)] text-[var(--color-brand-pink-dark)]'
+                      }`}>
+                        {convo.other_name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-medium truncate ${isActive ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-primary)]'}`}>
+                          {convo.other_name}
+                        </p>
+                        <p className="text-xs text-[var(--color-text-muted)] truncate mt-0.5">
+                          {convo.last_message || 'No messages yet'}
+                        </p>
+                      </div>
+                      {convo.last_message_at && (
+                        <span className="text-[10px] text-[var(--color-text-muted)] shrink-0 self-start mt-0.5">{formatTime(convo.last_message_at)}</span>
+                      )}
+                    </button>
+                  );
+                })
             )}
           </div>
         </div>
 
-        {/* Chat Area */}
-        <div className="flex-1 flex flex-col glass-card overflow-hidden">
+        {/* ── Chat Area ────────────────────────────────────────────── */}
+        <div className="flex-1 flex flex-col rounded-2xl overflow-hidden shadow-[var(--shadow-elevated)] border border-[var(--color-border-light)] bg-white/90 backdrop-blur-xl">
           {!activeConversation ? (
             <div className="flex-1 flex items-center justify-center text-center p-8">
               <div>
-                <MessageSquare size={56} className="mx-auto text-[var(--color-text-muted)] mb-4" />
-                <h3 className="text-lg font-semibold text-[var(--color-text-secondary)]">Select a Conversation</h3>
-                <p className="text-sm text-[var(--color-text-muted)] mt-1">Choose a conversation to start messaging</p>
+                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[var(--color-brand-pink-light)] to-[var(--color-lavender)] flex items-center justify-center mx-auto mb-4 shadow-[var(--shadow-pink)]">
+                  <MessageSquare size={32} className="text-[var(--color-brand-pink-dark)]" />
+                </div>
+                <h3 className="text-base font-semibold text-[var(--color-text-primary)]">Your Messages</h3>
+                <p className="text-sm text-[var(--color-text-muted)] mt-1.5 max-w-[200px] mx-auto">Select a conversation from the left to get started</p>
               </div>
             </div>
           ) : (
             <>
               {/* Chat Header */}
-              <div className="h-16 px-5 flex items-center justify-between border-b border-[var(--color-border-light)]">
+              <div className="h-16 px-5 flex items-center justify-between border-b border-[var(--color-border-light)] bg-white/60 backdrop-blur-sm shrink-0">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[var(--color-brand-pink)] to-[var(--color-secondary)] flex items-center justify-center text-white font-semibold text-sm">
-                    {conversations.find((c) => c.id === activeConversation)?.other_name.charAt(0) || '?'}
+                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[var(--color-brand-pink)] to-[var(--color-secondary)] flex items-center justify-center text-white font-semibold text-sm shadow-sm">
+                    {activeConvo?.other_name.charAt(0).toUpperCase() || '?'}
                   </div>
                   <div>
-                    <p className="font-medium text-sm text-[var(--color-text-primary)]">
-                      {conversations.find((c) => c.id === activeConversation)?.other_name || 'User'}
+                    <p className="font-semibold text-sm text-[var(--color-text-primary)]">
+                      {activeConvo?.other_name || 'User'}
                     </p>
-                    <p className="text-xs text-emerald-500">Online</p>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
+                      <p className="text-xs text-emerald-500 font-medium">Online</p>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button onClick={() => showToast('Voice calls are not available on web', 'info')} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[var(--color-surface-light)] transition-colors text-[var(--color-text-muted)] cursor-pointer">
-                    <Phone size={16} />
-                  </button>
-                  <button onClick={() => showToast('Video calls are not available on web', 'info')} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[var(--color-surface-light)] transition-colors text-[var(--color-text-muted)] cursor-pointer">
-                    <Video size={16} />
-                  </button>
-                  <button onClick={() => showToast('More options coming soon', 'info')} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[var(--color-surface-light)] transition-colors text-[var(--color-text-muted)] cursor-pointer">
-                    <MoreVertical size={16} />
-                  </button>
                 </div>
               </div>
 
-              {/* Messages */}
-              <div className="flex-1 overflow-y-auto p-5 space-y-3">
+              {/* Messages area */}
+              <div
+                ref={chatContainerRef}
+                className="flex-1 overflow-y-auto px-5 py-4 space-y-2.5"
+                style={{ background: 'linear-gradient(180deg, #fafafa 0%, #f6f4f8 100%)' }}
+              >
                 {messages.map((msg) => {
                   const isMine = msg.sender_id === user?.id;
+                  const isEditing = editingMessageId === msg.id;
                   return (
-                    <div key={msg.id} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
-                      <div
-                        className={`max-w-[70%] px-4 py-2.5 rounded-2xl text-sm ${
-                          isMine
-                            ? 'bg-[var(--color-primary)] text-white rounded-br-md'
-                            : 'bg-[var(--color-surface-light)] text-[var(--color-text-primary)] rounded-bl-md'
-                        }`}
-                      >
-                        <p>{msg.content}</p>
-                        <p className={`text-[10px] mt-1 ${isMine ? 'text-white/60' : 'text-[var(--color-text-muted)]'}`}>
-                          {formatTime(msg.created_at)}
-                        </p>
+                    <div key={msg.id} className={`flex ${isMine ? 'justify-end' : 'justify-start'} group`}>
+                      <div className={`flex items-end gap-1.5 max-w-[68%] ${isMine ? 'flex-row-reverse' : 'flex-row'}`}>
+
+                        {/* Avatar (friend only) */}
+                        {!isMine && (
+                          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[var(--color-brand-pink)] to-[var(--color-secondary)] flex items-center justify-center text-white font-semibold text-[11px] shrink-0 mb-0.5 shadow-sm">
+                            {activeConvo?.other_name.charAt(0).toUpperCase() || '?'}
+                          </div>
+                        )}
+
+                        {/* 3-dot menu */}
+                        {!msg.is_deleted && !isEditing && (
+                          <div className={`message-menu relative opacity-0 group-hover:opacity-100 transition-opacity self-center mb-1 ${isMine ? 'order-first' : 'order-last'}`}>
+                            <button
+                              onClick={() => setOpenMenuId(openMenuId === msg.id ? null : msg.id)}
+                              className="p-1 rounded-full hover:bg-black/5 transition-colors"
+                            >
+                              <MoreVertical size={14} className={`text-[var(--color-text-muted)] ${!isMine ? 'opacity-50' : ''}`} />
+                            </button>
+                            {openMenuId === msg.id && (
+                              <div className={`absolute ${isMine ? 'right-full mr-1' : 'left-full ml-1'} top-1/2 -translate-y-1/2 w-36 bg-white border border-[var(--color-border-light)] rounded-xl shadow-[var(--shadow-elevated)] z-10 py-1 overflow-hidden`}>
+                                <button
+                                  onClick={() => startReply(msg)}
+                                  className="w-full px-3 py-2 text-left text-sm hover:bg-[var(--color-surface-light)] flex items-center gap-2 text-[var(--color-text-secondary)]"
+                                >
+                                  <Reply size={13} /> Reply
+                                </button>
+                                {isMine && (
+                                  <>
+                                    <button
+                                      onClick={() => startEdit(msg)}
+                                      disabled={msg.is_deleted || false}
+                                      className="w-full px-3 py-2 text-left text-sm hover:bg-[var(--color-surface-light)] flex items-center gap-2 disabled:opacity-40 text-[var(--color-text-secondary)]"
+                                    >
+                                      <Edit2 size={13} /> Edit
+                                    </button>
+                                    <div className="my-1 border-t border-[var(--color-border-light)]" />
+                                    <button
+                                      onClick={() => handleDelete(msg.id)}
+                                      className="w-full px-3 py-2 text-left text-sm hover:bg-red-50 text-red-500 flex items-center gap-2"
+                                    >
+                                      <Trash2 size={13} /> Delete
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Bubble */}
+                        <div
+                          className={`px-4 py-2.5 text-sm shadow-sm ${
+                            isMine
+                              ? 'bg-gradient-to-br from-[#2C3E50] to-[#3D5166] text-white rounded-2xl rounded-br-sm shadow-[0_4px_14px_rgba(44,62,80,0.25)]'
+                              : 'bg-gradient-to-br from-[#EDE7F6] to-[#E8EAF6] text-[var(--color-text-primary)] rounded-2xl rounded-bl-sm border border-[#D1C4E9]/40'
+                          } ${isEditing ? 'min-w-[200px]' : ''}`}
+                        >
+                          {/* Reply preview inside bubble */}
+                          {msg.reply_to && (
+                            <div className={`text-xs mb-2 pb-2 border-b ${isMine ? 'border-white/20' : 'border-[#B39DDB]/30'}`}>
+                              <p className={`flex items-center gap-1 ${isMine ? 'text-white/70' : 'text-[#7E57C2]'}`}>
+                                <Reply size={10} className="shrink-0" />
+                                {msg.reply_to.sender_id === user?.id ? 'You' : activeConvo?.other_name.split(' ')[0]}: {msg.reply_to.content ? (
+                                  <>
+                                    {msg.reply_to.content.slice(0, 50)}
+                                    {msg.reply_to.content.length > 50 ? '…' : ''}
+                                  </>
+                                ) : msg.reply_to.media_type === 'video' ? '🎥 Video' : '📷 Image'}
+                              </p>
+                            </div>
+                          )}
+
+                          {isEditing ? (
+                            <div className="space-y-2">
+                              <input
+                                type="text"
+                                value={editContent}
+                                onChange={(e) => setEditContent(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') saveEdit();
+                                  if (e.key === 'Escape') cancelEdit();
+                                }}
+                                autoFocus
+                                className="w-full bg-white/20 rounded-lg px-2 py-1 text-sm outline-none"
+                              />
+                              <div className="flex gap-2">
+                                <button onClick={saveEdit} className="p-1 hover:bg-white/20 rounded-md">
+                                  <Check size={13} />
+                                </button>
+                                <button onClick={cancelEdit} className="p-1 hover:bg-white/20 rounded-md">
+                                  <X size={13} />
+                                </button>
+                              </div>
+                            </div>
+                          ) : msg.is_deleted ? (
+                            <p className="italic opacity-50 text-xs text-center py-0.5">
+                              Message deleted
+                            </p>
+                          ) : (
+                            <>
+                              {msg.media_url && (
+                                <div className={`mb-1.5 overflow-hidden rounded-xl ${msg.content ? '' : 'mb-0'}`}>
+                                  {msg.media_type === 'video' ? (
+                                    <video src={msg.media_url} controls className="max-w-full sm:max-w-xs object-cover" />
+                                  ) : (
+                                    <img src={msg.media_url} alt="Shared median" className="max-w-full sm:max-w-xs object-cover" />
+                                  )}
+                                </div>
+                              )}
+                              {msg.content && (
+                                <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                              )}
+                              <p className={`text-[10px] mt-1.5 ${isMine ? 'text-white/50 text-right' : 'text-[#9E9E9E] text-right'}`}>
+                                {formatTime(msg.created_at)}
+                                {msg.edited_at && <span className="ml-1 opacity-75">· edited</span>}
+                              </p>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
                   );
@@ -234,26 +644,68 @@ export default function ChatPage() {
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* Input */}
-              <div className="p-4 border-t border-[var(--color-border-light)]">
-                <div className="flex items-center gap-2">
-                  <button onClick={() => showToast('Emoji picker coming soon', 'info')} className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-[var(--color-surface-light)] transition-colors text-[var(--color-text-muted)] cursor-pointer">
-                    <Smile size={20} />
+              {/* Input bar */}
+              <div className="px-4 py-3 border-t border-[var(--color-border-light)] bg-white/80 backdrop-blur-sm shrink-0">
+                {/* Reply banner */}
+                {replyingTo && (
+                  <div className="flex items-center gap-2 mb-2.5 px-3 py-2 bg-[var(--color-lavender)]/40 border border-[#D1C4E9]/50 rounded-xl">
+                    <Reply size={13} className="text-[#7E57C2] shrink-0" />
+                    <span className="text-xs text-[#5C6BC0] truncate flex-1 font-medium">
+                      {replyingTo.content ? (
+                        <>
+                          {replyingTo.content.slice(0, 60)}{replyingTo.content.length > 60 ? '…' : ''}
+                        </>
+                      ) : replyingTo.media_type === 'video' ? '🎥 Video' : '📷 Image'}
+                    </span>
+                    <button onClick={cancelReply} className="p-0.5 hover:bg-[#D1C4E9]/40 rounded-md transition-colors">
+                      <X size={13} className="text-[var(--color-text-muted)]" />
+                    </button>
+                  </div>
+                )}
+                <div className="flex items-center gap-2 relative">
+                  {showEmojiPicker && (
+                    <div ref={emojiPickerRef} className="absolute bottom-full left-0 mb-3 z-50 shadow-2xl rounded-xl custom-emoji-picker-container">
+                      <EmojiPicker 
+                        onEmojiClick={onEmojiClick} 
+                        lazyLoadEmojis
+                      />
+                    </div>
+                  )}
+                  <button
+                    onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                    className="emoji-toggle-btn w-9 h-9 flex items-center justify-center rounded-full hover:bg-[var(--color-surface-light)] transition-colors text-[var(--color-text-muted)] hover:text-[var(--color-brand-pink-dark)] cursor-pointer shrink-0"
+                  >
+                    <Smile size={18} />
+                  </button>
+                  
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    accept="image/*,video/*"
+                    className="hidden"
+                    onChange={handleFileUpload}
+                  />
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadingMedia}
+                    className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-[var(--color-surface-light)] transition-colors text-[var(--color-text-muted)] hover:text-[var(--color-brand-pink-dark)] cursor-pointer shrink-0"
+                  >
+                    {uploadingMedia ? <Loader2 size={18} className="animate-spin text-[var(--color-brand-pink)]" /> : <Paperclip size={18} />}
                   </button>
                   <input
                     type="text"
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
-                    placeholder="Type a message..."
+                    placeholder={replyingTo ? "Type your reply…" : "Type a message…"}
                     onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                    className="flex-1 bg-[var(--color-surface-light)] rounded-full px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[var(--color-brand-pink)]/20"
+                    className="flex-1 bg-[var(--color-surface-light)] rounded-full px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[var(--color-brand-pink)]/25 transition-all placeholder:text-[var(--color-text-muted)]"
                   />
                   <button
                     onClick={handleSend}
                     disabled={!newMessage.trim()}
-                    className="w-9 h-9 flex items-center justify-center rounded-full bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-light)] transition-colors disabled:opacity-40 cursor-pointer"
+                    className="w-9 h-9 flex items-center justify-center rounded-full bg-gradient-to-br from-[var(--color-brand-pink)] to-[var(--color-secondary)] text-white hover:opacity-90 transition-all disabled:opacity-30 cursor-pointer shrink-0 shadow-sm"
                   >
-                    <Send size={16} />
+                    <Send size={15} />
                   </button>
                 </div>
               </div>

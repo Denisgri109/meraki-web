@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 import { Calendar, ShoppingBag, GraduationCap, Gift, Search, ArrowRight, Sparkles, Star, TrendingUp, Heart } from 'lucide-react';
@@ -21,62 +21,75 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [dbError, setDbError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchDashboardInfo = async () => {
-      try {
-        // Always fetch services count (public read — no auth required)
-        const { count: servicesCount, error: sErr } = await supabase
-          .from('services')
-          .select('*', { count: 'exact', head: true })
-          .eq('is_active', true);
+  const fetchDashboardInfo = useCallback(async () => {
+    try {
+      const { count: servicesCount, error: sErr } = await supabase
+        .from('services')
+        .select('*', { count: 'exact', head: true })
+        .eq('is_active', true);
 
-        if (sErr) {
-          console.error('[Dashboard] services error:', sErr);
-          setDbError(sErr.message);
-        }
-
-        let bookingsCount = 0;
-        let upcomingApts: any[] = [];
-
-        if (user) {
-          const col = role === 'master' ? 'master_id' : 'client_id';
-
-          const { count, error: bErr } = await supabase
-            .from('appointments')
-            .select('*', { count: 'exact', head: true })
-            .eq(col, user.id)
-            .eq('status', 'completed');
-
-          if (bErr) console.error('[Dashboard] bookings error:', bErr);
-          bookingsCount = count || 0;
-
-          const { data: apts, error: aErr } = await supabase
-            .from('appointments')
-            .select(`id, start_time, service:services(name)`)
-            .eq(col, user.id)
-            .gte('start_time', new Date().toISOString())
-            .order('start_time', { ascending: true })
-            .limit(3);
-
-          if (aErr) console.error('[Dashboard] appointments error:', aErr);
-          upcomingApts = (apts as any[]) || [];
-        }
-
-        setStats({
-          bookings: bookingsCount,
-          services: servicesCount || 0,
-          appointments: upcomingApts,
-        });
-      } catch (err: any) {
-        console.error('[Dashboard] fetch error:', err);
-        setDbError(err?.message || 'Unknown error');
-      } finally {
-        setLoading(false);
+      if (sErr) {
+        console.error('[Dashboard] services error:', sErr);
+        setDbError(sErr.message);
       }
-    };
-    fetchDashboardInfo();
+
+      let bookingsCount = 0;
+      let upcomingApts: any[] = [];
+
+      if (user) {
+        const col = role === 'master' ? 'master_id' : 'client_id';
+
+        const { count, error: bErr } = await supabase
+          .from('appointments')
+          .select('*', { count: 'exact', head: true })
+          .eq(col, user.id)
+          .eq('status', 'completed');
+
+        if (bErr) console.error('[Dashboard] bookings error:', bErr);
+        bookingsCount = count || 0;
+
+        const { data: apts, error: aErr } = await supabase
+          .from('appointments')
+          .select(`id, start_time, service:services(name)`)
+          .eq(col, user.id)
+          .gte('start_time', new Date().toISOString())
+          .order('start_time', { ascending: true })
+          .limit(3);
+
+        if (aErr) console.error('[Dashboard] appointments error:', aErr);
+        upcomingApts = (apts as any[]) || [];
+      }
+
+      setStats({
+        bookings: bookingsCount,
+        services: servicesCount || 0,
+        appointments: upcomingApts,
+      });
+      setDbError(null);
+    } catch (err: any) {
+      console.error('[Dashboard] fetch error:', err);
+      setDbError(err?.message || 'Unknown error');
+    } finally {
+      setLoading(false);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, role]);
+
+  // Initial fetch
+  useEffect(() => {
+    fetchDashboardInfo();
+  }, [fetchDashboardInfo]);
+
+  // Re-fetch when tab becomes visible (session may have just refreshed)
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        fetchDashboardInfo();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [fetchDashboardInfo]);
 
   const firstName = profile?.full_name?.split(' ')[0] || 'there';
 

@@ -49,24 +49,35 @@ export default function ShopPage() {
   const isOwner = role === 'owner';
   const isMasterOrOwner = role === 'master' || role === 'owner';
 
+  const fetchProducts = async () => {
+    try {
+      const { data, error: fetchErr } = await supabase
+        .from('products')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(50);
+      if (fetchErr) { setError(fetchErr.message); }
+      setProducts((data as unknown as Product[]) || []);
+    } catch (err) {
+      console.error('[Shop] unexpected error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const { data, error: fetchErr } = await supabase
-          .from('products')
-          .select('*')
-          .eq('is_active', true)
-          .order('created_at', { ascending: false })
-          .limit(50);
-        if (fetchErr) { setError(fetchErr.message); }
-        setProducts((data as unknown as Product[]) || []);
-      } catch (err) {
-        console.error('[Shop] unexpected error:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchProducts();
+
+    const channel = supabase.channel('realtime_products')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => {
+        fetchProducts();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -115,9 +126,7 @@ export default function ShopPage() {
       showToast('Product added successfully!', 'success');
       setShowAddModal(false);
       setNewProduct({ name: '', description: '', retail_price: '', wholesale_price: '', stock_count: '', category: 'Nails' });
-      // Refresh
-      const { data } = await supabase.from('products').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(50);
-      setProducts((data as unknown as Product[]) || []);
+      // Realtime subscription will automatically refresh the product list
     } catch (err: any) {
       showToast(err.message || 'Failed to add product', 'error');
     } finally {

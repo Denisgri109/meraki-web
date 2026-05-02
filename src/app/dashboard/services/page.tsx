@@ -5,43 +5,51 @@ import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/components/Toast';
 import { Scissors, Plus, Clock, Edit3, ToggleLeft, ToggleRight, Sparkles, X, Loader2, Save } from 'lucide-react';
+import type { Tables, TablesInsert } from '@/types/database';
+import { PilatesTimetableManager } from '@/components/PilatesTimetableManager';
 
-interface Service {
-  id: string;
-  name: string;
-  description: string | null;
-  base_price: number;
-  duration_minutes: number;
-  category: string | null;
-  is_active: boolean;
-  requires_consultation: boolean;
-  image_url: string | null;
-}
+type Service = Tables<'services'>;
+type ServiceInsert = TablesInsert<'services'>;
 
-const CATEGORIES = ['Nails', 'Lashes', 'Brows', 'Hair', 'Makeup', 'Skincare', 'Other'];
+const CATEGORIES = ['Nails', 'Lashes', 'Brows', 'Hair', 'Makeup', 'Skincare', 'Pilates', 'Other'];
 
 export default function ServicesPage() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const supabase = createClient();
   const { showToast } = useToast();
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
+  const isOwner = profile?.role === 'owner';
+  const categories = isOwner ? CATEGORIES : CATEGORIES.filter((category) => category !== 'Pilates');
 
   // Create/Edit modal
   const [showModal, setShowModal] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [form, setForm] = useState({ name: '', description: '', base_price: '', duration_minutes: '60', category: 'Nails', requires_consultation: false });
   const [saving, setSaving] = useState(false);
+  const [managingPilatesService, setManagingPilatesService] = useState<Service | null>(null);
 
-  const fetchServices = async () => {
+  const refreshServices = async () => {
     if (!user) return;
     const { data } = await supabase.from('services').select('*').eq('created_by', user.id).order('created_at', { ascending: false });
-    setServices((data as unknown as Service[]) || []);
+    setServices(data || []);
     setLoading(false);
   };
 
   useEffect(() => {
-    fetchServices();
+    if (!user) return;
+    let isMounted = true;
+    const loadServices = async () => {
+      const { data } = await supabase.from('services').select('*').eq('created_by', user.id).order('created_at', { ascending: false });
+      if (isMounted) {
+        setServices(data || []);
+        setLoading(false);
+      }
+    };
+    loadServices();
+    return () => {
+      isMounted = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
@@ -53,7 +61,7 @@ export default function ServicesPage() {
 
   const openCreate = () => {
     setEditingService(null);
-    setForm({ name: '', description: '', base_price: '', duration_minutes: '60', category: 'Nails', requires_consultation: false });
+    setForm({ name: '', description: '', base_price: '', duration_minutes: '60', category: categories[0] || 'Nails', requires_consultation: false });
     setShowModal(true);
   };
 
@@ -74,10 +82,11 @@ export default function ServicesPage() {
     if (!form.name.trim()) { showToast('Please enter a service name', 'error'); return; }
     if (!form.base_price || isNaN(Number(form.base_price)) || Number(form.base_price) <= 0) { showToast('Please enter a valid price', 'error'); return; }
     if (!form.duration_minutes || isNaN(Number(form.duration_minutes)) || Number(form.duration_minutes) <= 0) { showToast('Please enter a valid duration', 'error'); return; }
+    if (form.category === 'Pilates' && !isOwner) { showToast('Only owners can create Pilates services', 'error'); return; }
 
     setSaving(true);
     try {
-      const payload = {
+      const payload: Omit<ServiceInsert, 'created_by' | 'is_active'> = {
         name: form.name.trim(),
         description: form.description.trim() || null,
         category: form.category,
@@ -101,7 +110,7 @@ export default function ServicesPage() {
         // Link to master_services
         await supabase.from('master_services').insert({
           master_id: user!.id,
-          service_id: (serviceData as any).id,
+          service_id: serviceData.id,
           is_available: true,
           custom_price: null,
           custom_duration: null,
@@ -109,9 +118,9 @@ export default function ServicesPage() {
         showToast('Service created!', 'success');
       }
       setShowModal(false);
-      fetchServices();
-    } catch (err: any) {
-      showToast(err.message || 'Failed to save service', 'error');
+      refreshServices();
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : 'Failed to save service', 'error');
     } finally {
       setSaving(false);
     }
@@ -196,6 +205,11 @@ export default function ServicesPage() {
                         Consultation
                       </span>
                     )}
+                    {service.category === 'Pilates' && (
+                      <span className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
+                        Timetable
+                      </span>
+                    )}
                   </div>
                   {service.description && (
                     <p className="text-sm text-[var(--color-text-secondary)] mb-3 line-clamp-2 max-w-2xl">{service.description}</p>
@@ -218,9 +232,18 @@ export default function ServicesPage() {
                   >
                     <Edit3 size={18} />
                   </button>
+                  {service.category === 'Pilates' && isOwner && (
+                    <button
+                      onClick={() => setManagingPilatesService(service)}
+                      className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white hover:shadow-sm transition-all text-emerald-600 hover:text-emerald-700 cursor-pointer"
+                      title="Manage Pilates timetable"
+                    >
+                      <Clock size={18} />
+                    </button>
+                  )}
                   <div className="w-[1px] h-6 bg-[var(--color-border)] opacity-60"></div>
                   <button
-                    onClick={() => toggleService(service.id, service.is_active)}
+                    onClick={() => toggleService(service.id, !!service.is_active)}
                     className="cursor-pointer w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white hover:shadow-sm transition-all group"
                     title={service.is_active ? "Deactivate service" : "Activate service"}
                   >
@@ -258,7 +281,7 @@ export default function ServicesPage() {
               <div>
                 <label className="label-upper">Category</label>
                 <div className="flex flex-wrap gap-2 mt-1">
-                  {CATEGORIES.map((cat) => (
+                  {categories.map((cat) => (
                     <button
                       key={cat}
                       type="button"
@@ -323,6 +346,15 @@ export default function ServicesPage() {
             </div>
           </div>
         </div>
+      )}
+      {managingPilatesService && (
+        <PilatesTimetableManager
+          service={managingPilatesService}
+          onClose={() => {
+            setManagingPilatesService(null);
+            refreshServices();
+          }}
+        />
       )}
     </div>
   );

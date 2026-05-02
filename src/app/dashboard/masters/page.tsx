@@ -46,6 +46,29 @@ export default function MastersPage() {
     !search || m.full_name?.toLowerCase().includes(search.toLowerCase()) || m.specialty?.toLowerCase().includes(search.toLowerCase())
   );
 
+  const handleRemoveMaster = async (id: string, name: string | null) => {
+    if (!window.confirm(`Are you sure you want to remove ${name || 'this master'}?`)) {
+      return;
+    }
+    
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ is_master: false })
+        .eq('id', id);
+        
+      if (error) throw error;
+      
+      setMasters(prev => prev.filter(m => m.id !== id));
+      showToast('Master removed successfully', 'success');
+    } catch (err: any) {
+      console.error('Error removing master:', err);
+      showToast(err.message || 'Failed to remove master', 'error');
+    } finally {
+      setOpenDropdown(null);
+    }
+  };
+
   return (
     <div className="max-w-5xl mx-auto animate-fade-in">
       <div className="flex items-center justify-between mb-8">
@@ -150,7 +173,7 @@ export default function MastersPage() {
                           </a>
                         )}
                         <button
-                          onClick={() => { showToast('Master management coming soon', 'info'); setOpenDropdown(null); }}
+                          onClick={() => handleRemoveMaster(master.id, master.full_name)}
                           className="w-full text-left px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 flex items-center gap-2 cursor-pointer"
                         >
                           Remove

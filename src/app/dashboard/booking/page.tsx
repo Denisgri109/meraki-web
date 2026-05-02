@@ -1,22 +1,48 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type Dispatch, type SetStateAction } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Search, Star, Clock, ArrowRight, ArrowLeft, Calendar, CheckCircle2, Sparkles, User, Scissors, SlidersHorizontal } from 'lucide-react';
+import { Search, Star, Clock, ArrowRight, ArrowLeft, Calendar, CheckCircle2, Sparkles, User, Scissors, SlidersHorizontal, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
+import type { Tables } from '@/types/database';
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY as string);
 
-function CheckoutForm({ user, profile, selectedService, selectedMaster, selectedDate, selectedTime, onBookSuccess, submitting, setSubmitting }: any) {
+type BookingError = Error & {
+  context?: {
+    json?: () => Promise<{ error?: string }>;
+  };
+};
+
+interface CheckoutFormProps {
+  user: unknown;
+  profile: { email?: string | null; stripe_customer_id?: string | null } | null;
+  selectedService: Service | null;
+  selectedMaster: Master | null;
+  selectedPilatesSession: PilatesSession | null;
+  selectedDate: string;
+  selectedTime: string;
+  onBookSuccess: () => void;
+  submitting: boolean;
+  setSubmitting: Dispatch<SetStateAction<boolean>>;
+}
+
+function CheckoutForm({ user, profile, selectedService, selectedMaster, selectedPilatesSession, selectedDate, selectedTime, onBookSuccess, submitting, setSubmitting }: CheckoutFormProps) {
   const stripe = useStripe();
   const elements = useElements();
   const supabase = createClient();
 
   const handleBook = async () => {
-    if (!stripe || !elements || !user || !selectedService || !selectedMaster || !selectedDate || !selectedTime) return;
+    if (!stripe || !elements || !user || !selectedService || !selectedDate || !selectedTime) return;
+    const isPilates = selectedService.category === 'Pilates';
+    if (isPilates && !selectedPilatesSession) return;
+    if (!isPilates && !selectedMaster) return;
+    const bookingMasterId = selectedPilatesSession?.host?.profile_id || selectedPilatesSession?.owner_id || selectedMaster?.id;
+    const bookingHostName = selectedPilatesSession?.host?.display_name || selectedMaster?.full_name || 'Pilates host';
+    if (!bookingMasterId) return;
     setSubmitting(true);
     try {
       const startTimeStr = `${selectedDate}T${selectedTime}:00`;
@@ -46,8 +72,8 @@ function CheckoutForm({ user, profile, selectedService, selectedMaster, selected
             currency: 'eur',
             customer_id: setupIntentData.customerId,
             payment_method_id: setupIntent.payment_method,
-            master_id: selectedMaster.id,
-            description: `Booking with ${selectedMaster.full_name}`,
+            master_id: bookingMasterId,
+            description: `Booking with ${bookingHostName}`,
             capture_method: 'automatic',
         }
       });
@@ -56,26 +82,35 @@ function CheckoutForm({ user, profile, selectedService, selectedMaster, selected
       const { error: confirmPaymentError } = await stripe.confirmCardPayment(paymentIntentData.clientSecret);
       if (confirmPaymentError) throw confirmPaymentError;
 
-      const { error: bookError } = await supabase.rpc(
-        'book_appointment_with_confirmation',
-        {
-            p_master_id: selectedMaster.id,
-            p_service_id: selectedService.id,
-            p_start_time: startDate.toISOString(),
-            p_stripe_setup_intent_id: setupIntentData.setupIntentId,
-            p_stripe_payment_intent_id: paymentIntentData.paymentIntentId,
-            p_deposit_amount: selectedService.base_price,
-            p_deposit_payment_intent_id: paymentIntentData.paymentIntentId,
-        }
-      );
+      const { error: bookError } = isPilates && selectedPilatesSession
+        ? await supabase.rpc('book_pilates_session', {
+          p_session_id: selectedPilatesSession.id,
+          p_stripe_setup_intent_id: setupIntentData.setupIntentId,
+          p_stripe_payment_intent_id: paymentIntentData.paymentIntentId,
+          p_deposit_amount: selectedService.base_price,
+          p_deposit_payment_intent_id: paymentIntentData.paymentIntentId,
+        })
+        : await supabase.rpc(
+          'book_appointment_with_confirmation',
+          {
+              p_master_id: bookingMasterId,
+              p_service_id: selectedService.id,
+              p_start_time: startDate.toISOString(),
+              p_stripe_setup_intent_id: setupIntentData.setupIntentId,
+              p_stripe_payment_intent_id: paymentIntentData.paymentIntentId,
+              p_deposit_amount: selectedService.base_price,
+              p_deposit_payment_intent_id: paymentIntentData.paymentIntentId,
+          }
+        );
       if (bookError) throw bookError;
 
       onBookSuccess();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Booking failed:', err);
-      let msg = err.message || 'Failed to create booking. Please try again.';
-      if (err.context && typeof err.context.json === 'function') {
-        try { const errData = await err.context.json(); if (errData && errData.error) msg = errData.error; } catch (e) {}
+      const bookingError = err as BookingError;
+      let msg = bookingError.message || 'Failed to create booking. Please try again.';
+      if (bookingError.context && typeof bookingError.context.json === 'function') {
+        try { const errData = await bookingError.context.json(); if (errData && errData.error) msg = errData.error; } catch {}
       }
       alert(msg);
     } finally {
@@ -98,7 +133,7 @@ function CheckoutForm({ user, profile, selectedService, selectedMaster, selected
            }} />
          </div>
          <p className="text-xs text-[var(--color-text-secondary)] mt-3">
-           You will be charged €{selectedService.base_price} today for your booking.
+           You will be charged €{selectedService?.base_price ?? 0} today for your booking.
          </p>
       </div>
       <button
@@ -130,10 +165,20 @@ interface Master {
   city: string | null;
 }
 
+type PilatesSettings = Tables<'pilates_settings'>;
+type PilatesHost = Tables<'pilates_hosts'>;
+type PilatesBooking = Pick<Tables<'pilates_session_bookings'>, 'id' | 'status'>;
+type PilatesSession = Tables<'pilates_class_sessions'> & {
+  host: PilatesHost | null;
+  pilates_session_bookings: PilatesBooking[] | null;
+};
+
 const fallbackImages = [
   'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=400&q=80&auto=format&fit=crop',
   'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=400&q=80&auto=format&fit=crop',
 ];
+
+const SERVICE_CATEGORIES = ['All', 'Nails', 'Lashes', 'Brows', 'Hair', 'Makeup', 'Skincare', 'Pilates', 'Other'];
 
 export default function BookingPage() {
   const { user, profile } = useAuth();
@@ -144,6 +189,7 @@ export default function BookingPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('All');
 
   // Data
   const [services, setServices] = useState<Service[]>([]);
@@ -155,6 +201,10 @@ export default function BookingPage() {
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [selectedTime, setSelectedTime] = useState<string>('');
   const [isMasterPreselected, setIsMasterPreselected] = useState(false);
+  const [pilatesSettings, setPilatesSettings] = useState<PilatesSettings | null>(null);
+  const [pilatesSessions, setPilatesSessions] = useState<PilatesSession[]>([]);
+  const [selectedPilatesSession, setSelectedPilatesSession] = useState<PilatesSession | null>(null);
+  const [loadingPilatesSessions, setLoadingPilatesSessions] = useState(false);
 
   // Fetch initial data
   useEffect(() => {
@@ -188,13 +238,89 @@ export default function BookingPage() {
       }
     };
     fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [supabase]);
+
+  useEffect(() => {
+    const fetchPilatesSettings = async () => {
+      if (selectedService?.category !== 'Pilates') {
+        setPilatesSettings(null);
+        return;
+      }
+
+      const { data } = await supabase
+        .from('pilates_settings')
+        .select('*')
+        .eq('service_id', selectedService.id)
+        .maybeSingle();
+
+      setPilatesSettings(data || null);
+    };
+
+    fetchPilatesSettings();
+  }, [selectedService?.id, selectedService?.category, supabase]);
+
+  useEffect(() => {
+    const fetchPilatesSessions = async () => {
+      if (selectedService?.category !== 'Pilates') {
+        setPilatesSessions([]);
+        setSelectedPilatesSession(null);
+        return;
+      }
+
+      setLoadingPilatesSessions(true);
+      try {
+        const startDate = new Date().toISOString().slice(0, 10);
+        const endDate = new Date(Date.now() + 35 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+        await supabase.rpc('ensure_pilates_sessions', {
+          p_service_id: selectedService.id,
+          p_start_date: startDate,
+          p_end_date: endDate,
+        });
+        const { data, error } = await supabase
+          .from('pilates_class_sessions')
+          .select('*, host:pilates_hosts(*), pilates_session_bookings(id, status)')
+          .eq('service_id', selectedService.id)
+          .gte('starts_at', new Date().toISOString())
+          .lt('starts_at', new Date(Date.now() + 35 * 24 * 60 * 60 * 1000).toISOString())
+          .eq('status', 'scheduled')
+          .order('starts_at');
+        if (error) throw error;
+        setPilatesSessions((data as unknown as PilatesSession[]) || []);
+      } catch (err) {
+        console.error('Error loading Pilates sessions:', err);
+      } finally {
+        setLoadingPilatesSessions(false);
+      }
+    };
+
+    fetchPilatesSessions();
+  }, [selectedService?.id, selectedService?.category, supabase]);
 
   // Time slots generator (mock available times for demo)
   const timeSlots = ['09:00', '09:30', '10:00', '10:30', '11:00', '13:00', '14:00', '15:30', '16:00', '17:00'];
 
-
+  const normalizedSearchQuery = searchQuery.toLowerCase();
+  const filteredServices = services.filter((service) => {
+    const matchesCategory = selectedCategory === 'All' || service.category === selectedCategory;
+    const matchesSearch = service.name.toLowerCase().includes(normalizedSearchQuery);
+    return matchesCategory && matchesSearch;
+  });
+  const visibleCategories = SERVICE_CATEGORIES.filter((category) => {
+    return category === 'All' || category === 'Pilates' || services.some((service) => service.category === category);
+  });
+  const getBookedCount = (session: PilatesSession) => session.pilates_session_bookings?.filter((booking) => booking.status === 'booked').length || 0;
+  const getSpotsLeft = (session: PilatesSession) => Math.max(0, session.capacity - getBookedCount(session));
+  const selectPilatesSession = (session: PilatesSession) => {
+    const startsAt = new Date(session.starts_at);
+    setSelectedPilatesSession(session);
+    setSelectedDate(startsAt.toISOString().slice(0, 10));
+    setSelectedTime(startsAt.toTimeString().slice(0, 5));
+  };
+  const groupedPilatesSessions = pilatesSessions.reduce<Record<string, PilatesSession[]>>((acc, session) => {
+    const key = new Date(session.starts_at).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+    acc[key] = [...(acc[key] || []), session];
+    return acc;
+  }, {});
 
   return (
     <div className="w-full max-w-4xl mx-auto animate-fade-in pb-20 relative">
@@ -272,6 +398,26 @@ export default function BookingPage() {
               <SlidersHorizontal size={18} style={{ color: 'var(--color-text-secondary)' }} />
             </button>
           </div>
+
+          <div className="flex gap-2 mb-8 overflow-x-auto pb-1">
+            {visibleCategories.map((category) => {
+              const isActive = selectedCategory === category;
+              return (
+                <button
+                  key={category}
+                  type="button"
+                  onClick={() => setSelectedCategory(category)}
+                  className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all cursor-pointer ${
+                    isActive
+                      ? 'bg-gradient-to-r from-pink-500 to-violet-600 text-white shadow-md'
+                      : 'bg-white/60 text-[var(--color-text-secondary)] border border-white hover:text-[var(--color-text-primary)]'
+                  }`}
+                >
+                  {category}
+                </button>
+              );
+            })}
+          </div>
           
           {loading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -279,15 +425,26 @@ export default function BookingPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {services.filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 ? (
+              {filteredServices.length === 0 ? (
                 <div className="col-span-full glass-card p-12 text-center relative overflow-hidden">
                    <div className="absolute top-0 right-0 w-32 h-32 bg-pink-100/50 rounded-bl-full mix-blend-multiply" />
-                   <div className="text-[var(--color-text-muted)] text-lg">No services found matching "{searchQuery}"</div>
+                   <div className="text-[var(--color-text-muted)] text-lg">No services found matching &quot;{searchQuery}&quot;</div>
                 </div>
-              ) : services.filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase())).map((service, idx) => (
+              ) : filteredServices.map((service, idx) => (
                 <div
                   key={service.id}
-                  onClick={() => { setSelectedService(service); setStep(isMasterPreselected ? 3 : 2); }}
+                  onClick={() => {
+                    setSelectedService(service);
+                    setSelectedPilatesSession(null);
+                    setSelectedDate('');
+                    setSelectedTime('');
+                    if (service.category === 'Pilates') {
+                      setSelectedMaster(null);
+                      setStep(3);
+                    } else {
+                      setStep(isMasterPreselected ? 3 : 2);
+                    }
+                  }}
                   className="glass-card overflow-hidden hover:shadow-xl hover:-translate-y-2 hover:border-pink-500/30 transition-all duration-300 cursor-pointer group"
                 >
                   <div className="h-40 relative overflow-hidden">
@@ -378,12 +535,53 @@ export default function BookingPage() {
       {/* STEP 3: Select Date & Time */}
       {step === 3 && (
         <div className="animate-fade-in">
-          <button onClick={() => setStep(isMasterPreselected ? 1 : 2)} className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] mb-6 transition-colors">
-            <ArrowLeft size={16} /> Back to {isMasterPreselected ? 'Services' : 'Professionals'}
+          <button onClick={() => setStep(selectedService?.category === 'Pilates' || isMasterPreselected ? 1 : 2)} className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] mb-6 transition-colors">
+            <ArrowLeft size={16} /> Back to {selectedService?.category === 'Pilates' || isMasterPreselected ? 'Services' : 'Professionals'}
           </button>
 
-          <h2 className="text-2xl font-bold text-[var(--color-text-primary)] mb-6">Select Date & Time</h2>
+          <h2 className="text-2xl font-bold text-[var(--color-text-primary)] mb-6">{selectedService?.category === 'Pilates' ? 'Choose a Pilates Class' : 'Select Date & Time'}</h2>
 
+          {selectedService?.category === 'Pilates' ? (
+            <div className="glass-card p-6">
+              {loadingPilatesSessions ? (
+                <div className="flex items-center justify-center gap-2 py-12 text-[var(--color-text-muted)]">
+                  <Loader2 size={18} className="animate-spin" /> Loading classes...
+                </div>
+              ) : pilatesSessions.length === 0 ? (
+                <p className="text-center text-[var(--color-text-muted)] py-12">No Pilates classes are available yet.</p>
+              ) : (
+                <div className="space-y-6">
+                  {Object.entries(groupedPilatesSessions).map(([dateLabel, sessions]) => (
+                    <div key={dateLabel}>
+                      <p className="text-xs font-bold uppercase tracking-widest text-[var(--color-text-muted)] mb-3">{dateLabel}</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {sessions.map((session) => {
+                          const spotsLeft = getSpotsLeft(session);
+                          const isFull = spotsLeft <= 0;
+                          const isSelected = selectedPilatesSession?.id === session.id;
+                          return (
+                            <button
+                              key={session.id}
+                              disabled={isFull}
+                              onClick={() => selectPilatesSession(session)}
+                              className={`text-left rounded-2xl border p-4 transition-all ${isSelected ? 'border-emerald-500 bg-emerald-50 shadow-md scale-[1.01]' : isFull ? 'border-gray-200 bg-gray-50 opacity-50 cursor-not-allowed' : 'border-violet-100 bg-white hover:-translate-y-1 hover:shadow-md'}`}
+                            >
+                              <div className="flex items-center justify-between gap-3">
+                                <span className="text-lg font-bold text-[var(--color-text-primary)]">{new Date(session.starts_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                <span className={`rounded-full px-3 py-1 text-xs font-bold ${isFull ? 'bg-gray-200 text-gray-500' : 'bg-emerald-100 text-emerald-700'}`}>{isFull ? 'Full' : `${spotsLeft} spots left`}</span>
+                              </div>
+                              <p className="mt-2 font-semibold text-violet-700">{session.host?.display_name || 'Pilates host'}</p>
+                              <p className="mt-1 text-sm text-[var(--color-text-muted)]">{session.level} · {Math.round((new Date(session.ends_at).getTime() - new Date(session.starts_at).getTime()) / 60000)} min</p>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="glass-card p-6">
               <h3 className="font-bold text-lg mb-4 flex items-center gap-2"><Calendar size={18} className="text-pink-500" /> Pick a Date</h3>
@@ -421,11 +619,12 @@ export default function BookingPage() {
               )}
             </div>
           </div>
+          )}
 
           <div className="mt-8 flex justify-end">
             <button
               onClick={() => setStep(4)}
-              disabled={!selectedDate || !selectedTime}
+              disabled={selectedService?.category === 'Pilates' ? !selectedPilatesSession : !selectedDate || !selectedTime}
               className="btn-primary px-8 py-3 text-lg disabled:opacity-50 disabled:cursor-not-allowed group"
             >
               Continue to Confirmation
@@ -472,8 +671,8 @@ export default function BookingPage() {
                       ) : <User size={20} />}
                     </div>
                     <div>
-                      <p className="text-xs font-bold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Professional</p>
-                      <p className="font-bold text-[var(--color-text-primary)]">{selectedMaster?.full_name}</p>
+                      <p className="text-xs font-bold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">{selectedService?.category === 'Pilates' ? 'Host' : 'Professional'}</p>
+                      <p className="font-bold text-[var(--color-text-primary)]">{selectedPilatesSession?.host?.display_name || selectedMaster?.full_name}</p>
                     </div>
                   </div>
                 </div>
@@ -490,6 +689,18 @@ export default function BookingPage() {
                   </div>
                   <p className="font-medium text-[var(--color-text-secondary)]">{selectedService?.duration_minutes} min</p>
                 </div>
+
+                {selectedService?.category === 'Pilates' && pilatesSettings && (
+                  <div className="p-4 rounded-xl bg-emerald-50/80 border border-emerald-100 shadow-sm">
+                    <p className="text-xs font-bold text-emerald-700 uppercase tracking-wider mb-3">Pilates Session</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-[var(--color-text-secondary)]">
+                      <span>Level: <strong className="text-[var(--color-text-primary)]">{pilatesSettings.default_level || 'All levels'}</strong></span>
+                      <span>Spaces left: <strong className="text-[var(--color-text-primary)]">{selectedPilatesSession ? getSpotsLeft(selectedPilatesSession) : pilatesSettings.default_capacity || 6}</strong></span>
+                      <span>{pilatesSettings.equipment_provided ? 'Equipment provided' : 'Bring your own equipment'}</span>
+                      {pilatesSettings.require_health_declaration && <span>Health declaration required</span>}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <Elements stripe={stripePromise}>
@@ -498,6 +709,7 @@ export default function BookingPage() {
                   profile={profile}
                   selectedService={selectedService}
                   selectedMaster={selectedMaster}
+                  selectedPilatesSession={selectedPilatesSession}
                   selectedDate={selectedDate}
                   selectedTime={selectedTime}
                   onBookSuccess={() => setStep(5)}

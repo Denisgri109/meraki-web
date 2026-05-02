@@ -1,7 +1,10 @@
 'use client';
 
-import { useState } from 'react';
-import { Clock, Plus, Trash2, Save, CalendarDays, Sparkles } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Clock, Plus, Trash2, Save, CalendarDays, Sparkles, Loader2 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { createClient } from '@/lib/supabase/client';
+import { useToast } from '@/components/Toast';
 
 const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -26,8 +29,54 @@ const defaultSchedule: Record<string, DaySchedule> = Object.fromEntries(
 );
 
 export default function AvailabilityPage() {
-  const [schedule, setSchedule] = useState(defaultSchedule);
+  const { profile } = useAuth();
+  const supabase = createClient();
+  const { showToast } = useToast();
+  const [schedule, setSchedule] = useState<Record<string, DaySchedule>>(defaultSchedule);
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadAvailability() {
+      if (!profile?.id) return;
+      const { data, error } = await supabase
+        .from('master_availability')
+        .select('*')
+        .eq('master_id', profile.id);
+        
+      if (error) {
+        console.error('Error fetching availability:', error);
+        setLoading(false);
+        return;
+      }
+
+      if (data && data.length > 0) {
+        const newSchedule = { ...defaultSchedule };
+        // Reset all days to disabled first
+        Object.keys(newSchedule).forEach(day => {
+          newSchedule[day] = { enabled: false, slots: [] };
+        });
+
+        data.forEach(row => {
+          const dayName = daysOfWeek[row.day_of_week];
+          if (!dayName) return;
+          
+          if (!newSchedule[dayName].enabled) {
+            newSchedule[dayName].enabled = true;
+            newSchedule[dayName].slots = [];
+          }
+          newSchedule[dayName].slots.push({
+            start: row.start_time.slice(0, 5),
+            end: row.end_time.slice(0, 5)
+          });
+        });
+
+        setSchedule(newSchedule);
+      }
+      setLoading(false);
+    }
+    loadAvailability();
+  }, [profile]);
 
   const toggleDay = (day: string) => {
     setSchedule((prev) => ({
@@ -67,11 +116,50 @@ export default function AvailabilityPage() {
   };
 
   const handleSave = async () => {
+    if (!profile?.id) return;
     setSaving(true);
-    // TODO: Save to Supabase when backend is ready
-    await new Promise((r) => setTimeout(r, 1000));
-    setSaving(false);
+    try {
+      // 1. Delete existing
+      await supabase.from('master_availability').delete().eq('master_id', profile.id);
+
+      // 2. Insert new ones
+      const inserts = [];
+      for (const [day, dayData] of Object.entries(schedule)) {
+        if (dayData.enabled && dayData.slots.length > 0) {
+          const dayIndex = daysOfWeek.indexOf(day);
+          for (const slot of dayData.slots) {
+            inserts.push({
+              master_id: profile.id,
+              day_of_week: dayIndex,
+              start_time: `${slot.start}:00`,
+              end_time: `${slot.end}:00`,
+              is_available: true
+            });
+          }
+        }
+      }
+
+      if (inserts.length > 0) {
+        const { error } = await supabase.from('master_availability').insert(inserts);
+        if (error) throw error;
+      }
+
+      showToast('Availability saved successfully', 'success');
+    } catch (err: any) {
+      console.error('Error saving:', err);
+      showToast(err.message || 'Failed to save availability', 'error');
+    } finally {
+      setSaving(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="max-w-4xl mx-auto flex items-center justify-center p-20">
+        <Loader2 size={32} className="animate-spin text-cyan-500" />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto animate-fade-in pb-20">

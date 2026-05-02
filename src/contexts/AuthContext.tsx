@@ -130,9 +130,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     });
 
+    // ── Visibility-based session refresh ────────────────────────────
+    // When the tab is backgrounded the internal refresh timer can freeze,
+    // causing the JWT to expire. Force a refresh whenever the tab comes back.
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        supabase.auth.getSession().then(({ data: { session: s }, error }) => {
+          if (error) {
+            console.warn('[Auth] visibility refresh error:', error.message);
+            setSessionError(error);
+            return;
+          }
+          if (s) {
+            setSession(s);
+            setUser(s.user);
+          }
+        });
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // ── Periodic keep-alive (every 4 min) ──────────────────────────
+    // Prevents token expiry even when the tab stays in foreground for hours.
+    const keepAlive = setInterval(() => {
+      supabase.auth.getSession();
+    }, 4 * 60 * 1000);
+
     return () => {
       clearTimeout(timeout);
       subscription.unsubscribe();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      clearInterval(keepAlive);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

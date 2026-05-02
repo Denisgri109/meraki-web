@@ -4,13 +4,43 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/components/Toast';
-import { Settings, User, Shield, Save, Loader2, Camera, CreditCard, Mail } from 'lucide-react';
+import { Settings, User, Shield, Save, Loader2, Camera, CreditCard, Mail, Dumbbell } from 'lucide-react';
+import type { Tables } from '@/types/database';
 
-const navItems = [
+const baseNavItems = [
   { label: 'Profile', value: 'profile', icon: User },
   { label: 'Security', value: 'security', icon: Shield },
   { label: 'Billing', value: 'billing', icon: CreditCard },
 ];
+
+const PILATES_DEFAULT_SETTINGS = {
+  default_capacity: 6,
+  default_session_duration_minutes: 50,
+  buffer_minutes: 10,
+  equipment_provided: true,
+  require_health_declaration: true,
+  default_level: 'All levels',
+  equipment_notes: '',
+  location_notes: '',
+};
+
+type PilatesSettingsRow = Tables<'pilates_settings'>;
+type PilatesSettingsForm = Pick<
+  PilatesSettingsRow,
+  'default_capacity' |
+  'default_session_duration_minutes' |
+  'buffer_minutes' |
+  'equipment_provided' |
+  'require_health_declaration' |
+  'default_level'
+> & {
+  equipment_notes: string;
+  location_notes: string;
+};
+
+const getErrorMessage = (error: unknown, fallback: string) => {
+  return error instanceof Error ? error.message : fallback;
+};
 
 export default function SettingsPage() {
   const { profile, updateProfile } = useAuth();
@@ -18,33 +48,120 @@ export default function SettingsPage() {
   const { showToast } = useToast();
   const [activeSection, setActiveSection] = useState('profile');
   const [saving, setSaving] = useState(false);
-  const [fullName, setFullName] = useState(profile?.full_name || '');
-  const [phone, setPhone] = useState(profile?.phone || '');
-  const [bio, setBio] = useState(profile?.bio || '');
-  const [city, setCity] = useState(profile?.city || '');
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [sendingReset, setSendingReset] = useState(false);
   const [newEmail, setNewEmail] = useState('');
   const [updatingEmail, setUpdatingEmail] = useState(false);
   const [openingPortal, setOpeningPortal] = useState(false);
+  const [pilatesSettings, setPilatesSettings] = useState<PilatesSettingsForm>(PILATES_DEFAULT_SETTINGS);
+  const [pilatesService, setPilatesService] = useState<Tables<'services'> | null>(null);
+  const [loadingPilates, setLoadingPilates] = useState(false);
+  const [savingPilates, setSavingPilates] = useState(false);
+  const canManagePilates = profile?.role === 'owner';
+  const navItems = canManagePilates ? [...baseNavItems, { label: 'Pilates', value: 'pilates', icon: Dumbbell }] : baseNavItems;
 
   useEffect(() => {
-    if (profile) {
-      setFullName(profile.full_name || '');
-      setPhone(profile.phone || '');
-      setBio(profile.bio || '');
-      setCity(profile.city || '');
-    }
-  }, [profile]);
+    if (!profile?.id || !canManagePilates) return;
 
-  const handleSave = async () => {
+    let isMounted = true;
+
+    const loadPilatesSettings = async () => {
+      setLoadingPilates(true);
+      try {
+        const { data: serviceData, error: serviceError } = await supabase
+          .from('services')
+          .select('*')
+          .eq('created_by', profile.id)
+          .eq('category', 'Pilates')
+          .eq('is_active', true)
+          .limit(1)
+          .maybeSingle();
+
+        if (serviceError) throw serviceError;
+        setPilatesService(serviceData || null);
+        if (!serviceData) return;
+
+        const { data, error } = await supabase
+          .from('pilates_settings')
+          .select('*')
+          .eq('service_id', serviceData.id)
+          .maybeSingle();
+
+        if (error) throw error;
+        if (data && isMounted) {
+          setPilatesSettings({
+            default_capacity: data.default_capacity ?? PILATES_DEFAULT_SETTINGS.default_capacity,
+            default_session_duration_minutes: data.default_session_duration_minutes ?? PILATES_DEFAULT_SETTINGS.default_session_duration_minutes,
+            buffer_minutes: data.buffer_minutes ?? PILATES_DEFAULT_SETTINGS.buffer_minutes,
+            equipment_provided: data.equipment_provided ?? PILATES_DEFAULT_SETTINGS.equipment_provided,
+            require_health_declaration: data.require_health_declaration ?? PILATES_DEFAULT_SETTINGS.require_health_declaration,
+            default_level: data.default_level || PILATES_DEFAULT_SETTINGS.default_level,
+            equipment_notes: data.equipment_notes || '',
+            location_notes: data.location_notes || '',
+          });
+        }
+      } catch (err) {
+        console.error('Error loading Pilates settings:', err);
+      } finally {
+        if (isMounted) setLoadingPilates(false);
+      }
+    };
+
+    loadPilatesSettings();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [profile?.id, canManagePilates, supabase]);
+
+  const handleSave = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
     setSaving(true);
-    await updateProfile({ full_name: fullName, phone, bio, city });
+    await updateProfile({
+      full_name: String(formData.get('fullName') || ''),
+      phone: String(formData.get('phone') || ''),
+      bio: String(formData.get('bio') || ''),
+      city: String(formData.get('city') || ''),
+    });
     showToast('Profile saved successfully!', 'success');
     setSaving(false);
   };
 
-  const handleAvatarUpload = () => {
-    showToast('Avatar upload coming soon', 'info');
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !profile?.id) return;
+
+    // Validate size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('Image must be under 5MB', 'error');
+      return;
+    }
+
+    setUploadingAvatar(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${profile.id}-${Math.random()}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      await updateProfile({ avatar_url: publicUrl });
+      showToast('Avatar updated successfully', 'success');
+    } catch (error: unknown) {
+      console.error('Upload error:', error);
+      showToast(getErrorMessage(error, 'Error uploading avatar'), 'error');
+    } finally {
+      setUploadingAvatar(false);
+    }
   };
 
   const handleSendResetEmail = async () => {
@@ -57,8 +174,8 @@ export default function SettingsPage() {
       });
       if (error) throw error;
       showToast('Password reset email sent! Check your inbox.', 'success');
-    } catch (err: any) {
-      showToast(err.message || 'Failed to send reset email', 'error');
+    } catch (err: unknown) {
+      showToast(getErrorMessage(err, 'Failed to send reset email'), 'error');
     } finally {
       setSendingReset(false);
     }
@@ -75,8 +192,8 @@ export default function SettingsPage() {
       if (error) throw error;
       showToast('Verification emails sent to both your old and new addresses.', 'success');
       setNewEmail('');
-    } catch (err: any) {
-      showToast(err.message || 'Failed to update email', 'error');
+    } catch (err: unknown) {
+      showToast(getErrorMessage(err, 'Failed to update email'), 'error');
     } finally {
       setUpdatingEmail(false);
     }
@@ -100,10 +217,40 @@ export default function SettingsPage() {
       } else {
         throw new Error(`Invalid response: ${JSON.stringify(data)}`);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Edge Function Error:', err);
-      showToast(err.message || 'Failed to open billing portal', 'error');
+      showToast(getErrorMessage(err, 'Failed to open billing portal'), 'error');
       setOpeningPortal(false);
+    }
+  };
+
+  const handleSavePilates = async () => {
+    if (!profile?.id || !canManagePilates) return;
+    if (!pilatesService) {
+      showToast('Create an active Pilates service before saving Pilates settings.', 'error');
+      return;
+    }
+    setSavingPilates(true);
+    try {
+      const { error } = await supabase
+        .from('pilates_settings')
+        .upsert(
+          {
+            owner_id: profile.id,
+            service_id: pilatesService.id,
+            ...pilatesSettings,
+            equipment_notes: pilatesSettings.equipment_notes.trim() || null,
+            location_notes: pilatesSettings.location_notes.trim() || null,
+          },
+          { onConflict: 'service_id' }
+        );
+
+      if (error) throw error;
+      showToast('Pilates settings saved successfully!', 'success');
+    } catch (err: unknown) {
+      showToast(getErrorMessage(err, 'Failed to save Pilates settings'), 'error');
+    } finally {
+      setSavingPilates(false);
     }
   };
 
@@ -155,27 +302,39 @@ export default function SettingsPage() {
               {/* Avatar */}
               <div className="flex items-center gap-5 mb-8">
                 <div className="relative">
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[var(--color-brand-pink)] to-[var(--color-secondary)] flex items-center justify-center text-white font-bold text-2xl">
-                    {fullName?.charAt(0)?.toUpperCase() || '?'}
-                  </div>
-                  <button
-                    onClick={handleAvatarUpload}
+                  {profile?.avatar_url ? (
+                    <img src={profile.avatar_url} alt="Avatar" className="w-20 h-20 rounded-full object-cover shadow-sm border border-[var(--color-border-light)]" />
+                  ) : (
+                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[var(--color-brand-pink)] to-[var(--color-secondary)] flex items-center justify-center text-white font-bold text-2xl">
+                      {profile?.full_name?.charAt(0)?.toUpperCase() || '?'}
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    id="avatar-upload"
+                    accept="image/*"
+                    onChange={handleAvatarUpload}
+                    disabled={uploadingAvatar}
+                    className="hidden"
+                  />
+                  <label
+                    htmlFor="avatar-upload"
                     className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-[var(--color-primary)] text-white flex items-center justify-center shadow-md cursor-pointer hover:scale-110 transition-transform"
                     title="Change avatar"
                   >
-                    <Camera size={14} />
-                  </button>
+                    {uploadingAvatar ? <Loader2 size={12} className="animate-spin" /> : <Camera size={14} />}
+                  </label>
                 </div>
                 <div>
-                  <p className="font-medium text-[var(--color-text-primary)]">{fullName || 'Your Name'}</p>
+                  <p className="font-medium text-[var(--color-text-primary)]">{profile?.full_name || 'Your Name'}</p>
                   <p className="text-sm text-[var(--color-text-muted)] capitalize">{profile?.role || 'client'} account</p>
                 </div>
               </div>
 
-              <div className="space-y-5">
+              <form key={profile?.id || 'profile-form'} onSubmit={handleSave} className="space-y-5">
                 <div>
                   <label className="label-upper">Full Name</label>
-                  <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} className="input-glass" />
+                  <input type="text" name="fullName" defaultValue={profile?.full_name || ''} className="input-glass" />
                 </div>
                 <div>
                   <label className="label-upper">Email</label>
@@ -184,21 +343,21 @@ export default function SettingsPage() {
                 </div>
                 <div>
                   <label className="label-upper">Phone</label>
-                  <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="input-glass" placeholder="+44..." />
+                  <input type="tel" name="phone" defaultValue={profile?.phone || ''} className="input-glass" placeholder="+44..." />
                 </div>
                 <div>
                   <label className="label-upper">City</label>
-                  <input type="text" value={city} onChange={(e) => setCity(e.target.value)} className="input-glass" placeholder="London" />
+                  <input type="text" name="city" defaultValue={profile?.city || ''} className="input-glass" placeholder="London" />
                 </div>
                 <div>
                   <label className="label-upper">Bio</label>
-                  <textarea value={bio} onChange={(e) => setBio(e.target.value)} rows={3} className="input-glass resize-none" placeholder="Tell us about yourself..." />
+                  <textarea name="bio" defaultValue={profile?.bio || ''} rows={3} className="input-glass resize-none" placeholder="Tell us about yourself..." />
                 </div>
-                <button onClick={handleSave} disabled={saving} className="btn-primary flex items-center gap-2 px-6 py-3 text-sm cursor-pointer">
+                <button type="submit" disabled={saving} className="btn-primary flex items-center gap-2 px-6 py-3 text-sm cursor-pointer">
                   {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
                   {saving ? 'Saving...' : 'Save Changes'}
                 </button>
-              </div>
+              </form>
             </div>
           )}
 
@@ -274,6 +433,125 @@ export default function SettingsPage() {
                   </button>
                 </div>
               </div>
+            </div>
+          )}
+
+          {activeSection === 'pilates' && canManagePilates && (
+            <div className="glass-card p-6">
+              <h2 className="text-lg font-semibold text-[var(--color-text-primary)] mb-2">Pilates Booking Settings</h2>
+              <p className="text-sm text-[var(--color-text-secondary)] mb-6">Configure session-specific details clients see when booking Pilates.</p>
+              {loadingPilates ? (
+                <div className="flex items-center gap-2 text-sm text-[var(--color-text-muted)]">
+                  <Loader2 size={16} className="animate-spin" />
+                  Loading Pilates settings...
+                </div>
+              ) : (
+                <div className="space-y-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <label className="label-upper">Default Capacity</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="50"
+                        value={pilatesSettings.default_capacity}
+                        onChange={(e) => setPilatesSettings({ ...pilatesSettings, default_capacity: Number(e.target.value) })}
+                        className="input-glass"
+                      />
+                    </div>
+                    <div>
+                      <label className="label-upper">Session Duration</label>
+                      <input
+                        type="number"
+                        min="15"
+                        max="240"
+                        value={pilatesSettings.default_session_duration_minutes}
+                        onChange={(e) => setPilatesSettings({ ...pilatesSettings, default_session_duration_minutes: Number(e.target.value) })}
+                        className="input-glass"
+                      />
+                    </div>
+                    <div>
+                      <label className="label-upper">Buffer Minutes</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="120"
+                        value={pilatesSettings.buffer_minutes}
+                        onChange={(e) => setPilatesSettings({ ...pilatesSettings, buffer_minutes: Number(e.target.value) })}
+                        className="input-glass"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="label-upper">Default Level</label>
+                    <select
+                      value={pilatesSettings.default_level}
+                      onChange={(e) => setPilatesSettings({ ...pilatesSettings, default_level: e.target.value })}
+                      className="input-glass"
+                    >
+                      <option>Beginner</option>
+                      <option>Intermediate</option>
+                      <option>Advanced</option>
+                      <option>All levels</option>
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <label className="flex items-center justify-between gap-4 p-4 rounded-[var(--radius-lg)] bg-[var(--color-surface-light)] border border-[var(--color-border-light)] cursor-pointer">
+                      <span>
+                        <span className="block font-semibold text-sm text-[var(--color-text-primary)]">Equipment Provided</span>
+                        <span className="block text-xs text-[var(--color-text-muted)] mt-1">Mats, rings, blocks, reformers, or other studio equipment</span>
+                      </span>
+                      <input
+                        type="checkbox"
+                        checked={pilatesSettings.equipment_provided}
+                        onChange={(e) => setPilatesSettings({ ...pilatesSettings, equipment_provided: e.target.checked })}
+                        className="h-5 w-5 accent-[var(--color-primary)]"
+                      />
+                    </label>
+                    <label className="flex items-center justify-between gap-4 p-4 rounded-[var(--radius-lg)] bg-[var(--color-surface-light)] border border-[var(--color-border-light)] cursor-pointer">
+                      <span>
+                        <span className="block font-semibold text-sm text-[var(--color-text-primary)]">Health Declaration</span>
+                        <span className="block text-xs text-[var(--color-text-muted)] mt-1">Ask clients to confirm they are fit to join Pilates sessions</span>
+                      </span>
+                      <input
+                        type="checkbox"
+                        checked={pilatesSettings.require_health_declaration}
+                        onChange={(e) => setPilatesSettings({ ...pilatesSettings, require_health_declaration: e.target.checked })}
+                        className="h-5 w-5 accent-[var(--color-primary)]"
+                      />
+                    </label>
+                  </div>
+
+                  <div>
+                    <label className="label-upper">Equipment Notes</label>
+                    <textarea
+                      value={pilatesSettings.equipment_notes}
+                      onChange={(e) => setPilatesSettings({ ...pilatesSettings, equipment_notes: e.target.value })}
+                      rows={3}
+                      className="input-glass resize-none"
+                      placeholder="Tell clients what to bring or what is provided..."
+                    />
+                  </div>
+
+                  <div>
+                    <label className="label-upper">Location Notes</label>
+                    <textarea
+                      value={pilatesSettings.location_notes}
+                      onChange={(e) => setPilatesSettings({ ...pilatesSettings, location_notes: e.target.value })}
+                      rows={3}
+                      className="input-glass resize-none"
+                      placeholder="Studio room, access instructions, parking, or arrival guidance..."
+                    />
+                  </div>
+
+                  <button onClick={handleSavePilates} disabled={savingPilates} className="btn-primary flex items-center gap-2 px-6 py-3 text-sm cursor-pointer">
+                    {savingPilates ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                    {savingPilates ? 'Saving...' : 'Save Pilates Settings'}
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
