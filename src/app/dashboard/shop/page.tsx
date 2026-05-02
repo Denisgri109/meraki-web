@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
 import { createClient } from '@/lib/supabase/client';
@@ -90,6 +91,7 @@ function getErrorMessage(error: unknown) {
 }
 
 export default function ShopPage() {
+  const router = useRouter();
   const supabase = createClient();
   const { role } = useAuth();
   const { addToCart } = useCart();
@@ -316,6 +318,13 @@ export default function ShopPage() {
           {filtered.map((product, idx) => (
             <div
               key={product.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => router.push(`/dashboard/shop/${product.id}`)}
+              onKeyDown={(e) => {
+                if (e.target !== e.currentTarget) return;
+                if (e.key === 'Enter' || e.key === ' ') router.push(`/dashboard/shop/${product.id}`);
+              }}
               className={`glass-card card-accent-stripe overflow-hidden hover:shadow-lg hover:-translate-y-2 transition-all duration-300 cursor-pointer group animate-scale-in stagger-${Math.min(idx + 1, 6)}`}
               style={{ animationFillMode: 'both' }}
             >
