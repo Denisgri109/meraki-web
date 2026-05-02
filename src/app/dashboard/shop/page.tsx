@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCart } from '@/contexts/CartContext';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/components/Toast';
 import {
-  ShoppingBag, Search, Star, Heart, SlidersHorizontal, Package,
+  ShoppingBag, Search, Star, Heart, Package,
   ArrowRight, Plus, X, Loader2,
 } from 'lucide-react';
 
@@ -19,6 +20,7 @@ interface Product {
   category: string | null;
   stock_count: number;
   is_active: boolean;
+  is_preview?: boolean;
 }
 
 const CATEGORIES = ['All', 'Nails', 'Lashes', 'Skincare', 'Brows', 'Equipment'];
@@ -30,9 +32,67 @@ const fallbackImages = [
   'https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?w=400&q=80&auto=format&fit=crop',
 ];
 
+const previewProducts: Product[] = [
+  {
+    id: 'preview-cuticle-oil',
+    name: 'Rose Cuticle Oil',
+    description: 'Hydrating nail oil with a soft rose finish',
+    retail_price: 14,
+    wholesale_price: 10,
+    image_url: fallbackImages[0],
+    category: 'Nails',
+    stock_count: 0,
+    is_active: true,
+    is_preview: true,
+  },
+  {
+    id: 'preview-lash-serum',
+    name: 'Lash Growth Serum',
+    description: 'Daily lash serum for stronger-looking lashes',
+    retail_price: 28,
+    wholesale_price: 19,
+    image_url: fallbackImages[1],
+    category: 'Lashes',
+    stock_count: 0,
+    is_active: true,
+    is_preview: true,
+  },
+  {
+    id: 'preview-glow-cleanser',
+    name: 'Glow Cream Cleanser',
+    description: 'Gentle cleanser for a polished skincare routine',
+    retail_price: 22,
+    wholesale_price: 15,
+    image_url: fallbackImages[2],
+    category: 'Skincare',
+    stock_count: 0,
+    is_active: true,
+    is_preview: true,
+  },
+  {
+    id: 'preview-brow-kit',
+    name: 'Brow Styling Kit',
+    description: 'Professional brow shaping essentials',
+    retail_price: 32,
+    wholesale_price: 23,
+    image_url: fallbackImages[3],
+    category: 'Brows',
+    stock_count: 0,
+    is_active: true,
+    is_preview: true,
+  },
+];
+
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'string') return error;
+  return 'Failed to add product';
+}
+
 export default function ShopPage() {
   const supabase = createClient();
   const { role } = useAuth();
+  const { addToCart } = useCart();
   const { showToast } = useToast();
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState('');
@@ -54,11 +114,21 @@ export default function ShopPage() {
       const { data, error: fetchErr } = await supabase
         .from('products')
         .select('*')
-        .eq('is_active', true)
+        .or('is_active.eq.true,is_active.is.null')
         .order('created_at', { ascending: false })
         .limit(50);
-      if (fetchErr) { setError(fetchErr.message); }
-      setProducts((data as unknown as Product[]) || []);
+      if (fetchErr) {
+        setError(fetchErr.message);
+        setProducts(previewProducts);
+        return;
+      }
+      const normalizedProducts = ((data as unknown as Product[]) || []).map((product) => ({
+        ...product,
+        stock_count: product.stock_count ?? 0,
+        is_active: product.is_active ?? true,
+      }));
+      setError(null);
+      setProducts(normalizedProducts.length > 0 ? normalizedProducts : previewProducts);
     } catch (err) {
       console.error('[Shop] unexpected error:', err);
     } finally {
@@ -67,7 +137,9 @@ export default function ShopPage() {
   };
 
   useEffect(() => {
-    fetchProducts();
+    queueMicrotask(() => {
+      void fetchProducts();
+    });
 
     const channel = supabase.channel('realtime_products')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => {
@@ -99,11 +171,22 @@ export default function ShopPage() {
   };
 
   const handleAddToBag = (product: Product) => {
+    if (product.is_preview) {
+      showToast('Preview item only. Add real products from Inventory to sell online.', 'info');
+      return;
+    }
     if (product.stock_count === 0) {
       showToast('This product is out of stock', 'error');
       return;
     }
-    showToast(`${product.name} added to bag!`, 'success');
+    const added = addToCart({
+      id: product.id,
+      name: product.name,
+      price: getPrice(product),
+      image_url: product.image_url,
+      stock_count: product.stock_count,
+    });
+    showToast(added ? `${product.name} added to bag!` : 'Stock limit reached for this product', added ? 'success' : 'error');
   };
 
   const handleAddProduct = async () => {
@@ -127,8 +210,8 @@ export default function ShopPage() {
       setShowAddModal(false);
       setNewProduct({ name: '', description: '', retail_price: '', wholesale_price: '', stock_count: '', category: 'Nails' });
       // Realtime subscription will automatically refresh the product list
-    } catch (err: any) {
-      showToast(err.message || 'Failed to add product', 'error');
+    } catch (err) {
+      showToast(getErrorMessage(err), 'error');
     } finally {
       setSaving(false);
     }

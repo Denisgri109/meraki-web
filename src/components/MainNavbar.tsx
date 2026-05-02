@@ -4,11 +4,12 @@ import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCart } from '@/contexts/CartContext';
 import {
   Home, Calendar, Search, ShoppingBag, GraduationCap, Gift,
   MessageSquare, Settings, LogOut, Menu, X, ChevronDown,
   Scissors, Clock, Users, Package, BarChart3,
-  Bell
+  Bell, ShoppingCart
 } from 'lucide-react';
 
 // ─── Navigation items ─────────────────────────────────────────────
@@ -40,9 +41,11 @@ export function MainNavbar({ transparent = false }: MainNavbarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { profile, role, signOut, loading } = useAuth();
+  const { getItemCount } = useCart();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const cartItemCount = getItemCount();
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -126,6 +129,19 @@ export function MainNavbar({ transparent = false }: MainNavbarProps) {
 
           {/* Right: Actions + Profile */}
           <div className="flex items-center gap-3">
+            <Link
+              href="/dashboard/cart"
+              className="relative w-9 h-9 flex items-center justify-center rounded-full hover:bg-[var(--color-brand-pink-light)] transition-colors text-[var(--color-text-secondary)] hover:text-[var(--color-brand-pink-dark)]"
+              title="Cart"
+            >
+              <ShoppingCart size={18} />
+              {cartItemCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-[var(--color-brand-pink-dark)] text-white text-[10px] font-bold flex items-center justify-center">
+                  {cartItemCount > 99 ? '99+' : cartItemCount}
+                </span>
+              )}
+            </Link>
+
             {/* Chat icon */}
             <Link
               href="/dashboard/chat"
