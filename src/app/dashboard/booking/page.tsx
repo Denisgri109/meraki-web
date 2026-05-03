@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, type Dispatch, type SetStateAction } from 'react';
+import { useState, useEffect, useMemo, type Dispatch, type SetStateAction } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Search, Star, Clock, ArrowRight, ArrowLeft, Calendar, CheckCircle2, Sparkles, User, Scissors, SlidersHorizontal, Loader2 } from 'lucide-react';
+import { Search, Star, Clock, ArrowRight, ArrowLeft, Calendar, CheckCircle2, Sparkles, User, Scissors, SlidersHorizontal, Loader2, ChevronLeft, ChevronRight, AlertCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
@@ -17,8 +17,25 @@ type BookingError = Error & {
   };
 };
 
+type BookingUser = {
+  id: string;
+};
+
+type BookingDraft = {
+  step: number;
+  selectedServiceId: string | null;
+  selectedMasterId: string | null;
+  selectedPilatesSessionId: string | null;
+  selectedDate: string;
+  selectedTime: string;
+  calendarMonth: string;
+  selectedCategory: string;
+  searchQuery: string;
+  isMasterPreselected: boolean;
+};
+
 interface CheckoutFormProps {
-  user: unknown;
+  user: BookingUser | null;
   profile: { email?: string | null; stripe_customer_id?: string | null } | null;
   selectedService: Service | null;
   selectedMaster: Master | null;
@@ -40,14 +57,20 @@ function CheckoutForm({ user, profile, selectedService, selectedMaster, selected
     const isPilates = selectedService.category === 'Pilates';
     if (isPilates && !selectedPilatesSession) return;
     if (!isPilates && !selectedMaster) return;
+    const appointmentStartDate = isPilates ? null : getAppointmentDateTime(selectedDate, selectedTime);
+    if (!isPilates && !appointmentStartDate) {
+      alert('Please choose a valid future date and time before booking.');
+      return;
+    }
     const bookingMasterId = selectedPilatesSession?.host?.profile_id || selectedPilatesSession?.owner_id || selectedMaster?.id;
     const bookingHostName = selectedPilatesSession?.host?.display_name || selectedMaster?.full_name || 'Pilates host';
     if (!bookingMasterId) return;
+    if (bookingMasterId === user.id) {
+      alert('You cannot book an appointment with yourself.');
+      return;
+    }
     setSubmitting(true);
     try {
-      const startTimeStr = `${selectedDate}T${selectedTime}:00`;
-      const startDate = new Date(startTimeStr);
-      
       const requestBody = {
         user_email: profile?.email,
         customer_id: profile?.stripe_customer_id,
@@ -95,7 +118,7 @@ function CheckoutForm({ user, profile, selectedService, selectedMaster, selected
           {
               p_master_id: bookingMasterId,
               p_service_id: selectedService.id,
-              p_start_time: startDate.toISOString(),
+              p_start_time: appointmentStartDate!.toISOString(),
               p_stripe_setup_intent_id: setupIntentData.setupIntentId,
               p_stripe_payment_intent_id: paymentIntentData.paymentIntentId,
               p_deposit_amount: selectedService.base_price,
@@ -179,32 +202,161 @@ const fallbackImages = [
 ];
 
 const SERVICE_CATEGORIES = ['All', 'Nails', 'Lashes', 'Brows', 'Hair', 'Makeup', 'Skincare', 'Pilates', 'Other'];
+const TIME_SLOTS = ['09:00', '09:30', '10:00', '10:30', '11:00', '13:00', '14:00', '15:30', '16:00', '17:00'];
+const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const BOOKING_DRAFT_STORAGE_PREFIX = 'meraki:booking:draft:';
+
+const getStartOfToday = () => {
+  const today = new Date();
+  return new Date(today.getFullYear(), today.getMonth(), today.getDate());
+};
+
+const toDateKey = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const getDateFromKey = (dateKey: string) => {
+  if (!DATE_KEY_PATTERN.test(dateKey)) return null;
+  const [year, month, day] = dateKey.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
+  return date;
+};
+
+const isSelectableDateKey = (dateKey: string) => {
+  const date = getDateFromKey(dateKey);
+  return Boolean(date && date >= getStartOfToday());
+};
+
+const getAppointmentDateTime = (dateKey: string, time: string) => {
+  if (!isSelectableDateKey(dateKey) || !TIME_SLOTS.includes(time)) return null;
+  const date = getDateFromKey(dateKey);
+  if (!date) return null;
+  const [hours, minutes] = time.split(':').map(Number);
+  date.setHours(hours, minutes, 0, 0);
+  if (Number.isNaN(date.getTime()) || date.getTime() <= Date.now()) return null;
+  return date;
+};
+
+const buildCalendarWeeks = (month: Date) => {
+  const firstDay = new Date(month.getFullYear(), month.getMonth(), 1);
+  const startDay = new Date(firstDay);
+  startDay.setDate(firstDay.getDate() - firstDay.getDay());
+
+  return Array.from({ length: 6 }, (_, weekIndex) =>
+    Array.from({ length: 7 }, (_, dayIndex) => {
+      const date = new Date(startDay);
+      date.setDate(startDay.getDate() + weekIndex * 7 + dayIndex);
+      return date;
+    })
+  );
+};
+
+const formatDateLabel = (dateKey: string) => {
+  const date = getDateFromKey(dateKey);
+  if (!date) return dateKey;
+  return date.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+};
+
+const parseBookingDraft = (value: string | null) => {
+  if (!value) return null;
+  try {
+    const draft = JSON.parse(value) as Partial<BookingDraft>;
+    return {
+      step: typeof draft.step === 'number' && draft.step >= 1 && draft.step <= 4 ? draft.step : 1,
+      selectedServiceId: typeof draft.selectedServiceId === 'string' ? draft.selectedServiceId : null,
+      selectedMasterId: typeof draft.selectedMasterId === 'string' ? draft.selectedMasterId : null,
+      selectedPilatesSessionId: typeof draft.selectedPilatesSessionId === 'string' ? draft.selectedPilatesSessionId : null,
+      selectedDate: typeof draft.selectedDate === 'string' && DATE_KEY_PATTERN.test(draft.selectedDate) ? draft.selectedDate : '',
+      selectedTime: typeof draft.selectedTime === 'string' && TIME_SLOTS.includes(draft.selectedTime) ? draft.selectedTime : '',
+      calendarMonth: typeof draft.calendarMonth === 'string' && DATE_KEY_PATTERN.test(draft.calendarMonth) ? draft.calendarMonth : '',
+      selectedCategory: typeof draft.selectedCategory === 'string' ? draft.selectedCategory : 'All',
+      searchQuery: typeof draft.searchQuery === 'string' ? draft.searchQuery : '',
+      isMasterPreselected: draft.isMasterPreselected === true,
+    };
+  } catch {
+    return null;
+  }
+};
 
 export default function BookingPage() {
   const { user, profile } = useAuth();
   const router = useRouter();
   const supabase = createClient();
+  const draftStorageKey = user?.id ? `${BOOKING_DRAFT_STORAGE_PREFIX}${user.id}` : null;
+  const initialBookingDraft = useMemo(() => {
+    if (!draftStorageKey || typeof window === 'undefined') return null;
+    return parseBookingDraft(sessionStorage.getItem(draftStorageKey));
+  }, [draftStorageKey]);
 
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(() => initialBookingDraft?.step ?? 1);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [searchQuery, setSearchQuery] = useState(() => initialBookingDraft?.searchQuery ?? '');
+  const [selectedCategory, setSelectedCategory] = useState(() => initialBookingDraft?.selectedCategory ?? 'All');
 
   // Data
   const [services, setServices] = useState<Service[]>([]);
   const [masters, setMasters] = useState<Master[]>([]);
   
   // Selections
-  const [selectedService, setSelectedService] = useState<Service | null>(null);
-  const [selectedMaster, setSelectedMaster] = useState<Master | null>(null);
-  const [selectedDate, setSelectedDate] = useState<string>('');
-  const [selectedTime, setSelectedTime] = useState<string>('');
-  const [isMasterPreselected, setIsMasterPreselected] = useState(false);
+  const [selectedServiceId, setSelectedServiceId] = useState<string | null>(() => initialBookingDraft?.selectedServiceId ?? null);
+  const [selectedMasterId, setSelectedMasterId] = useState<string | null>(() => initialBookingDraft?.selectedMasterId ?? null);
+  const [selectedPilatesSessionId, setSelectedPilatesSessionId] = useState<string | null>(() => initialBookingDraft?.selectedPilatesSessionId ?? null);
+  const [selectedDate, setSelectedDate] = useState<string>(() => initialBookingDraft?.selectedDate ?? '');
+  const [selectedTime, setSelectedTime] = useState<string>(() => initialBookingDraft?.selectedTime ?? '');
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const restoredCalendarMonth = initialBookingDraft?.calendarMonth ? getDateFromKey(initialBookingDraft.calendarMonth) : null;
+    if (restoredCalendarMonth) {
+      return new Date(restoredCalendarMonth.getFullYear(), restoredCalendarMonth.getMonth(), 1);
+    }
+    const today = getStartOfToday();
+    return new Date(today.getFullYear(), today.getMonth(), 1);
+  });
+  const [isMasterPreselected, setIsMasterPreselected] = useState(() => initialBookingDraft?.isMasterPreselected ?? false);
   const [pilatesSettings, setPilatesSettings] = useState<PilatesSettings | null>(null);
   const [pilatesSessions, setPilatesSessions] = useState<PilatesSession[]>([]);
-  const [selectedPilatesSession, setSelectedPilatesSession] = useState<PilatesSession | null>(null);
   const [loadingPilatesSessions, setLoadingPilatesSessions] = useState(false);
+  const selectedService = useMemo(
+    () => services.find((service) => service.id === selectedServiceId) ?? null,
+    [selectedServiceId, services]
+  );
+  const selectedMaster = useMemo(
+    () => masters.find((master) => master.id === selectedMasterId) ?? null,
+    [selectedMasterId, masters]
+  );
+  const selectedPilatesSession = useMemo(
+    () => pilatesSessions.find((session) => session.id === selectedPilatesSessionId) ?? null,
+    [pilatesSessions, selectedPilatesSessionId]
+  );
+
+  useEffect(() => {
+    if (!draftStorageKey) return;
+
+    if (step === 5) {
+      sessionStorage.removeItem(draftStorageKey);
+      return;
+    }
+
+    const draft: BookingDraft = {
+      step,
+      selectedServiceId,
+      selectedMasterId,
+      selectedPilatesSessionId,
+      selectedDate,
+      selectedTime,
+      calendarMonth: toDateKey(calendarMonth),
+      selectedCategory,
+      searchQuery,
+      isMasterPreselected,
+    };
+
+    sessionStorage.setItem(draftStorageKey, JSON.stringify(draft));
+  }, [calendarMonth, draftStorageKey, isMasterPreselected, searchQuery, selectedCategory, selectedDate, selectedMasterId, selectedPilatesSessionId, selectedServiceId, selectedTime, step]);
 
   // Fetch initial data
   useEffect(() => {
@@ -216,17 +368,17 @@ export default function BookingPage() {
           supabase.from('profiles').select('id, full_name, avatar_url, specialties, city').eq('is_master', true).limit(20),
         ]);
         setServices((servicesRes.data as unknown as Service[]) || []);
-        const loadedMasters = (mastersRes.data as unknown as Master[]) || [];
+        const loadedMasters = ((mastersRes.data as unknown as Master[]) || []).filter((master) => master.id !== user?.id);
         setMasters(loadedMasters);
 
         // Check for masterId parameter in the URL
         if (typeof window !== 'undefined') {
           const params = new URLSearchParams(window.location.search);
           const masterIdUrl = params.get('masterId');
-          if (masterIdUrl) {
+          if (masterIdUrl && masterIdUrl !== user?.id) {
             const preSelected = loadedMasters.find(m => m.id === masterIdUrl);
             if (preSelected) {
-              setSelectedMaster(preSelected);
+              setSelectedMasterId(preSelected.id);
               setIsMasterPreselected(true);
             }
           }
@@ -238,7 +390,7 @@ export default function BookingPage() {
       }
     };
     fetchData();
-  }, [supabase]);
+  }, [supabase, user?.id]);
 
   useEffect(() => {
     const fetchPilatesSettings = async () => {
@@ -263,7 +415,7 @@ export default function BookingPage() {
     const fetchPilatesSessions = async () => {
       if (selectedService?.category !== 'Pilates') {
         setPilatesSessions([]);
-        setSelectedPilatesSession(null);
+        setSelectedPilatesSessionId(null);
         return;
       }
 
@@ -285,7 +437,10 @@ export default function BookingPage() {
           .eq('status', 'scheduled')
           .order('starts_at');
         if (error) throw error;
-        setPilatesSessions((data as unknown as PilatesSession[]) || []);
+        setPilatesSessions(((data as unknown as PilatesSession[]) || []).filter((session) => {
+          const hostId = session.host?.profile_id || session.owner_id;
+          return hostId !== user?.id;
+        }));
       } catch (err) {
         console.error('Error loading Pilates sessions:', err);
       } finally {
@@ -294,10 +449,52 @@ export default function BookingPage() {
     };
 
     fetchPilatesSessions();
-  }, [selectedService?.id, selectedService?.category, supabase]);
+  }, [selectedService?.id, selectedService?.category, supabase, user?.id]);
 
   // Time slots generator (mock available times for demo)
-  const timeSlots = ['09:00', '09:30', '10:00', '10:30', '11:00', '13:00', '14:00', '15:30', '16:00', '17:00'];
+  const timeSlots = TIME_SLOTS;
+  const isPilatesService = selectedService?.category === 'Pilates';
+  const today = getStartOfToday();
+  const minimumCalendarMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  const calendarWeeks = buildCalendarWeeks(calendarMonth);
+  const canViewPreviousMonth = calendarMonth.getTime() > minimumCalendarMonth.getTime();
+  const selectedDateLabel = selectedDate ? formatDateLabel(selectedDate) : 'Choose a day';
+  const selectedHostId = selectedPilatesSession?.host?.profile_id || selectedPilatesSession?.owner_id || selectedMaster?.id;
+  const isSelfBooking = Boolean(user?.id && selectedHostId === user.id);
+  const dateTimeValidationMessage = isSelfBooking
+    ? 'You cannot book an appointment with yourself.'
+    : isPilatesService
+    ? (!selectedPilatesSession ? 'Choose one available Pilates class.' : '')
+    : !selectedDate
+      ? 'Pick a date from the calendar to unlock available times.'
+      : !isSelectableDateKey(selectedDate)
+        ? 'Please choose today or a future date from the calendar.'
+        : !selectedTime
+          ? 'Choose an available time for this date.'
+          : !getAppointmentDateTime(selectedDate, selectedTime)
+            ? 'This date and time is no longer available. Pick another slot.'
+            : '';
+  const canContinueToConfirmation = isPilatesService ? Boolean(selectedPilatesSession) && !dateTimeValidationMessage : !dateTimeValidationMessage;
+
+  const changeCalendarMonth = (monthOffset: number) => {
+    setCalendarMonth((currentMonth) => {
+      const nextMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + monthOffset, 1);
+      return nextMonth < minimumCalendarMonth ? minimumCalendarMonth : nextMonth;
+    });
+  };
+
+  const selectDateFromCalendar = (dateKey: string) => {
+    if (!isSelectableDateKey(dateKey)) return;
+    setSelectedDate(dateKey);
+    setSelectedTime('');
+  };
+
+  const isTimeSlotDisabled = (time: string) => !selectedDate || !getAppointmentDateTime(selectedDate, time);
+
+  const handleContinueToConfirmation = () => {
+    if (!canContinueToConfirmation) return;
+    setStep(4);
+  };
 
   const normalizedSearchQuery = searchQuery.toLowerCase();
   const filteredServices = services.filter((service) => {
@@ -312,8 +509,8 @@ export default function BookingPage() {
   const getSpotsLeft = (session: PilatesSession) => Math.max(0, session.capacity - getBookedCount(session));
   const selectPilatesSession = (session: PilatesSession) => {
     const startsAt = new Date(session.starts_at);
-    setSelectedPilatesSession(session);
-    setSelectedDate(startsAt.toISOString().slice(0, 10));
+    setSelectedPilatesSessionId(session.id);
+    setSelectedDate(toDateKey(startsAt));
     setSelectedTime(startsAt.toTimeString().slice(0, 5));
   };
   const groupedPilatesSessions = pilatesSessions.reduce<Record<string, PilatesSession[]>>((acc, session) => {
@@ -434,12 +631,12 @@ export default function BookingPage() {
                 <div
                   key={service.id}
                   onClick={() => {
-                    setSelectedService(service);
-                    setSelectedPilatesSession(null);
+                    setSelectedServiceId(service.id);
+                    setSelectedPilatesSessionId(null);
                     setSelectedDate('');
                     setSelectedTime('');
                     if (service.category === 'Pilates') {
-                      setSelectedMaster(null);
+                      setSelectedMasterId(null);
                       setStep(3);
                     } else {
                       setStep(isMasterPreselected ? 3 : 2);
@@ -502,7 +699,7 @@ export default function BookingPage() {
             {masters.map((master) => (
               <div
                 key={master.id}
-                onClick={() => { setSelectedMaster(master); setStep(3); }}
+                onClick={() => { setSelectedMasterId(master.id); setStep(3); }}
                 className="glass-card p-5 hover:shadow-xl hover:border-violet-500/30 transition-all duration-300 cursor-pointer group flex items-center gap-5"
               >
                 <div className="w-16 h-16 rounded-full overflow-hidden bg-[var(--color-surface-light)] border-2 border-white shadow-md flex-shrink-0">
@@ -582,49 +779,165 @@ export default function BookingPage() {
               )}
             </div>
           ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="glass-card p-6">
-              <h3 className="font-bold text-lg mb-4 flex items-center gap-2"><Calendar size={18} className="text-pink-500" /> Pick a Date</h3>
-              <input 
-                type="date" 
-                className="w-full input-glass p-4 text-lg cursor-pointer"
-                min={new Date().toISOString().split('T')[0]}
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-              />
-            </div>
+            <div className="grid grid-cols-1 md:grid-cols-[1.08fr_0.92fr] gap-8">
+              <div className="glass-card p-6 overflow-hidden relative">
+                <div className="absolute -top-16 -right-16 w-40 h-40 bg-pink-300/20 rounded-full blur-3xl" />
+                <div className="relative z-10">
+                  <div className="flex items-start justify-between gap-4 mb-5">
+                    <div>
+                      <h3 className="font-bold text-lg flex items-center gap-2">
+                        <Calendar size={18} className="text-pink-500" /> Pick a Date
+                      </h3>
+                      <p className="text-sm text-[var(--color-text-muted)] mt-1">Select a day from the calendar only.</p>
+                    </div>
+                    <div className="rounded-2xl bg-white/70 border border-white px-4 py-2 text-right shadow-sm">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-pink-500">Selected</p>
+                      <p className="text-sm font-bold text-[var(--color-text-primary)]">{selectedDateLabel}</p>
+                    </div>
+                  </div>
 
-            <div className="glass-card p-6">
-              <h3 className="font-bold text-lg mb-4 flex items-center gap-2"><Clock size={18} className="text-violet-500" /> Available Times</h3>
-              {selectedDate ? (
-                <div className="grid grid-cols-3 gap-3">
-                  {timeSlots.map((time) => (
-                    <button
-                      key={time}
-                      onClick={() => setSelectedTime(time)}
-                      className={`py-3 rounded-xl text-sm font-bold transition-all ${
-                        selectedTime === time 
-                          ? 'bg-gradient-to-br from-pink-500 to-violet-600 text-white shadow-md scale-105'
-                          : 'bg-[var(--color-surface-light)] text-[var(--color-text-primary)] hover:bg-[var(--color-border)]'
-                      }`}
-                    >
-                      {time}
-                    </button>
-                  ))}
+                  <div className="rounded-3xl border border-white/70 bg-white/60 p-3 shadow-inner">
+                    <div className="flex items-center justify-between mb-3 px-1">
+                      <button
+                        type="button"
+                        onClick={() => changeCalendarMonth(-1)}
+                        disabled={!canViewPreviousMonth}
+                        className="w-10 h-10 rounded-full bg-white text-[var(--color-text-secondary)] shadow-sm hover:text-pink-600 hover:shadow-md transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                        aria-label="Previous month"
+                      >
+                        <ChevronLeft size={18} className="mx-auto" />
+                      </button>
+                      <div className="text-center">
+                        <p className="text-lg font-extrabold text-[var(--color-text-primary)]">
+                          {calendarMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
+                        </p>
+                        <p className="text-xs text-[var(--color-text-muted)]">Past dates are blocked</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => changeCalendarMonth(1)}
+                        className="w-10 h-10 rounded-full bg-white text-[var(--color-text-secondary)] shadow-sm hover:text-violet-600 hover:shadow-md transition-all"
+                        aria-label="Next month"
+                      >
+                        <ChevronRight size={18} className="mx-auto" />
+                      </button>
+                    </div>
+
+                    <table className="w-full table-fixed border-separate border-spacing-1">
+                      <thead>
+                        <tr>
+                          {WEEKDAY_LABELS.map((day) => (
+                            <th key={day} className="pb-2 text-center text-[11px] font-extrabold uppercase tracking-wider text-[var(--color-text-muted)]">
+                              {day}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {calendarWeeks.map((week, weekIndex) => (
+                          <tr key={weekIndex}>
+                            {week.map((date) => {
+                              const dateKey = toDateKey(date);
+                              const isCurrentMonth = date.getMonth() === calendarMonth.getMonth();
+                              const isToday = dateKey === toDateKey(today);
+                              const isSelected = selectedDate === dateKey;
+                              const isSelectable = isCurrentMonth && isSelectableDateKey(dateKey);
+
+                              return (
+                                <td key={dateKey} className="p-0.5 align-middle">
+                                  <button
+                                    type="button"
+                                    onClick={() => selectDateFromCalendar(dateKey)}
+                                    disabled={!isSelectable}
+                                    aria-pressed={isSelected}
+                                    className={`relative w-full aspect-square rounded-2xl text-sm font-bold transition-all ${
+                                      isSelected
+                                        ? 'bg-gradient-to-br from-pink-500 to-violet-600 text-white shadow-lg shadow-pink-500/25 scale-105'
+                                        : isSelectable
+                                          ? 'bg-white text-[var(--color-text-primary)] hover:-translate-y-0.5 hover:bg-pink-50 hover:text-pink-600 hover:shadow-md'
+                                          : 'bg-transparent text-gray-300 cursor-not-allowed'
+                                    }`}
+                                  >
+                                    <span>{date.getDate()}</span>
+                                    {isToday && (
+                                      <span className={`absolute bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full ${isSelected ? 'bg-white' : 'bg-pink-500'}`} />
+                                    )}
+                                  </button>
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              ) : (
-                <div className="h-full flex items-center justify-center p-8 border-2 border-dashed border-[var(--color-border)] rounded-xl">
-                  <p className="text-[var(--color-text-muted)] text-center">Please select a date first to see available times.</p>
+              </div>
+
+              <div className="glass-card p-6 overflow-hidden relative">
+                <div className="absolute -bottom-16 -left-16 w-44 h-44 bg-violet-300/20 rounded-full blur-3xl" />
+                <div className="relative z-10">
+                  <div className="flex items-start justify-between gap-4 mb-5">
+                    <div>
+                      <h3 className="font-bold text-lg flex items-center gap-2"><Clock size={18} className="text-violet-500" /> Available Times</h3>
+                      <p className="text-sm text-[var(--color-text-muted)] mt-1">{selectedDate ? selectedDateLabel : 'Pick a date first'}</p>
+                    </div>
+                    {selectedTime && (
+                      <div className="rounded-2xl bg-violet-50 px-4 py-2 text-right shadow-sm">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-violet-500">Time</p>
+                        <p className="text-sm font-bold text-violet-700">{selectedTime}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {selectedDate ? (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {timeSlots.map((time) => {
+                        const isSelected = selectedTime === time;
+                        const isDisabled = isTimeSlotDisabled(time);
+
+                        return (
+                          <button
+                            key={time}
+                            type="button"
+                            onClick={() => {
+                              if (!isDisabled) setSelectedTime(time);
+                            }}
+                            disabled={isDisabled}
+                            className={`py-3.5 rounded-2xl text-sm font-bold transition-all border ${
+                              isSelected
+                                ? 'bg-gradient-to-br from-pink-500 to-violet-600 text-white shadow-lg shadow-violet-500/25 scale-105 border-transparent'
+                                : isDisabled
+                                  ? 'bg-gray-100/60 text-gray-300 border-transparent cursor-not-allowed'
+                                  : 'bg-white/80 text-[var(--color-text-primary)] border-white hover:-translate-y-0.5 hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700 hover:shadow-md'
+                            }`}
+                          >
+                            {time}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="min-h-56 flex items-center justify-center p-8 border-2 border-dashed border-violet-100 bg-white/40 rounded-3xl">
+                      <p className="text-[var(--color-text-muted)] text-center">Choose a day from the calendar to reveal available appointment times.</p>
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
-          </div>
+          )}
+
+          {dateTimeValidationMessage && (
+            <div className="mt-6 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-sm font-semibold text-amber-800 shadow-sm">
+              <AlertCircle size={18} className="mt-0.5 flex-shrink-0" />
+              <span>{dateTimeValidationMessage}</span>
+            </div>
           )}
 
           <div className="mt-8 flex justify-end">
             <button
-              onClick={() => setStep(4)}
-              disabled={selectedService?.category === 'Pilates' ? !selectedPilatesSession : !selectedDate || !selectedTime}
+              onClick={handleContinueToConfirmation}
+              disabled={!canContinueToConfirmation}
               className="btn-primary px-8 py-3 text-lg disabled:opacity-50 disabled:cursor-not-allowed group"
             >
               Continue to Confirmation
@@ -684,7 +997,7 @@ export default function BookingPage() {
                     </div>
                     <div>
                       <p className="text-xs font-bold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Date & Time</p>
-                      <p className="font-bold text-[var(--color-text-primary)]">{selectedDate} at {selectedTime}</p>
+                      <p className="font-bold text-[var(--color-text-primary)]">{selectedDateLabel} at {selectedTime}</p>
                     </div>
                   </div>
                   <p className="font-medium text-[var(--color-text-secondary)]">{selectedService?.duration_minutes} min</p>
@@ -730,7 +1043,7 @@ export default function BookingPage() {
           </div>
           <h2 className="text-3xl font-bold text-[var(--color-text-primary)] mb-4">Booking Confirmed!</h2>
           <p className="text-[var(--color-text-secondary)] mb-8 text-lg">
-            Your appointment with <span className="font-bold text-[var(--color-text-primary)]">{selectedMaster?.full_name}</span> has been confirmed for <span className="font-bold text-[var(--color-text-primary)]">{selectedDate}</span> at <span className="font-bold text-[var(--color-text-primary)]">{selectedTime}</span>.
+            Your appointment with <span className="font-bold text-[var(--color-text-primary)]">{selectedMaster?.full_name}</span> has been confirmed for <span className="font-bold text-[var(--color-text-primary)]">{selectedDateLabel}</span> at <span className="font-bold text-[var(--color-text-primary)]">{selectedTime}</span>.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button onClick={() => router.push('/dashboard/appointments')} className="btn-primary px-8 py-3">

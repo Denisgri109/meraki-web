@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useState, useEffect, useContext, ReactNode, useCallback } from 'react';
+import React, { createContext, useState, useEffect, useContext, ReactNode, useCallback, useRef } from 'react';
 import { Session, User, AuthError } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
 
@@ -93,6 +93,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [sessionError, setSessionError] = useState<AuthError | null>(null);
+  const sessionRef = useRef<Session | null>(null);
+  const userRef = useRef<User | null>(null);
 
   // ── Fetch profile from Supabase ──────────────────────────────────────
   const fetchProfile = useCallback(
@@ -125,6 +127,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const clearAuthState = () => {
       if (!isMounted) return;
+      sessionRef.current = null;
+      userRef.current = null;
       setSession(null);
       setUser(null);
       setProfile(null);
@@ -166,7 +170,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        setSession({ ...verifiedSession, user: verifiedUser });
+        sessionRef.current = { ...verifiedSession, user: verifiedUser };
+        userRef.current = verifiedUser;
+        setSession(sessionRef.current);
         setUser(verifiedUser);
         await fetchProfile(verifiedUser);
       } catch (err) {
@@ -189,6 +195,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       setSessionError(null);
+      sessionRef.current = s;
+      userRef.current = s.user;
       setSession(s);
       setUser(s.user);
 
@@ -206,7 +214,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // causing the JWT to expire. Force a refresh whenever the tab comes back.
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        supabase.auth.getUser().then(async ({ data: { user: refreshedUser }, error }) => {
+        const currentSession = sessionRef.current;
+        if (!currentSession) return;
+
+        supabase.auth.refreshSession(currentSession).then(({ data: { session: refreshedSession }, error }) => {
           if (!isMounted) return;
           if (error) {
             console.warn('[Auth] visibility refresh error:', error.message);
@@ -214,21 +225,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             return;
           }
 
-          if (!refreshedUser) {
-            clearAuthState();
+          if (!refreshedSession?.user) {
             return;
           }
 
-          const { data: { session: refreshedSession } } = await supabase.auth.getSession();
-          if (!isMounted) return;
-
-          if (refreshedSession) {
-            setSession({ ...refreshedSession, user: refreshedUser });
-            setUser(refreshedUser);
-            window.setTimeout(() => {
-              if (isMounted) fetchProfile(refreshedUser);
-            }, 0);
-          }
+          sessionRef.current = refreshedSession;
+          userRef.current = refreshedSession.user;
+          setSessionError(null);
+          setSession(refreshedSession);
+          setUser(refreshedSession.user);
+          window.setTimeout(() => {
+            if (isMounted) fetchProfile(refreshedSession.user);
+          }, 0);
         });
       }
     };
@@ -307,6 +315,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Error signing out:', error);
     }
+    sessionRef.current = null;
+    userRef.current = null;
     setSession(null);
     setUser(null);
     setProfile(null);
