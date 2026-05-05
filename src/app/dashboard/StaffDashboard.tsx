@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNotifications } from '@/contexts/NotificationsContext';
 import { createClient } from '@/lib/supabase/client';
 import {
   Calendar,
@@ -16,9 +17,7 @@ import {
   GraduationCap,
   Gift,
   ChevronRight,
-  Bell,
   BarChart3,
-  Search,
   AlertCircle,
 } from 'lucide-react';
 
@@ -35,7 +34,6 @@ type Stats = {
   todayAppointments: number;
   todayEarnings: number;
   pendingAppointments: number;
-  unreadMessages: number;
   activeServices: number;
   totalClients: number;
   lowStockCount: number;
@@ -62,6 +60,7 @@ const formatCurrency = (amount: number, currency: string | null | undefined) => 
 
 export default function StaffDashboard() {
   const { profile, user, role } = useAuth();
+  const { unreadMessages } = useNotifications();
   const supabase = createClient();
   const isOwner = role === 'owner';
 
@@ -71,7 +70,6 @@ export default function StaffDashboard() {
     todayAppointments: 0,
     todayEarnings: 0,
     pendingAppointments: 0,
-    unreadMessages: 0,
     activeServices: 0,
     totalClients: 0,
     lowStockCount: 0,
@@ -90,7 +88,8 @@ export default function StaffDashboard() {
       todayEnd.setDate(todayEnd.getDate() + 1);
 
       // Owners see all platform data; masters see their own
-      const masterFilter = (q: any) => (isOwner ? q : q.eq('master_id', user.id));
+      const masterFilter = <T extends { eq: (col: string, val: string) => T }>(q: T): T =>
+        isOwner ? q : q.eq('master_id', user.id);
 
       // Today's appointments (for stats)
       const todayQ = masterFilter(
@@ -158,27 +157,6 @@ export default function StaffDashboard() {
         .filter((a) => a.status === 'completed')
         .reduce((sum, a) => sum + (a.price || 0), 0);
 
-      // Unread messages
-      let unreadCount = 0;
-      try {
-        const { data: convs } = await supabase
-          .from('conversations')
-          .select('id')
-          .or(`client_id.eq.${user.id},master_id.eq.${user.id}`);
-        const convIds = ((convs as { id: string }[]) || []).map((c) => c.id);
-        if (convIds.length) {
-          const { count } = await supabase
-            .from('messages')
-            .select('*', { count: 'exact', head: true })
-            .in('conversation_id', convIds)
-            .neq('sender_id', user.id)
-            .eq('is_read', false);
-          unreadCount = count || 0;
-        }
-      } catch (e) {
-        console.warn('[StaffDashboard] messages count skipped:', e);
-      }
-
       // Low-stock products (owner only)
       let lowStockCount = 0;
       if (isOwner) {
@@ -199,7 +177,6 @@ export default function StaffDashboard() {
         todayAppointments: todayList.filter((a) => a.status !== 'completed').length,
         todayEarnings,
         pendingAppointments: pendingCount || 0,
-        unreadMessages: unreadCount,
         activeServices: activeServicesCount,
         totalClients,
         lowStockCount,
@@ -216,9 +193,9 @@ export default function StaffDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, isOwner]);
 
-  useEffect(() => {
-    fetchAll();
-  }, [fetchAll]);
+  // fetchAll is async data fetching; setState within is intentional.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { fetchAll(); }, [fetchAll]);
 
   useEffect(() => {
     const onVis = () => {
@@ -227,6 +204,32 @@ export default function StaffDashboard() {
     document.addEventListener('visibilitychange', onVis);
     return () => document.removeEventListener('visibilitychange', onVis);
   }, [fetchAll]);
+
+  // Realtime: refresh stats whenever appointments / products change
+  useEffect(() => {
+    if (!user) return;
+    const apptChannel = supabase
+      .channel(`staff-dashboard-appts-${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, () => {
+        fetchAll();
+      })
+      .subscribe();
+
+    const productsChannel = isOwner
+      ? supabase
+          .channel(`staff-dashboard-products-${user.id}`)
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => {
+            fetchAll();
+          })
+          .subscribe()
+      : null;
+
+    return () => {
+      supabase.removeChannel(apptChannel);
+      if (productsChannel) supabase.removeChannel(productsChannel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, isOwner]);
 
   const firstName = profile?.full_name?.split(' ')[0] || (isOwner ? 'Owner' : 'Master');
   const currency = (profile?.currency as string | undefined) || 'EUR';
@@ -267,34 +270,6 @@ export default function StaffDashboard() {
             {isOwner ? 'Platform overview & operations' : "Today's schedule overview"}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Link
-            href="/dashboard/discover"
-            className="w-10 h-10 rounded-full bg-white/60 hover:bg-white border border-[var(--color-border-light)] flex items-center justify-center transition-colors"
-            aria-label="Discover"
-          >
-            <Search size={18} className="text-[var(--color-text-secondary)]" />
-          </Link>
-          <Link
-            href="/dashboard/chat"
-            className="relative w-10 h-10 rounded-full bg-white/60 hover:bg-white border border-[var(--color-border-light)] flex items-center justify-center transition-colors"
-            aria-label="Messages"
-          >
-            <MessageSquare size={18} className="text-[var(--color-text-secondary)]" />
-            {stats.unreadMessages > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center border-2 border-white">
-                {stats.unreadMessages > 99 ? '99+' : stats.unreadMessages}
-              </span>
-            )}
-          </Link>
-          <Link
-            href="/dashboard/settings"
-            className="w-10 h-10 rounded-full bg-white/60 hover:bg-white border border-[var(--color-border-light)] flex items-center justify-center transition-colors"
-            aria-label="Settings"
-          >
-            <Bell size={18} className="text-[var(--color-text-secondary)]" />
-          </Link>
-        </div>
       </div>
 
       {dbError && (
@@ -326,9 +301,9 @@ export default function StaffDashboard() {
       </div>
 
       {/* Alerts */}
-      {(stats.unreadMessages > 0 || (isOwner && stats.lowStockCount > 0)) && (
+      {(unreadMessages > 0 || (isOwner && stats.lowStockCount > 0)) && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
-          {stats.unreadMessages > 0 && (
+          {unreadMessages > 0 && (
             <Link
               href="/dashboard/chat"
               className="glass-card p-4 flex items-center justify-between border border-pink-100 hover:shadow-md transition-all bg-gradient-to-r from-pink-50/80 to-rose-50/40"
@@ -339,7 +314,7 @@ export default function StaffDashboard() {
                 </div>
                 <div>
                   <p className="font-semibold text-sm text-[var(--color-text-primary)]">
-                    {stats.unreadMessages} Unread Message{stats.unreadMessages !== 1 ? 's' : ''}
+                    {unreadMessages} Unread Message{unreadMessages !== 1 ? 's' : ''}
                   </p>
                   <p className="text-xs text-[var(--color-text-muted)]">Tap to open inbox</p>
                 </div>

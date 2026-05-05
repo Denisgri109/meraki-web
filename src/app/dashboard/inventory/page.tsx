@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { Package, Search, Plus, AlertTriangle, TrendingDown, Box } from 'lucide-react';
+import { Package, Search, Plus, AlertTriangle, TrendingDown, Box, X } from 'lucide-react';
 import { useToast } from '@/components/Toast';
 
 interface Product {
@@ -13,7 +13,16 @@ interface Product {
   category: string | null;
   is_active: boolean | null;
   image_url: string | null;
+  description?: string | null;
 }
+
+type EditDraft = {
+  name: string;
+  category: string;
+  retail_price: string;
+  stock_count: string;
+  is_active: boolean;
+};
 
 const formatMoney = (value: number | string | null | undefined) => {
   const amount = Number(value);
@@ -28,6 +37,84 @@ export default function InventoryPage() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const { showToast } = useToast();
+  const [editing, setEditing] = useState<Product | null>(null);
+  const [draft, setDraft] = useState<EditDraft | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const openEdit = (p: Product) => {
+    setEditing(p);
+    setDraft({
+      name: p.name || '',
+      category: p.category || '',
+      retail_price: p.retail_price == null ? '' : String(p.retail_price),
+      stock_count: p.stock_count == null ? '' : String(p.stock_count),
+      is_active: !!p.is_active,
+    });
+  };
+
+  const closeEdit = () => {
+    setEditing(null);
+    setDraft(null);
+  };
+
+  const saveEdit = async () => {
+    if (!editing || !draft) return;
+    const priceNum = Number(draft.retail_price);
+    const stockNum = Number(draft.stock_count);
+    if (!draft.name.trim()) {
+      showToast('Name is required', 'error');
+      return;
+    }
+    if (!Number.isFinite(priceNum) || priceNum < 0) {
+      showToast('Invalid price', 'error');
+      return;
+    }
+    if (!Number.isFinite(stockNum) || stockNum < 0 || !Number.isInteger(stockNum)) {
+      showToast('Stock must be a non-negative integer', 'error');
+      return;
+    }
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from('products')
+        .update({
+          name: draft.name.trim(),
+          category: draft.category.trim() || null,
+          retail_price: priceNum,
+          stock_count: stockNum,
+          is_active: draft.is_active,
+        })
+        .eq('id', editing.id);
+      if (error) throw error;
+      setProducts((prev) => prev.map((p) => p.id === editing.id ? {
+        ...p,
+        name: draft.name.trim(),
+        category: draft.category.trim() || null,
+        retail_price: priceNum,
+        stock_count: stockNum,
+        is_active: draft.is_active,
+      } : p));
+      showToast('Product updated', 'success');
+      closeEdit();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to update product';
+      showToast(msg, 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleActive = async (p: Product, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const next = !p.is_active;
+    const { error } = await supabase.from('products').update({ is_active: next }).eq('id', p.id);
+    if (error) {
+      showToast(error.message, 'error');
+      return;
+    }
+    setProducts((prev) => prev.map((x) => x.id === p.id ? { ...x, is_active: next } : x));
+    showToast(next ? 'Product enabled' : 'Product disabled', 'success');
+  };
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -138,7 +225,7 @@ export default function InventoryPage() {
           {filtered.map((product) => {
             const stockCount = getStockCount(product);
             return (
-              <div key={product.id} className="grid grid-cols-12 gap-4 px-5 py-4 border-b border-[var(--color-border-light)] hover:bg-[var(--color-surface-light)]/50 transition-colors items-center cursor-pointer">
+              <div key={product.id} onClick={() => openEdit(product)} className="grid grid-cols-12 gap-4 px-5 py-4 border-b border-[var(--color-border-light)] hover:bg-[var(--color-surface-light)]/50 transition-colors items-center cursor-pointer">
                 <div className="col-span-5 flex items-center gap-3">
                   <div className="w-10 h-10 rounded-[var(--radius-md)] bg-[var(--color-brand-pink-light)] flex items-center justify-center shrink-0">
                     <Package size={16} className="text-[var(--color-brand-pink-dark)]" />
@@ -153,11 +240,69 @@ export default function InventoryPage() {
                   </span>
                 </div>
                 <div className="col-span-1 text-right">
-                  <span className={`inline-block w-2 h-2 rounded-full ${product.is_active ? 'bg-emerald-500' : 'bg-[var(--color-text-muted)]'}`} />
+                  <button
+                    onClick={(e) => toggleActive(product, e)}
+                    title={product.is_active ? 'Disable product' : 'Enable product'}
+                    className={`relative inline-flex w-9 h-5 rounded-full transition-colors cursor-pointer ${product.is_active ? 'bg-emerald-500' : 'bg-[var(--color-text-muted)]/40'}`}
+                  >
+                    <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${product.is_active ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                  </button>
                 </div>
               </div>
             );
           })}
+        </div>
+      )}
+
+      {editing && draft && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={closeEdit}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 animate-fade-in" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-xl font-semibold text-[var(--color-text-primary)]">Edit Product</h2>
+              <button onClick={closeEdit} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[var(--color-surface-light)] cursor-pointer">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Name</label>
+                <input className="input-glass" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Category</label>
+                <input className="input-glass" value={draft.category} onChange={(e) => setDraft({ ...draft, category: e.target.value })} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Price</label>
+                  <input type="number" min="0" step="0.01" className="input-glass" value={draft.retail_price} onChange={(e) => setDraft({ ...draft, retail_price: e.target.value })} />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Stock</label>
+                  <input type="number" min="0" step="1" className="input-glass" value={draft.stock_count} onChange={(e) => setDraft({ ...draft, stock_count: e.target.value })} />
+                </div>
+              </div>
+              <label className="flex items-center justify-between p-3 rounded-xl bg-[var(--color-surface-light)] cursor-pointer">
+                <div>
+                  <p className="text-sm font-medium text-[var(--color-text-primary)]">Active</p>
+                  <p className="text-xs text-[var(--color-text-muted)]">Visible to customers in the shop</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setDraft({ ...draft, is_active: !draft.is_active })}
+                  className={`relative inline-flex w-11 h-6 rounded-full transition-colors cursor-pointer ${draft.is_active ? 'bg-emerald-500' : 'bg-[var(--color-text-muted)]/40'}`}
+                >
+                  <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${draft.is_active ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                </button>
+              </label>
+            </div>
+            <div className="flex items-center justify-end gap-2 mt-6">
+              <button onClick={closeEdit} className="px-4 py-2 rounded-full text-sm font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-light)] cursor-pointer">Cancel</button>
+              <button onClick={saveEdit} disabled={saving} className="btn-primary px-5 py-2 text-sm cursor-pointer disabled:opacity-50">
+                {saving ? 'Saving…' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

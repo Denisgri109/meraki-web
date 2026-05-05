@@ -3694,6 +3694,10 @@ export type Database = {
         Returns: Json
       }
       regenerate_qr_token: { Args: { p_owner_id: string }; Returns: string }
+      mark_conversation_read: {
+        Args: { p_conversation_id: string }
+        Returns: number
+      }
       scan_loyalty_qr: {
         Args: { p_client_id: string; p_token: string }
         Returns: Json

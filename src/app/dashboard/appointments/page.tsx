@@ -47,16 +47,25 @@ export default function AppointmentsPage() {
     const fetchAppointments = async () => {
       setLoading(true);
       try {
-        const col = role === 'master' ? 'master_id' : 'client_id';
-        const { data, error } = await supabase
+        let query = supabase
           .from('appointments')
           .select(`
             id, start_time, end_time, status, notes,
             service:services(name, base_price),
             master:profiles!appointments_master_id_fkey(full_name, specialties),
             client:profiles!appointments_client_id_fkey(full_name)
-          `)
-          .eq(col, user.id)
+          `);
+
+        // Owners see every appointment in the salon (matches the owner home dashboard).
+        // Masters see appointments where they are the professional.
+        // Clients see appointments where they are the booked customer.
+        if (role === 'master') {
+          query = query.eq('master_id', user.id);
+        } else if (role !== 'owner') {
+          query = query.eq('client_id', user.id);
+        }
+
+        const { data, error } = await query
           .order('start_time', { ascending: false })
           .limit(50);
 

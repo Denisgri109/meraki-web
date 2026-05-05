@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNotifications } from '@/contexts/NotificationsContext';
 import { createClient } from '@/lib/supabase/client';
 import { MessageSquare, Send, Search, Smile, MoreVertical, Reply, Edit2, Trash2, X, Check, Paperclip, Loader2 } from 'lucide-react';
 import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
@@ -36,6 +37,7 @@ interface Message {
 
 export default function ChatPage() {
   const { user } = useAuth();
+  const { refresh: refreshNotifications } = useNotifications();
   const supabase = createClient();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversation, setActiveConversation] = useState<string | null>(null);
@@ -68,6 +70,8 @@ export default function ChatPage() {
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
         const newMsg = payload.new as any;
         
+        const isMine = newMsg.sender_id === user.id;
+
         // Append to chat if the active conversation matches
         if (newMsg.conversation_id === activeConversationRef.current) {
           setMessages((prev) => {
@@ -79,6 +83,16 @@ export default function ChatPage() {
               chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
             }
           }, 100);
+
+          // The user is reading this conversation right now, so flag the
+          // newly-arrived message as read so the navbar badge stays accurate.
+          // RLS blocks recipients from a direct UPDATE, so we route through
+          // the SECURITY DEFINER RPC that re-marks the whole conversation.
+          if (!isMine && !newMsg.is_read) {
+            supabase
+              .rpc('mark_conversation_read', { p_conversation_id: newMsg.conversation_id })
+              .then(() => refreshNotifications());
+          }
         }
 
         // Update the conversations list sideways menu
@@ -89,7 +103,14 @@ export default function ChatPage() {
               if (!displayMsg && newMsg.media_type) {
                 displayMsg = newMsg.media_type === 'video' ? '🎥 Video' : '📷 Image';
               }
-              return { ...c, last_message: displayMsg || null, last_message_at: newMsg.created_at };
+              const isActive = c.id === activeConversationRef.current;
+              const bumpUnread = !isMine && !isActive;
+              return {
+                ...c,
+                last_message: displayMsg || null,
+                last_message_at: newMsg.created_at,
+                unread_count: bumpUnread ? (c.unread_count || 0) + 1 : c.unread_count,
+              };
             }
             return c;
           });
@@ -157,10 +178,18 @@ export default function ChatPage() {
       if (conversationsData.length > 0) {
         const { data } = await supabase
           .from('messages')
-          .select('conversation_id, content, created_at, media_type')
+          .select('conversation_id, content, created_at, media_type, sender_id, is_read')
           .in('conversation_id', conversationsData.map(c => c.id))
           .order('created_at', { ascending: false });
         if (data) messagesData = data;
+      }
+
+      // Per-conversation unread count: messages from others that are not yet read
+      const unreadByConv: Record<string, number> = {};
+      for (const m of messagesData) {
+        if (m.sender_id !== user.id && !m.is_read) {
+          unreadByConv[m.conversation_id] = (unreadByConv[m.conversation_id] || 0) + 1;
+        }
       }
 
       const convos: Conversation[] = conversationsData.map((c: any) => {
@@ -179,7 +208,7 @@ export default function ChatPage() {
           other_name: (profile?.full_name as string) || 'User',
           last_message: displayMsg || null,
           last_message_at: (c.last_message_at as string) || null,
-          unread_count: 0,
+          unread_count: unreadByConv[c.id] || 0,
         };
       });
       setConversations(convos);
@@ -208,7 +237,7 @@ export default function ChatPage() {
   }, [fetchConversations]);
 
   useEffect(() => {
-    if (!activeConversation) return;
+    if (!activeConversation || !user) return;
     const fetchMessages = async () => {
       const { data } = await supabase
         .from('messages')
@@ -227,9 +256,30 @@ export default function ChatPage() {
         }
       }, 100);
     };
+
+    // Mark all unread messages from the other side as read when opening the conversation.
+    // RLS only lets the sender update a message, so we go through a SECURITY DEFINER
+    // RPC that validates participant membership and flips is_read/read_at server-side.
+    const markAsRead = async () => {
+      const { error } = await supabase.rpc('mark_conversation_read', {
+        p_conversation_id: activeConversation,
+      });
+      if (error) {
+        console.warn('[Chat] markAsRead error:', error.message);
+        return;
+      }
+      // Optimistically clear the unread badge for this conversation
+      setConversations((prev) =>
+        prev.map((c) => (c.id === activeConversation ? { ...c, unread_count: 0 } : c)),
+      );
+      // Refresh the navbar badge
+      refreshNotifications();
+    };
+
     fetchMessages();
+    markAsRead();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeConversation]);
+  }, [activeConversation, user]);
 
   // Close menu on click outside
   useEffect(() => {
@@ -382,7 +432,34 @@ export default function ChatPage() {
     return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   };
 
+  // Smart label for the inbox: today => HH:MM, yesterday => "Yesterday",
+  // this week => weekday, otherwise => DD/MM/YY.
+  const formatInboxTime = (dateStr: string) => {
+    const d = new Date(dateStr);
+    const now = new Date();
+    const sameDay = d.toDateString() === now.toDateString();
+    if (sameDay) return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
+    const weekMs = 6 * 24 * 60 * 60 * 1000;
+    if (now.getTime() - d.getTime() < weekMs) return d.toLocaleDateString('en-GB', { weekday: 'short' });
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' });
+  };
+
+  // Day-separator label: Today / Yesterday / DD MMM YYYY
+  const formatDayLabel = (dateStr: string) => {
+    const d = new Date(dateStr);
+    const now = new Date();
+    if (d.toDateString() === now.toDateString()) return 'Today';
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  };
+
   const activeConvo = conversations.find((c) => c.id === activeConversation);
+  const totalUnread = conversations.reduce((sum, c) => sum + (c.unread_count || 0), 0);
 
   return (
     <div className="max-w-6xl mx-auto animate-fade-in h-[calc(100vh-7rem)]">
@@ -392,17 +469,26 @@ export default function ChatPage() {
         <div className="w-80 shrink-0 flex flex-col rounded-2xl overflow-hidden shadow-[var(--shadow-elevated)] border border-[var(--color-border-light)] bg-white/90 backdrop-blur-xl">
           {/* Sidebar header */}
           <div className="px-5 pt-5 pb-4 border-b border-[var(--color-border-light)]">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-semibold text-[var(--color-text-primary)] tracking-tight">Messages</h2>
-              <span className="text-[11px] font-bold text-white bg-gradient-to-r from-[var(--color-brand-pink)] to-[var(--color-secondary)] px-2.5 py-0.5 rounded-full shadow-sm">
-                {conversations.length}
-              </span>
+            <div className="flex items-center justify-between mb-1">
+              <h2 className="text-lg font-bold text-[var(--color-text-primary)] tracking-tight">Messages</h2>
+              {totalUnread > 0 ? (
+                <span className="text-[10px] font-bold text-white bg-gradient-to-r from-[var(--color-brand-pink)] to-[var(--color-secondary)] px-2 py-0.5 rounded-full shadow-sm">
+                  {totalUnread > 99 ? '99+' : totalUnread} new
+                </span>
+              ) : (
+                <span className="text-[10px] font-medium text-[var(--color-text-muted)] bg-[var(--color-surface-light)] px-2 py-0.5 rounded-full">
+                  {conversations.length}
+                </span>
+              )}
             </div>
+            <p className="text-xs text-[var(--color-text-muted)] mb-3">
+              {totalUnread > 0 ? `${totalUnread} unread message${totalUnread === 1 ? '' : 's'}` : 'All caught up'}
+            </p>
             <div className="relative">
               <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
               <input
                 type="text"
-                placeholder="Search..."
+                placeholder="Search conversations..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full bg-[var(--color-surface-light)] rounded-xl pl-9 pr-4 py-2 text-sm outline-none focus:ring-2 focus:ring-[var(--color-brand-pink)]/30 transition-all placeholder:text-[var(--color-text-muted)]"
@@ -437,6 +523,7 @@ export default function ChatPage() {
                 .filter((c) => !search || c.other_name.toLowerCase().includes(search.toLowerCase()))
                 .map((convo) => {
                   const isActive = activeConversation === convo.id;
+                  const hasUnread = (convo.unread_count || 0) > 0 && !isActive;
                   return (
                     <button
                       key={convo.id}
@@ -450,24 +537,40 @@ export default function ChatPage() {
                       {isActive && (
                         <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-8 bg-gradient-to-b from-[var(--color-brand-pink)] to-[var(--color-secondary)] rounded-r-full" />
                       )}
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold text-sm shrink-0 shadow-sm ${
-                        isActive
-                          ? 'bg-gradient-to-br from-[var(--color-brand-pink)] to-[var(--color-secondary)] text-white'
-                          : 'bg-gradient-to-br from-[var(--color-brand-pink-light)] to-[var(--color-lavender)] text-[var(--color-brand-pink-dark)]'
-                      }`}>
-                        {convo.other_name.charAt(0).toUpperCase()}
+                      <div className="relative shrink-0">
+                        <div className={`w-11 h-11 rounded-full flex items-center justify-center font-semibold text-sm shadow-sm ring-1 ring-white ${
+                          isActive
+                            ? 'bg-gradient-to-br from-[var(--color-brand-pink)] to-[var(--color-secondary)] text-white'
+                            : 'bg-gradient-to-br from-[var(--color-brand-pink-light)] to-[var(--color-lavender)] text-[var(--color-brand-pink-dark)]'
+                        }`}>
+                          {convo.other_name.charAt(0).toUpperCase()}
+                        </div>
+                        {hasUnread && (
+                          <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-[var(--color-brand-pink)] border-2 border-white" />
+                        )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className={`text-sm font-medium truncate ${isActive ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-primary)]'}`}>
-                          {convo.other_name}
-                        </p>
-                        <p className="text-xs text-[var(--color-text-muted)] truncate mt-0.5">
-                          {convo.last_message || 'No messages yet'}
-                        </p>
+                        <div className="flex items-baseline justify-between gap-2">
+                          <p className={`text-sm truncate text-[var(--color-text-primary)] ${hasUnread ? 'font-bold' : 'font-medium'}`}>
+                            {convo.other_name}
+                          </p>
+                          {convo.last_message_at && (
+                            <span className={`text-[10px] shrink-0 ${hasUnread ? 'text-[var(--color-brand-pink-dark)] font-semibold' : 'text-[var(--color-text-muted)]'}`}>
+                              {formatInboxTime(convo.last_message_at)}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center justify-between gap-2 mt-0.5">
+                          <p className={`text-xs truncate ${hasUnread ? 'text-[var(--color-text-primary)] font-medium' : 'text-[var(--color-text-muted)]'}`}>
+                            {convo.last_message || 'No messages yet'}
+                          </p>
+                          {hasUnread && (
+                            <span className="text-[10px] font-bold text-white bg-[var(--color-brand-pink)] min-w-[18px] h-[18px] px-1.5 rounded-full flex items-center justify-center shrink-0">
+                              {convo.unread_count > 99 ? '99+' : convo.unread_count}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      {convo.last_message_at && (
-                        <span className="text-[10px] text-[var(--color-text-muted)] shrink-0 self-start mt-0.5">{formatTime(convo.last_message_at)}</span>
-                      )}
                     </button>
                   );
                 })
@@ -490,19 +593,18 @@ export default function ChatPage() {
           ) : (
             <>
               {/* Chat Header */}
-              <div className="h-16 px-5 flex items-center justify-between border-b border-[var(--color-border-light)] bg-white/60 backdrop-blur-sm shrink-0">
+              <div className="h-16 px-5 flex items-center justify-between border-b border-[var(--color-border-light)] bg-white/70 backdrop-blur-sm shrink-0">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[var(--color-brand-pink)] to-[var(--color-secondary)] flex items-center justify-center text-white font-semibold text-sm shadow-sm">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[var(--color-brand-pink)] to-[var(--color-secondary)] flex items-center justify-center text-white font-semibold text-sm shadow-[0_4px_12px_rgba(236,153,182,0.3)] ring-2 ring-white">
                     {activeConvo?.other_name.charAt(0).toUpperCase() || '?'}
                   </div>
                   <div>
-                    <p className="font-semibold text-sm text-[var(--color-text-primary)]">
+                    <p className="font-semibold text-sm text-[var(--color-text-primary)] leading-tight">
                       {activeConvo?.other_name || 'User'}
                     </p>
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
-                      <p className="text-xs text-emerald-500 font-medium">Online</p>
-                    </div>
+                    <p className="text-[11px] text-[var(--color-text-muted)] mt-0.5">
+                      Direct message
+                    </p>
                   </div>
                 </div>
               </div>
@@ -513,11 +615,22 @@ export default function ChatPage() {
                 className="flex-1 overflow-y-auto px-5 py-4 space-y-2.5"
                 style={{ background: 'linear-gradient(180deg, #fafafa 0%, #f6f4f8 100%)' }}
               >
-                {messages.map((msg) => {
+                {messages.map((msg, idx) => {
                   const isMine = msg.sender_id === user?.id;
                   const isEditing = editingMessageId === msg.id;
+                  const prev = idx > 0 ? messages[idx - 1] : null;
+                  const showDaySeparator =
+                    !prev || new Date(prev.created_at).toDateString() !== new Date(msg.created_at).toDateString();
                   return (
-                    <div key={msg.id} className={`flex ${isMine ? 'justify-end' : 'justify-start'} group`}>
+                    <div key={msg.id}>
+                      {showDaySeparator && (
+                        <div className="flex items-center justify-center my-3">
+                          <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)] bg-white/70 backdrop-blur-sm border border-[var(--color-border-light)] px-3 py-1 rounded-full shadow-sm">
+                            {formatDayLabel(msg.created_at)}
+                          </span>
+                        </div>
+                      )}
+                      <div className={`flex ${isMine ? 'justify-end' : 'justify-start'} group`}>
                       <div className={`flex items-end gap-1.5 max-w-[68%] ${isMine ? 'flex-row-reverse' : 'flex-row'}`}>
 
                         {/* Avatar (friend only) */}
@@ -637,6 +750,7 @@ export default function ChatPage() {
                             </>
                           )}
                         </div>
+                      </div>
                       </div>
                     </div>
                   );

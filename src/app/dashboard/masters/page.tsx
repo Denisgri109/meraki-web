@@ -12,7 +12,7 @@ interface Master {
   email: string | null;
   phone: string | null;
   avatar_url: string | null;
-  specialty: string | null;
+  specialties: string[] | null;
   city: string | null;
   is_master: boolean;
   commission_rate: number | null;
@@ -32,7 +32,7 @@ export default function MastersPage() {
     const fetchMasters = async () => {
       const { data } = await supabase
         .from('profiles')
-        .select('id, full_name, email, phone, avatar_url, specialty, city, is_master, commission_rate')
+        .select('id, full_name, email, phone, avatar_url, specialties, city, is_master, commission_rate')
         .eq('is_master', true)
         .order('full_name');
       setMasters((data as unknown as Master[]) || []);
@@ -43,7 +43,7 @@ export default function MastersPage() {
   }, []);
 
   const filtered = masters.filter((m) =>
-    !search || m.full_name?.toLowerCase().includes(search.toLowerCase()) || m.specialty?.toLowerCase().includes(search.toLowerCase())
+    !search || m.full_name?.toLowerCase().includes(search.toLowerCase()) || (m.specialties || []).some((s) => s?.toLowerCase().includes(search.toLowerCase()))
   );
 
   const handleRemoveMaster = async (id: string, name: string | null) => {
@@ -131,7 +131,7 @@ export default function MastersPage() {
                     </span>
                   </div>
                   <div className="flex items-center gap-3 text-xs text-[var(--color-text-muted)]">
-                    <span>{master.specialty || 'No specialty'}</span>
+                    <span>{(master.specialties && master.specialties.length > 0) ? master.specialties.join(', ') : 'No specialty'}</span>
                     {master.city && (
                       <span className="flex items-center gap-0.5"><MapPin size={10} />{master.city}</span>
                     )}

@@ -1,19 +1,20 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
+import { useNotifications, type NotificationItem } from '@/contexts/NotificationsContext';
 import {
   Home, Calendar, Search, ShoppingBag, GraduationCap, Gift,
   MessageSquare, Settings, LogOut, Menu, X, ChevronDown,
-  Scissors, Clock, Users, Package, BarChart3,
-  Bell, ShoppingCart
+  Scissors, Clock, Package, BarChart3,
+  Bell, ShoppingCart, CalendarCheck, Inbox
 } from 'lucide-react';
 
 // ─── Navigation items ─────────────────────────────────────────────
-const mainNav = [
+const clientNav = [
   { href: '/dashboard', label: 'Home', icon: Home },
   { href: '/dashboard/booking', label: 'Book', icon: Calendar },
   { href: '/dashboard/discover', label: 'Discover', icon: Search },
@@ -22,19 +23,46 @@ const mainNav = [
   { href: '/dashboard/loyalty', label: 'Rewards', icon: Gift },
 ];
 
-const masterExtra = [
-  { href: '/dashboard/services', label: 'Services', icon: Scissors },
-  { href: '/dashboard/availability', label: 'Schedule', icon: Clock },
+const ownerNav = [
+  { href: '/dashboard', label: 'Home', icon: Home },
+  { href: '/dashboard/appointments', label: 'Bookings', icon: CalendarCheck },
+  { href: '/dashboard/analytics', label: 'Analytics', icon: BarChart3 },
+  { href: '/dashboard/inventory', label: 'Inventory', icon: Package },
+  { href: '/dashboard/discover', label: 'Discover', icon: Search },
 ];
 
-const ownerExtra = [
-  { href: '/dashboard/analytics', label: 'Analytics', icon: BarChart3 },
-  { href: '/dashboard/masters', label: 'Team', icon: Users },
-  { href: '/dashboard/inventory', label: 'Inventory', icon: Package },
+const masterNav = [
+  { href: '/dashboard', label: 'Home', icon: Home },
+  { href: '/dashboard/appointments', label: 'Bookings', icon: CalendarCheck },
+  { href: '/dashboard/availability', label: 'Schedule', icon: Clock },
+  { href: '/dashboard/services', label: 'Services', icon: Scissors },
+  { href: '/dashboard/discover', label: 'Discover', icon: Search },
 ];
 
 interface MainNavbarProps {
   transparent?: boolean;
+}
+
+function formatRelative(iso: string | null): string {
+  if (!iso) return '';
+  const t = new Date(iso).getTime();
+  if (!t) return '';
+  const diff = Date.now() - t;
+  const sec = Math.max(0, Math.floor(diff / 1000));
+  if (sec < 60) return 'just now';
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  if (d < 7) return `${d}d ago`;
+  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function notificationHref(n: NotificationItem): string {
+  if (n.appointment_id) return '/dashboard/appointments';
+  if (n.type === 'message') return '/dashboard/chat';
+  return '/dashboard/appointments';
 }
 
 export function MainNavbar({ transparent = false }: MainNavbarProps) {
@@ -42,30 +70,45 @@ export function MainNavbar({ transparent = false }: MainNavbarProps) {
   const router = useRouter();
   const { user, profile, role, signOut, loading } = useAuth();
   const { getItemCount } = useCart();
+  const { unreadMessages, notifications, unreadNotifications, markNotificationsSeen } = useNotifications();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const notificationsRef = useRef<HTMLDivElement>(null);
   const cartItemCount = getItemCount();
   const displayName = profile?.full_name || (typeof user?.user_metadata?.full_name === 'string' ? user.user_metadata.full_name : null) || user?.email || 'User';
   const displayEmail = profile?.email || user?.email || '';
   const displayInitial = displayName.charAt(0).toUpperCase();
 
-  // Close dropdown on outside click
+  // Close dropdowns on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setProfileOpen(false);
+      }
+      if (notificationsRef.current && !notificationsRef.current.contains(e.target as Node)) {
+        setNotificationsOpen(false);
       }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const allNav = [
-    ...mainNav,
-    ...(role === 'master' ? masterExtra : []),
-    ...(role === 'owner' ? [...masterExtra, ...ownerExtra] : []),
-  ];
+  const allNav = useMemo(() => {
+    if (role === 'owner') return ownerNav;
+    if (role === 'master') return masterNav;
+    return clientNav;
+  }, [role]);
+
+  const handleNotificationsToggle = () => {
+    setNotificationsOpen((open) => {
+      const next = !open;
+      if (next) markNotificationsSeen();
+      return next;
+    });
+    setProfileOpen(false);
+  };
 
   const handleSignOut = async () => {
     await signOut();
@@ -145,22 +188,79 @@ export function MainNavbar({ transparent = false }: MainNavbarProps) {
               )}
             </Link>
 
-            {/* Chat icon */}
+            {/* Chat icon with unread badge */}
             <Link
               href="/dashboard/chat"
               className="relative w-9 h-9 flex items-center justify-center rounded-full hover:bg-[var(--color-brand-pink-light)] transition-colors text-[var(--color-text-secondary)] hover:text-[var(--color-brand-pink-dark)]"
+              title="Messages"
             >
               <MessageSquare size={18} />
+              {unreadMessages > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-[var(--color-brand-pink-dark)] text-white text-[10px] font-bold flex items-center justify-center">
+                  {unreadMessages > 99 ? '99+' : unreadMessages}
+                </span>
+              )}
             </Link>
 
-            {/* Notifications */}
-            <button
-              onClick={() => router.push('/dashboard/settings')}
-              className="relative w-9 h-9 flex items-center justify-center rounded-full hover:bg-[var(--color-brand-pink-light)] transition-colors text-[var(--color-text-secondary)] hover:text-[var(--color-brand-pink-dark)] cursor-pointer"
-              title="Notifications"
-            >
-              <Bell size={18} />
-            </button>
+            {/* Notifications dropdown */}
+            <div className="relative" ref={notificationsRef}>
+              <button
+                onClick={handleNotificationsToggle}
+                className="relative w-9 h-9 flex items-center justify-center rounded-full hover:bg-[var(--color-brand-pink-light)] transition-colors text-[var(--color-text-secondary)] hover:text-[var(--color-brand-pink-dark)] cursor-pointer"
+                title="Notifications"
+                aria-label="Notifications"
+              >
+                <Bell size={18} />
+                {unreadNotifications > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center border border-white">
+                    {unreadNotifications > 99 ? '99+' : unreadNotifications}
+                  </span>
+                )}
+              </button>
+
+              {notificationsOpen && (
+                <div className="absolute right-0 mt-2 w-80 max-w-[92vw] bg-white rounded-[var(--radius-xl)] shadow-lg border border-[var(--color-border-light)] py-2 animate-fade-in z-50">
+                  <div className="px-4 py-2 border-b border-[var(--color-border-light)] flex items-center justify-between">
+                    <p className="text-sm font-semibold text-[var(--color-text-primary)]">Notifications</p>
+                    <span className="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]">
+                      {notifications.length ? `${notifications.length} recent` : 'all clear'}
+                    </span>
+                  </div>
+                  <div className="max-h-96 overflow-y-auto">
+                    {notifications.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-10 text-center">
+                        <div className="w-10 h-10 rounded-full bg-[var(--color-brand-pink-light)] flex items-center justify-center mb-2">
+                          <Inbox size={18} className="text-[var(--color-brand-pink-dark)]" />
+                        </div>
+                        <p className="text-xs text-[var(--color-text-muted)]">You&apos;re all caught up</p>
+                      </div>
+                    ) : (
+                      notifications.map((n) => (
+                        <Link
+                          key={n.id}
+                          href={notificationHref(n)}
+                          onClick={() => setNotificationsOpen(false)}
+                          className="flex gap-3 px-4 py-3 hover:bg-[var(--color-surface-light)] transition-colors border-b last:border-b-0 border-[var(--color-border-light)]/60"
+                        >
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[var(--color-brand-pink)] to-[var(--color-brand-pink-dark)] flex items-center justify-center shrink-0">
+                            {n.type === 'message' ? (
+                              <MessageSquare size={14} className="text-white" />
+                            ) : (
+                              <Calendar size={14} className="text-white" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-[var(--color-text-primary)] truncate">{n.title}</p>
+                            <p className="text-xs text-[var(--color-text-secondary)] line-clamp-2">{n.body}</p>
+                            <p className="text-[10px] text-[var(--color-text-muted)] mt-1">{formatRelative(n.created_at)}</p>
+                          </div>
+                        </Link>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Profile Dropdown */}
             <div className="relative" ref={dropdownRef}>

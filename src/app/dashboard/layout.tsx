@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { ToastProvider } from '@/components/Toast';
 import { Footer } from '@/components/Footer';
 import { MainNavbar } from '@/components/MainNavbar';
+import { NotificationsProvider } from '@/contexts/NotificationsContext';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -45,13 +46,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="blob-mint top-1/3 -right-32 opacity-25" />
         <div className="blob-coral -bottom-10 right-1/4 opacity-20" />
       </div>
-      <MainNavbar />
+      <NotificationsProvider>
+        <MainNavbar />
 
-      {/* ── Page Content ───────────────────────────────────────────── */}
-      <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <ToastProvider>{children}</ToastProvider>
-      </main>
-      <Footer />
+        {/* ── Page Content ───────────────────────────────────────────── */}
+        <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <ToastProvider>{children}</ToastProvider>
+        </main>
+        <Footer />
+      </NotificationsProvider>
     </div>
   );
 }
