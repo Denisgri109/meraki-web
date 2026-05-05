@@ -17,7 +17,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   }, [loading, router, session]);
 
-  if (loading || !session) {
+  // Only show the full-screen splash on initial load (before any session).
+  // Once a session exists, keep children mounted so transient `loading`
+  // toggles (e.g. tab return / token refresh) don't unmount and reset
+  // in-progress UI such as the booking flow.
+  if (loading && !session) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[var(--color-background)]">
         <div className="text-center animate-fade-in">
@@ -26,6 +30,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       </div>
     );
+  }
+
+  if (!session) {
+    return null;
   }
 
   return (

@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 import { Calendar, ShoppingBag, GraduationCap, Gift, Search, ArrowRight, Sparkles, Star, TrendingUp, Heart } from 'lucide-react';
 import Link from 'next/link';
+import StaffDashboard from './StaffDashboard';
 
 const quickActions = [
   { href: '/dashboard/booking', label: 'Book Now', icon: Calendar, gradient: 'from-pink-400 to-rose-300', img: 'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=400&q=80&auto=format&fit=crop' },
@@ -15,6 +16,17 @@ const quickActions = [
 ];
 
 export default function DashboardPage() {
+  const { role } = useAuth();
+
+  // Owners and masters see a real operations dashboard (matches mobile)
+  if (role === 'owner' || role === 'master') {
+    return <StaffDashboard />;
+  }
+
+  return <ClientHome />;
+}
+
+function ClientHome() {
   const { profile, role, user } = useAuth();
   const supabase = createClient();
   const [stats, setStats] = useState({ bookings: 0, services: 0, appointments: [] as any[] });

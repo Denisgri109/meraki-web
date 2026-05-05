@@ -8,12 +8,19 @@ import { useToast } from '@/components/Toast';
 interface Product {
   id: string;
   name: string;
-  price: number;
-  stock_quantity: number;
+  retail_price: number | string | null;
+  stock_count: number | null;
   category: string | null;
-  is_active: boolean;
+  is_active: boolean | null;
   image_url: string | null;
 }
+
+const formatMoney = (value: number | string | null | undefined) => {
+  const amount = Number(value);
+  return Number.isFinite(amount) ? amount.toFixed(2) : '0.00';
+};
+
+const getStockCount = (product: Product) => product.stock_count ?? 0;
 
 export default function InventoryPage() {
   const supabase = createClient();
@@ -36,8 +43,8 @@ export default function InventoryPage() {
     !search || p.name.toLowerCase().includes(search.toLowerCase())
   );
 
-  const lowStock = products.filter((p) => p.stock_quantity <= 5 && p.stock_quantity > 0);
-  const outOfStock = products.filter((p) => p.stock_quantity === 0);
+  const lowStock = products.filter((p) => getStockCount(p) <= 5 && getStockCount(p) > 0);
+  const outOfStock = products.filter((p) => getStockCount(p) === 0);
 
   return (
     <div className="max-w-5xl mx-auto animate-fade-in">
@@ -128,26 +135,29 @@ export default function InventoryPage() {
           </div>
 
           {/* Rows */}
-          {filtered.map((product) => (
-            <div key={product.id} className="grid grid-cols-12 gap-4 px-5 py-4 border-b border-[var(--color-border-light)] hover:bg-[var(--color-surface-light)]/50 transition-colors items-center cursor-pointer">
-              <div className="col-span-5 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-[var(--radius-md)] bg-[var(--color-brand-pink-light)] flex items-center justify-center shrink-0">
-                  <Package size={16} className="text-[var(--color-brand-pink-dark)]" />
+          {filtered.map((product) => {
+            const stockCount = getStockCount(product);
+            return (
+              <div key={product.id} className="grid grid-cols-12 gap-4 px-5 py-4 border-b border-[var(--color-border-light)] hover:bg-[var(--color-surface-light)]/50 transition-colors items-center cursor-pointer">
+                <div className="col-span-5 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-[var(--radius-md)] bg-[var(--color-brand-pink-light)] flex items-center justify-center shrink-0">
+                    <Package size={16} className="text-[var(--color-brand-pink-dark)]" />
+                  </div>
+                  <span className="font-medium text-sm text-[var(--color-text-primary)] truncate">{product.name}</span>
                 </div>
-                <span className="font-medium text-sm text-[var(--color-text-primary)] truncate">{product.name}</span>
+                <div className="col-span-2 text-sm text-[var(--color-text-muted)]">{product.category || '—'}</div>
+                <div className="col-span-2 text-right text-sm font-medium text-[var(--color-text-primary)]">£{formatMoney(product.retail_price)}</div>
+                <div className="col-span-2 text-right">
+                  <span className={`text-sm font-bold ${stockCount === 0 ? 'text-red-500' : stockCount <= 5 ? 'text-amber-500' : 'text-[var(--color-text-primary)]'}`}>
+                    {stockCount}
+                  </span>
+                </div>
+                <div className="col-span-1 text-right">
+                  <span className={`inline-block w-2 h-2 rounded-full ${product.is_active ? 'bg-emerald-500' : 'bg-[var(--color-text-muted)]'}`} />
+                </div>
               </div>
-              <div className="col-span-2 text-sm text-[var(--color-text-muted)]">{product.category || '—'}</div>
-              <div className="col-span-2 text-right text-sm font-medium text-[var(--color-text-primary)]">£{product.price.toFixed(2)}</div>
-              <div className="col-span-2 text-right">
-                <span className={`text-sm font-bold ${product.stock_quantity === 0 ? 'text-red-500' : product.stock_quantity <= 5 ? 'text-amber-500' : 'text-[var(--color-text-primary)]'}`}>
-                  {product.stock_quantity}
-                </span>
-              </div>
-              <div className="col-span-1 text-right">
-                <span className={`inline-block w-2 h-2 rounded-full ${product.is_active ? 'bg-emerald-500' : 'bg-[var(--color-text-muted)]'}`} />
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

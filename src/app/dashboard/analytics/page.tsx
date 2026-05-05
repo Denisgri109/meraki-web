@@ -1,19 +1,180 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { BarChart3, TrendingUp, Users, Calendar, DollarSign, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
-const stats = [
-  { label: 'Total Revenue', value: '£0.00', change: '+0%', up: true, icon: DollarSign, color: '#22C55E' },
-  { label: 'Bookings', value: '0', change: '+0%', up: true, icon: Calendar, color: '#3B82F6' },
-  { label: 'Active Masters', value: '0', change: '+0%', up: true, icon: Users, color: '#A78BFA' },
-  { label: 'New Clients', value: '0', change: '+0%', up: true, icon: TrendingUp, color: '#E8A0B4' },
-];
+type ActivityItem = { type: string; message: string; time: string };
 
-const recentActivity = [
-  { type: 'info', message: 'Welcome to Merakí Analytics', time: 'Just now' },
-];
+function formatRelative(dateStr: string) {
+  const d = new Date(dateStr).getTime();
+  const diff = Date.now() - d;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
+}
 
 export default function AnalyticsPage() {
+  const supabase = createClient();
+  const { profile } = useAuth();
+  const currency = (profile?.currency as string | undefined) || 'EUR';
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState({
+    totalRevenue: 0,
+    revenueChangePct: 0,
+    bookings: 0,
+    bookingsChangePct: 0,
+    activeMasters: 0,
+    newClients: 0,
+  });
+  const [activity, setActivity] = useState<ActivityItem[]>([]);
+
+  useEffect(() => {
+    const run = async () => {
+      try {
+        const now = new Date();
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+
+        // Completed revenue this month
+        const { data: thisMonthApts } = await supabase
+          .from('appointments')
+          .select('price, created_at, status')
+          .eq('status', 'completed')
+          .gte('start_time', monthStart.toISOString());
+        const totalRevenue = ((thisMonthApts as { price: number | null }[]) || []).reduce(
+          (s, a) => s + (a.price || 0),
+          0,
+        );
+
+        // Completed revenue previous month
+        const { data: prevMonthApts } = await supabase
+          .from('appointments')
+          .select('price')
+          .eq('status', 'completed')
+          .gte('start_time', prevMonthStart.toISOString())
+          .lt('start_time', monthStart.toISOString());
+        const prevRevenue = ((prevMonthApts as { price: number | null }[]) || []).reduce(
+          (s, a) => s + (a.price || 0),
+          0,
+        );
+        const revenueChangePct = prevRevenue ? Math.round(((totalRevenue - prevRevenue) / prevRevenue) * 100) : 0;
+
+        // Bookings this month (any status)
+        const { count: bookings } = await supabase
+          .from('appointments')
+          .select('*', { count: 'exact', head: true })
+          .gte('start_time', monthStart.toISOString());
+        const { count: prevBookings } = await supabase
+          .from('appointments')
+          .select('*', { count: 'exact', head: true })
+          .gte('start_time', prevMonthStart.toISOString())
+          .lt('start_time', monthStart.toISOString());
+        const bookingsChangePct = prevBookings
+          ? Math.round((((bookings || 0) - prevBookings) / prevBookings) * 100)
+          : 0;
+
+        // Active masters
+        const { count: activeMasters } = await supabase
+          .from('profiles')
+          .select('*', { count: 'exact', head: true })
+          .eq('is_master', true);
+
+        // New clients (profiles created this month with role=client)
+        const { count: newClients } = await supabase
+          .from('profiles')
+          .select('*', { count: 'exact', head: true })
+          .eq('role', 'client')
+          .gte('created_at', monthStart.toISOString());
+
+        // Recent activity: latest appointments + recent profile signups
+        const { data: recentApts } = await supabase
+          .from('appointments')
+          .select('id, status, created_at, service:services(name), client:profiles!appointments_client_id_fkey(full_name)')
+          .order('created_at', { ascending: false })
+          .limit(5);
+
+        const acts: ActivityItem[] = ((recentApts as unknown as Array<{
+          id: string;
+          status: string;
+          created_at: string;
+          service: { name: string | null } | null;
+          client: { full_name: string | null } | null;
+        }>) || []).map((a) => ({
+          type: a.status,
+          message: `${a.client?.full_name || 'Client'} · ${a.service?.name || 'Service'} (${a.status})`,
+          time: formatRelative(a.created_at),
+        }));
+
+        setData({
+          totalRevenue,
+          revenueChangePct,
+          bookings: bookings || 0,
+          bookingsChangePct,
+          activeMasters: activeMasters || 0,
+          newClients: newClients || 0,
+        });
+        setActivity(acts.length ? acts : [{ type: 'info', message: 'No recent activity yet', time: '' }]);
+      } catch (err) {
+        console.error('[Analytics] fetch error:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const fmtMoney = (n: number) => {
+    try {
+      return new Intl.NumberFormat(undefined, { style: 'currency', currency, maximumFractionDigits: 0 }).format(n);
+    } catch {
+      return `${currency} ${Math.round(n)}`;
+    }
+  };
+
+  const stats = [
+    {
+      label: 'Total Revenue',
+      value: loading ? '—' : fmtMoney(data.totalRevenue),
+      change: `${data.revenueChangePct >= 0 ? '+' : ''}${data.revenueChangePct}%`,
+      up: data.revenueChangePct >= 0,
+      icon: DollarSign,
+      color: '#22C55E',
+    },
+    {
+      label: 'Bookings',
+      value: loading ? '—' : `${data.bookings}`,
+      change: `${data.bookingsChangePct >= 0 ? '+' : ''}${data.bookingsChangePct}%`,
+      up: data.bookingsChangePct >= 0,
+      icon: Calendar,
+      color: '#3B82F6',
+    },
+    {
+      label: 'Active Masters',
+      value: loading ? '—' : `${data.activeMasters}`,
+      change: '',
+      up: true,
+      icon: Users,
+      color: '#A78BFA',
+    },
+    {
+      label: 'New Clients',
+      value: loading ? '—' : `${data.newClients}`,
+      change: '',
+      up: true,
+      icon: TrendingUp,
+      color: '#E8A0B4',
+    },
+  ];
+
+  const recentActivity = activity;
+
   return (
     <div className="max-w-6xl mx-auto animate-fade-in">
       <div className="mb-8">

@@ -195,8 +195,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       setSessionError(null);
+      const isSameUser = userRef.current?.id === s.user.id;
       sessionRef.current = s;
       userRef.current = s.user;
+
+      // Same-user token refresh / cross-tab sync: keep refs current but
+      // do NOT touch React state. Setting state here would unmount the
+      // dashboard subtree (loading spinner) and wipe page progress when
+      // the user alt-tabs back into the site.
+      if (isSameUser && (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN' || event === 'USER_UPDATED')) {
+        return;
+      }
+
       setSession(s);
       setUser(s.user);
 
@@ -216,6 +226,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (document.visibilityState === 'visible') {
         const currentSession = sessionRef.current;
         if (!currentSession) return;
+        const expiresAt = currentSession.expires_at ? currentSession.expires_at * 1000 : 0;
+        if (expiresAt && expiresAt - Date.now() > 60 * 1000) return;
 
         supabase.auth.refreshSession(currentSession).then(({ data: { session: refreshedSession }, error }) => {
           if (!isMounted) return;
@@ -229,9 +241,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             return;
           }
 
+          const isSameUser = userRef.current?.id === refreshedSession.user.id;
           sessionRef.current = refreshedSession;
           userRef.current = refreshedSession.user;
           setSessionError(null);
+          if (isSameUser) {
+            return;
+          }
           setSession(refreshedSession);
           setUser(refreshedSession.user);
           window.setTimeout(() => {

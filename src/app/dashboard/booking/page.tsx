@@ -178,6 +178,7 @@ interface Service {
   duration_minutes: number;
   category: string | null;
   image_url: string | null;
+  created_by: string | null;
 }
 
 interface Master {
@@ -367,7 +368,8 @@ export default function BookingPage() {
           supabase.from('services').select('*').eq('is_active', true).limit(30),
           supabase.from('profiles').select('id, full_name, avatar_url, specialties, city').eq('is_master', true).limit(20),
         ]);
-        setServices((servicesRes.data as unknown as Service[]) || []);
+        const loadedServices = ((servicesRes.data as unknown as Service[]) || []);
+        setServices(loadedServices);
         const loadedMasters = ((mastersRes.data as unknown as Master[]) || []).filter((master) => master.id !== user?.id);
         setMasters(loadedMasters);
 
@@ -503,7 +505,7 @@ export default function BookingPage() {
     return matchesCategory && matchesSearch;
   });
   const visibleCategories = SERVICE_CATEGORIES.filter((category) => {
-    return category === 'All' || category === 'Pilates' || services.some((service) => service.category === category);
+    return category === 'All' || services.some((service) => service.category === category);
   });
   const getBookedCount = (session: PilatesSession) => session.pilates_session_bookings?.filter((booking) => booking.status === 'booked').length || 0;
   const getSpotsLeft = (session: PilatesSession) => Math.max(0, session.capacity - getBookedCount(session));
