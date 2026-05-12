@@ -3,6 +3,7 @@
 import React, { createContext, useState, useEffect, useContext, ReactNode, useCallback, useRef } from 'react';
 import { Session, User, AuthError } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
+import { Database } from '@/types/database';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 export type UserRole = 'client' | 'master' | 'owner';
@@ -341,8 +342,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const updateProfile = async (updates: Partial<Profile>) => {
     if (!user) return { error: new Error('No user logged in') };
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await supabase.from('profiles').update(updates as any).eq('id', user.id);
+      const { error } = await supabase.from('profiles').update(updates as Database['public']['Tables']['profiles']['Update']).eq('id', user.id);
       if (error) throw error;
       await fetchProfile(user);
       return { error: null };
