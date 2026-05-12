@@ -67,35 +67,11 @@ export default function ChatPage() {
     if (!user) return;
     
     const channel = supabase.channel('realtime_messages')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
-        const newMsg = payload.new as any;
-        
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, async (payload) => {
+        const newMsg = payload.new as Message & { conversation_id: string, is_read: boolean };
         const isMine = newMsg.sender_id === user.id;
 
-        // Append to chat if the active conversation matches
-        if (newMsg.conversation_id === activeConversationRef.current) {
-          setMessages((prev) => {
-            if (prev.find(m => m.id === newMsg.id)) return prev;
-            return [...prev, newMsg];
-          });
-          setTimeout(() => {
-            if (chatContainerRef.current) {
-              chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
-            }
-          }, 100);
-
-          // The user is reading this conversation right now, so flag the
-          // newly-arrived message as read so the navbar badge stays accurate.
-          // RLS blocks recipients from a direct UPDATE, so we route through
-          // the SECURITY DEFINER RPC that re-marks the whole conversation.
-          if (!isMine && !newMsg.is_read) {
-            supabase
-              .rpc('mark_conversation_read', { p_conversation_id: newMsg.conversation_id })
-              .then(() => refreshNotifications());
-          }
-        }
-
-        // Update the conversations list sideways menu
+        // 1. Update sidebar first for immediate feedback
         setConversations(prev => {
           const updated = prev.map(c => {
             if (c.id === newMsg.conversation_id) {
@@ -116,6 +92,45 @@ export default function ChatPage() {
           });
           return updated.sort((a, b) => new Date(b.last_message_at || 0).getTime() - new Date(a.last_message_at || 0).getTime());
         });
+
+        // 2. Append to chat if the active conversation matches
+        if (newMsg.conversation_id === activeConversationRef.current) {
+          // If it's a reply, we need to enrich it with the reply_to data
+          // Realtime payloads don't include joins.
+          const enrichedMsg = { ...newMsg };
+          if (newMsg.reply_to_id && !newMsg.reply_to) {
+            const { data: replyData } = await supabase
+              .from('messages')
+              .select('content, sender_id, media_type')
+              .eq('id', newMsg.reply_to_id)
+              .single();
+            if (replyData) {
+              enrichedMsg.reply_to = replyData;
+            }
+          }
+
+          setMessages((prev) => {
+            if (prev.find(m => m.id === enrichedMsg.id)) {
+              // If already there (e.g. from optimistic update), ensure it has the reply data
+              return prev.map(m => m.id === enrichedMsg.id ? { ...m, ...enrichedMsg } : m);
+            }
+            return [...prev, enrichedMsg].sort((a, b) =>
+              new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+            );
+          });
+
+          setTimeout(() => {
+            if (chatContainerRef.current) {
+              chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+            }
+          }, 100);
+
+          if (!isMine && !newMsg.is_read) {
+            supabase
+              .rpc('mark_conversation_read', { p_conversation_id: newMsg.conversation_id })
+              .then(() => refreshNotifications());
+          }
+        }
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages' }, (payload) => {
         const updated = payload.new as any;
@@ -386,14 +401,37 @@ export default function ChatPage() {
         .from('chat_media')
         .getPublicUrl(filePath);
 
-      await supabase.from('messages').insert({
-        conversation_id: activeConversation,
-        sender_id: user.id,
-        content: null,
-        media_url: publicUrlData.publicUrl,
-        media_type: isVideo ? 'video' : 'image',
-        reply_to_id: replyingTo?.id || null,
-      });
+      const { data: insertedMsg, error: insertError } = await supabase
+        .from('messages')
+        .insert({
+          conversation_id: activeConversation,
+          sender_id: user.id,
+          content: null,
+          media_url: publicUrlData.publicUrl,
+          media_type: isVideo ? 'video' : 'image',
+          reply_to_id: replyingTo?.id || null,
+        })
+        .select('*, reply_to:reply_to_id(content, sender_id, media_type)')
+        .single();
+
+      if (insertError) throw insertError;
+
+      // Optimistically update messages if not already added by realtime
+      if (insertedMsg) {
+        setMessages(prev => {
+          if (prev.find(m => m.id === insertedMsg.id)) return prev;
+          const newMessages = [...prev, insertedMsg].sort((a, b) =>
+            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          );
+          return newMessages;
+        });
+
+        setTimeout(() => {
+          if (chatContainerRef.current) {
+            chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+          }
+        }, 100);
+      }
 
       await supabase.from('conversations').update({
         last_message_at: new Date().toISOString()
@@ -415,12 +453,32 @@ export default function ChatPage() {
     setNewMessage('');
     setReplyingTo(null);
 
-    await supabase.from('messages').insert({
-      conversation_id: activeConversation,
-      sender_id: user.id,
-      content,
-      reply_to_id: replyToId,
-    });
+    const { data: insertedMsg, error: insertError } = await supabase
+      .from('messages')
+      .insert({
+        conversation_id: activeConversation,
+        sender_id: user.id,
+        content,
+        reply_to_id: replyToId,
+      })
+      .select('*, reply_to:reply_to_id(content, sender_id, media_type)')
+      .single();
+
+    if (!insertError && insertedMsg) {
+      setMessages(prev => {
+        if (prev.find(m => m.id === insertedMsg.id)) return prev;
+        const newMessages = [...prev, insertedMsg].sort((a, b) =>
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        );
+        return newMessages;
+      });
+
+      setTimeout(() => {
+        if (chatContainerRef.current) {
+          chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+        }
+      }, 100);
+    }
 
     await supabase.from('conversations').update({
       last_message_at: new Date().toISOString()
