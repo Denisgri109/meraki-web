@@ -105,7 +105,10 @@ export default function ChatPage() {
               .eq('id', newMsg.reply_to_id)
               .single();
             if (replyData) {
-              enrichedMsg.reply_to = replyData;
+              enrichedMsg.reply_to = {
+                ...replyData,
+                sender_id: replyData.sender_id || '',
+              };
             }
           }
 
@@ -420,7 +423,19 @@ export default function ChatPage() {
       if (insertedMsg) {
         setMessages(prev => {
           if (prev.find(m => m.id === insertedMsg.id)) return prev;
-          const newMessages = [...prev, insertedMsg].sort((a, b) =>
+          const typedInsertedMsg: Message = {
+            ...insertedMsg,
+            sender_id: insertedMsg.sender_id || '',
+            content: insertedMsg.content || '',
+            created_at: insertedMsg.created_at || '',
+            reply_to: insertedMsg.reply_to
+              ? {
+                  ...insertedMsg.reply_to,
+                  sender_id: insertedMsg.reply_to.sender_id || '',
+                }
+              : null,
+          };
+          const newMessages = [...prev, typedInsertedMsg].sort((a, b) =>
             new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
           );
           return newMessages;
@@ -467,7 +482,19 @@ export default function ChatPage() {
     if (!insertError && insertedMsg) {
       setMessages(prev => {
         if (prev.find(m => m.id === insertedMsg.id)) return prev;
-        const newMessages = [...prev, insertedMsg].sort((a, b) =>
+        const typedInsertedMsg: Message = {
+          ...insertedMsg,
+          sender_id: insertedMsg.sender_id || '',
+          content: insertedMsg.content || '',
+          created_at: insertedMsg.created_at || '',
+          reply_to: insertedMsg.reply_to
+            ? {
+                ...insertedMsg.reply_to,
+                sender_id: insertedMsg.reply_to.sender_id || '',
+              }
+            : null,
+        };
+        const newMessages = [...prev, typedInsertedMsg].sort((a, b) =>
           new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
         );
         return newMessages;

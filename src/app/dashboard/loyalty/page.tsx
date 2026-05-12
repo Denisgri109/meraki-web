@@ -16,6 +16,14 @@ interface LoyaltyReward {
   is_active: boolean;
 }
 
+interface LoyaltyTransaction {
+  id: string;
+  description: string | null;
+  type: string;
+  points: number;
+  created_at: string | null;
+}
+
 export default function LoyaltyPage() {
   const { user, profile } = useAuth();
   const supabase = createClient();
@@ -29,7 +37,7 @@ export default function LoyaltyPage() {
   const [qrLoading, setQrLoading] = useState(false);
   const [qrError, setQrError] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
-  const [transactions, setTransactions] = useState<any[]>([]);
+  const [transactions, setTransactions] = useState<LoyaltyTransaction[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [redeeming, setRedeeming] = useState<string | null>(null);
   const { showToast } = useToast();
@@ -126,7 +134,7 @@ export default function LoyaltyPage() {
         .order('created_at', { ascending: false })
         .limit(20);
       if (error) console.error('[Loyalty] history error:', error);
-      setTransactions((data as any[]) || []);
+      setTransactions((data as LoyaltyTransaction[]) || []);
     } catch (err) {
       console.error('[Loyalty] history error:', err);
     } finally {
@@ -501,11 +509,11 @@ export default function LoyaltyPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                {transactions.map((tx: any) => (
+                {transactions.map((tx) => (
                   <div key={tx.id} className="flex items-center justify-between p-3 rounded-xl bg-[var(--color-surface-light)]">
                     <div>
                       <p className="text-sm font-medium text-[var(--color-text-primary)]">{tx.description || tx.type}</p>
-                      <p className="text-xs text-[var(--color-text-muted)]">{new Date(tx.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                      <p className="text-xs text-[var(--color-text-muted)]">{new Date(tx.created_at || '').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
                     </div>
                     <span className={`text-sm font-bold ${tx.points > 0 ? 'text-emerald-500' : 'text-red-500'}`}>
                       {tx.points > 0 ? '+' : ''}{tx.points}
