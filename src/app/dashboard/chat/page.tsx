@@ -105,7 +105,7 @@ export default function ChatPage() {
               .eq('id', newMsg.reply_to_id)
               .single();
             if (replyData) {
-              enrichedMsg.reply_to = replyData;
+              enrichedMsg.reply_to = replyData as { content: string | null; sender_id: string; media_type?: string | null };
             }
           }
 
@@ -207,10 +207,18 @@ export default function ChatPage() {
         }
       }
 
+      const profilesMap = new Map<string, any>(profilesData.map(p => [p.id, p]));
+      const messagesMap = new Map<string, any>();
+      for (const m of messagesData) {
+        if (!messagesMap.has(m.conversation_id)) {
+          messagesMap.set(m.conversation_id, m);
+        }
+      }
+
       const convos: Conversation[] = conversationsData.map((c: any) => {
         const otherId = c.client_id === user.id ? c.master_id : c.client_id;
-        const profile = profilesData.find((p) => p.id === otherId);
-        const lastMsg = messagesData.find((m) => m.conversation_id === c.id);
+        const profile = profilesMap.get(otherId);
+        const lastMsg = messagesMap.get(c.id);
         
         let displayMsg = lastMsg?.content;
         if (!displayMsg && lastMsg?.media_type) {
@@ -420,7 +428,7 @@ export default function ChatPage() {
       if (insertedMsg) {
         setMessages(prev => {
           if (prev.find(m => m.id === insertedMsg.id)) return prev;
-          const newMessages = [...prev, insertedMsg].sort((a, b) =>
+          const newMessages = [...prev, insertedMsg as unknown as Message].sort((a, b) =>
             new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
           );
           return newMessages;
@@ -467,7 +475,7 @@ export default function ChatPage() {
     if (!insertError && insertedMsg) {
       setMessages(prev => {
         if (prev.find(m => m.id === insertedMsg.id)) return prev;
-        const newMessages = [...prev, insertedMsg].sort((a, b) =>
+        const newMessages = [...prev, insertedMsg as unknown as Message].sort((a, b) =>
           new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
         );
         return newMessages;
