@@ -7,7 +7,7 @@ import { useCart } from '@/contexts/CartContext';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/components/Toast';
 import {
-  ShoppingBag, Search, Star, Heart, Package,
+  ShoppingBag, Search, Heart, Package,
   ArrowRight, Plus, X, Loader2,
 } from 'lucide-react';
 
@@ -24,64 +24,11 @@ interface Product {
   is_preview?: boolean;
 }
 
-const CATEGORIES = ['All', 'Nails', 'Lashes', 'Skincare', 'Brows', 'Equipment'];
-
 const fallbackImages = [
   'https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=400&q=80&auto=format&fit=crop',
   'https://images.unsplash.com/photo-1571781926291-c477ebfd024b?w=400&q=80&auto=format&fit=crop',
   'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=400&q=80&auto=format&fit=crop',
   'https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?w=400&q=80&auto=format&fit=crop',
-];
-
-const previewProducts: Product[] = [
-  {
-    id: 'preview-cuticle-oil',
-    name: 'Rose Cuticle Oil',
-    description: 'Hydrating nail oil with a soft rose finish',
-    retail_price: 14,
-    wholesale_price: 10,
-    image_url: fallbackImages[0],
-    category: 'Nails',
-    stock_count: 0,
-    is_active: true,
-    is_preview: true,
-  },
-  {
-    id: 'preview-lash-serum',
-    name: 'Lash Growth Serum',
-    description: 'Daily lash serum for stronger-looking lashes',
-    retail_price: 28,
-    wholesale_price: 19,
-    image_url: fallbackImages[1],
-    category: 'Lashes',
-    stock_count: 0,
-    is_active: true,
-    is_preview: true,
-  },
-  {
-    id: 'preview-glow-cleanser',
-    name: 'Glow Cream Cleanser',
-    description: 'Gentle cleanser for a polished skincare routine',
-    retail_price: 22,
-    wholesale_price: 15,
-    image_url: fallbackImages[2],
-    category: 'Skincare',
-    stock_count: 0,
-    is_active: true,
-    is_preview: true,
-  },
-  {
-    id: 'preview-brow-kit',
-    name: 'Brow Styling Kit',
-    description: 'Professional brow shaping essentials',
-    retail_price: 32,
-    wholesale_price: 23,
-    image_url: fallbackImages[3],
-    category: 'Brows',
-    stock_count: 0,
-    is_active: true,
-    is_preview: true,
-  },
 ];
 
 function getErrorMessage(error: unknown) {
@@ -99,6 +46,7 @@ export default function ShopPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [availableCategories, setAvailableCategories] = useState<string[]>(['All']);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
@@ -121,7 +69,7 @@ export default function ShopPage() {
         .limit(50);
       if (fetchErr) {
         setError(fetchErr.message);
-        setProducts(previewProducts);
+        setProducts([]);
         return;
       }
       const normalizedProducts = ((data as unknown as Product[]) || []).map((product) => ({
@@ -130,7 +78,14 @@ export default function ShopPage() {
         is_active: product.is_active ?? true,
       }));
       setError(null);
-      setProducts(normalizedProducts.length > 0 ? normalizedProducts : previewProducts);
+      setProducts(normalizedProducts);
+
+      // Derive categories from data
+      const cats = new Set(['All']);
+      normalizedProducts.forEach(p => {
+        if (p.category) cats.add(p.category);
+      });
+      setAvailableCategories(Array.from(cats).sort());
     } catch (err) {
       console.error('[Shop] unexpected error:', err);
     } finally {
@@ -256,15 +211,16 @@ export default function ShopPage() {
 
       {/* Category Tabs */}
       <div className="flex gap-2 mb-8 flex-wrap">
-        {CATEGORIES.map((cat) => {
+        {availableCategories.map((cat) => {
           const pillMap: Record<string, string> = { All: 'pill-all', Nails: 'pill-nails', Lashes: 'pill-lashes', Skincare: 'pill-skincare', Brows: 'pill-brows', Equipment: 'pill-equipment' };
+          const pillClass = pillMap[cat] || 'bg-pink-100 text-pink-700';
           return (
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}
               className={`px-5 py-2 rounded-full text-sm font-semibold transition-all duration-200 cursor-pointer hover:scale-105 ${
                 selectedCategory === cat
-                  ? `${pillMap[cat]} shadow-md`
+                  ? `${pillClass} shadow-md`
                   : 'bg-white text-[var(--color-text-secondary)] border border-[var(--color-border-light)] hover:border-pink-200'
               }`}
             >
@@ -362,10 +318,6 @@ export default function ShopPage() {
                     {isMasterOrOwner && product.retail_price !== product.wholesale_price && (
                       <span className="text-xs text-[var(--color-text-muted)] line-through ml-2">£{product.retail_price.toFixed(2)}</span>
                     )}
-                  </div>
-                  <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-amber-50 text-amber-500">
-                    <Star size={12} fill="currentColor" />
-                    <span className="text-xs font-bold">5.0</span>
                   </div>
                 </div>
                 <button

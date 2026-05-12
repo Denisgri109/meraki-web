@@ -273,6 +273,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ── Realtime Profile Subscription ──────────────────────────────
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const channel = supabase
+      .channel(`public:profiles:id=eq.${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${user.id}`,
+        },
+        (payload) => {
+          setProfile((current) => {
+            if (!current || current.id !== payload.new.id) return current;
+            return {
+              ...current,
+              ...(payload.new as Profile),
+            };
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id]);
+
   // ── Auth actions ────────────────────────────────────────────────────
   const signIn = async (email: string, password: string) => {
     try {

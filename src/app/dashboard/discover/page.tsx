@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { Search, MapPin, Star, TrendingUp, Heart, Sparkles, ArrowRight, Users } from 'lucide-react';
+import { Search, MapPin, TrendingUp, Heart, Sparkles, ArrowRight, Users } from 'lucide-react';
 import { useToast } from '@/components/Toast';
 import { useRouter } from 'next/navigation';
 
@@ -202,10 +202,6 @@ export default function DiscoverPage() {
                       <span>{master.city}</span>
                     </div>
                   )}
-                  <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-500">
-                    <Star size={12} fill="currentColor" />
-                    <span className="font-bold">5.0</span>
-                  </div>
                 </div>
                 <span className="text-xs font-bold text-violet-500 opacity-0 group-hover:opacity-100 translate-x-2 group-hover:translate-x-0 transition-all flex items-center gap-1">
                   View <ArrowRight size={12} />

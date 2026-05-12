@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, ArrowRight, CheckCircle2, Loader2, Package, ShoppingBag, Star, Truck } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCircle2, Loader2, Package, ShoppingBag, Truck } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
 import { useToast } from '@/components/Toast';
@@ -29,57 +29,6 @@ const fallbackImages = [
   'https://images.unsplash.com/photo-1571781926291-c477ebfd024b?w=900&q=80&auto=format&fit=crop',
   'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=900&q=80&auto=format&fit=crop',
   'https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?w=900&q=80&auto=format&fit=crop',
-];
-
-const previewProducts: Product[] = [
-  {
-    id: 'preview-cuticle-oil',
-    name: 'Rose Cuticle Oil',
-    description: 'Hydrating nail oil with a soft rose finish',
-    retail_price: 14,
-    wholesale_price: 10,
-    image_url: fallbackImages[0],
-    category: 'Nails',
-    stock_count: 0,
-    is_active: true,
-    is_preview: true,
-  },
-  {
-    id: 'preview-lash-serum',
-    name: 'Lash Growth Serum',
-    description: 'Daily lash serum for stronger-looking lashes',
-    retail_price: 28,
-    wholesale_price: 19,
-    image_url: fallbackImages[1],
-    category: 'Lashes',
-    stock_count: 0,
-    is_active: true,
-    is_preview: true,
-  },
-  {
-    id: 'preview-glow-cleanser',
-    name: 'Glow Cream Cleanser',
-    description: 'Gentle cleanser for a polished skincare routine',
-    retail_price: 22,
-    wholesale_price: 15,
-    image_url: fallbackImages[2],
-    category: 'Skincare',
-    stock_count: 0,
-    is_active: true,
-    is_preview: true,
-  },
-  {
-    id: 'preview-brow-kit',
-    name: 'Brow Styling Kit',
-    description: 'Professional brow shaping essentials',
-    retail_price: 32,
-    wholesale_price: 23,
-    image_url: fallbackImages[3],
-    category: 'Brows',
-    stock_count: 0,
-    is_active: true,
-    is_preview: true,
-  },
 ];
 
 function isUuid(value: string) {
@@ -119,15 +68,6 @@ export default function ShopProductPage() {
     const loadProduct = async () => {
       setLoading(true);
       setError(null);
-
-      const previewProduct = previewProducts.find((item) => item.id === productId);
-      if (previewProduct) {
-        if (mounted) {
-          setProduct(previewProduct);
-          setLoading(false);
-        }
-        return;
-      }
 
       if (!productId || !isUuid(productId)) {
         if (mounted) {
@@ -238,10 +178,6 @@ export default function ShopProductPage() {
           <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-[var(--color-text-muted)] mb-2">MERAKÍ SHOP</p>
           <h1 className="text-3xl font-bold text-[var(--color-text-primary)] mb-3">{product.name}</h1>
           <div className="flex items-center gap-3 mb-5">
-            <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 text-amber-500">
-              <Star size={13} fill="currentColor" />
-              <span className="text-xs font-bold">5.0</span>
-            </div>
             {product.stock_count > 0 ? (
               <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full">
                 <CheckCircle2 size={13} /> In stock

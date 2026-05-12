@@ -716,11 +716,6 @@ export default function BookingPage() {
                 <div className="flex-1">
                   <h3 className="text-lg font-bold text-[var(--color-text-primary)] group-hover:text-violet-600 transition-colors">{master.full_name}</h3>
                   <p className="text-sm text-[var(--color-text-secondary)]">{master.specialties || 'Beauty Professional'}</p>
-                  <div className="flex items-center gap-1 mt-2">
-                    <Star size={12} className="text-amber-400 fill-amber-400" />
-                    <span className="text-xs font-bold text-[var(--color-text-primary)]">5.0</span>
-                    <span className="text-xs text-[var(--color-text-muted)] ml-1">(120 reviews)</span>
-                  </div>
                 </div>
                 <div className="w-8 h-8 rounded-full bg-[var(--color-surface-light)] flex items-center justify-center group-hover:bg-violet-100 group-hover:text-violet-600 transition-colors">
                   <ArrowRight size={16} />
