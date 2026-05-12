@@ -145,9 +145,9 @@ export default function AvailabilityPage() {
       }
 
       showToast('Availability saved successfully', 'success');
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error saving:', err);
-      showToast(err.message || 'Failed to save availability', 'error');
+      showToast(err instanceof Error ? err.message : 'Failed to save availability', 'error');
     } finally {
       setSaving(false);
     }

@@ -61,9 +61,9 @@ export default function MastersPage() {
       
       setMasters(prev => prev.filter(m => m.id !== id));
       showToast('Master removed successfully', 'success');
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error removing master:', err);
-      showToast(err.message || 'Failed to remove master', 'error');
+      showToast(err instanceof Error ? err.message : 'Failed to remove master', 'error');
     } finally {
       setOpenDropdown(null);
     }

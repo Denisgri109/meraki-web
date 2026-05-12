@@ -79,7 +79,7 @@ export default function AcademyPage() {
       }
 
       setIsSuccess(true);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Enrollment failed:', err);
       alert('Failed to process enrollment. Please try again.');
     } finally {

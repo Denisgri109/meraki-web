@@ -83,9 +83,9 @@ function ClientHome() {
         appointments: upcomingApts,
       });
       setDbError(nextDbError);
-    } catch (err: any) {
+    } catch (err) {
       console.error('[Dashboard] fetch error:', err);
-      setDbError(err?.message || 'Unknown error');
+      setDbError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
       setLoading(false);
     }
