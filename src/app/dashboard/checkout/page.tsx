@@ -72,15 +72,21 @@ function CheckoutForm() {
   };
 
   const checkStock = async () => {
-    for (const item of items) {
-      const { data, error } = await supabase
-        .from('products')
-        .select('stock_count')
-        .eq('id', item.id)
-        .single();
+    const itemIds = items.map((item) => item.id);
+    const { data, error } = await supabase
+      .from('products')
+      .select('id, stock_count')
+      .in('id', itemIds);
 
-      if (error) throw new Error(`Could not verify stock for ${item.name}`);
-      const stockCount = data?.stock_count ?? 0;
+    if (error) throw new Error('Could not verify stock for items');
+
+    const stockMap = new Map((data || []).map((p) => [p.id, p.stock_count]));
+
+    for (const item of items) {
+      if (!stockMap.has(item.id)) {
+        throw new Error(`Could not verify stock for ${item.name}`);
+      }
+      const stockCount = stockMap.get(item.id) ?? 0;
       if (stockCount < item.quantity) {
         throw new Error(`Insufficient stock for ${item.name}. Only ${stockCount} available.`);
       }
