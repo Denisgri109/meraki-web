@@ -7,7 +7,7 @@ import { useCart } from '@/contexts/CartContext';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/components/Toast';
 import {
-  ShoppingBag, Search, Star, Heart, Package,
+  ShoppingBag, Search, Star, Package,
   ArrowRight, Plus, X, Loader2,
 } from 'lucide-react';
 
@@ -101,7 +101,6 @@ export default function ShopPage() {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [favorites, setFavorites] = useState<Set<string>>(new Set());
 
   // Add Product modal (owner only)
   const [showAddModal, setShowAddModal] = useState(false);
@@ -162,15 +161,6 @@ export default function ShopPage() {
     const matchesCat = selectedCategory === 'All' || p.category === selectedCategory;
     return matchesSearch && matchesCat;
   });
-
-  const toggleFavorite = (id: string) => {
-    setFavorites((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) { next.delete(id); showToast('Removed from favorites', 'info'); }
-      else { next.add(id); showToast('Added to favorites ❤️', 'success'); }
-      return next;
-    });
-  };
 
   const handleAddToBag = (product: Product) => {
     if (product.is_preview) {
@@ -331,12 +321,6 @@ export default function ShopPage() {
               <div className="aspect-square relative overflow-hidden">
                 <img src={product.image_url || fallbackImages[idx % fallbackImages.length]} alt={product.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                <button
-                  onClick={(e) => { e.stopPropagation(); toggleFavorite(product.id); }}
-                  className="absolute top-3 right-3 w-9 h-9 flex items-center justify-center rounded-full bg-white/90 hover:bg-white hover:scale-110 transition-all shadow-md cursor-pointer"
-                >
-                  <Heart size={16} className={favorites.has(product.id) ? 'text-pink-500 fill-pink-500' : 'text-gray-400'} />
-                </button>
                 {product.stock_count <= 5 && product.stock_count > 0 && (
                   <span className="absolute top-3 left-3 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase bg-gradient-to-r from-red-500 to-rose-500 text-white shadow-md">
                     {product.stock_count} left
