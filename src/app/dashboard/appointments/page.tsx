@@ -70,7 +70,6 @@ export default function AppointmentsPage() {
           .limit(50);
 
         if (error) console.error('[Appointments] fetch error:', error);
-        console.log('[Appointments] fetched:', data?.length || 0);
         setAppointments((data as unknown as Appointment[]) || []);
       } catch (err) {
         console.error('[Appointments] unexpected error:', err);
