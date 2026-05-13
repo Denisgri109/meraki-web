@@ -3,14 +3,28 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
+interface DebugResults {
+  envUrl?: string;
+  envKeyPresent?: boolean;
+  services?: { data: Record<string, unknown>[] | null; error: string | null; count: number };
+  products?: { data: Record<string, unknown>[] | null; error: string | null; count: number };
+  auth?: {
+    hasSession: boolean;
+    userId: string | null;
+    email: string | null;
+    error: string | null;
+  };
+  profile?: { data: Record<string, unknown> | null; error: string | null };
+}
+
 export default function DebugPage() {
-  const [results, setResults] = useState<any>({});
+  const [results, setResults] = useState<DebugResults>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const run = async () => {
       const supabase = createClient();
-      const out: any = {};
+      const out: DebugResults = {};
 
       // Test 1: Check env vars
       out.envUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'MISSING';
