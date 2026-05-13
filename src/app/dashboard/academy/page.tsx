@@ -48,8 +48,7 @@ export default function AcademyPage() {
       }
     };
     fetchCourses();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [supabase]);
 
   const filtered = courses.filter((c) => {
     return !search || c.title?.toLowerCase().includes(search.toLowerCase());
