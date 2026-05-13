@@ -15,6 +15,14 @@ const quickActions = [
   { href: '/dashboard/loyalty', label: 'Rewards', icon: Gift, gradient: 'from-emerald-400 to-teal-300', img: 'https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=400&q=80&auto=format&fit=crop' },
 ];
 
+export interface DashboardAppointment {
+  id: string;
+  start_time: string;
+  service: { name: string | null } | null;
+  services?: { name: string | null } | null;
+  master_profiles?: { full_name: string | null } | null;
+}
+
 export default function DashboardPage() {
   const { role } = useAuth();
 
@@ -29,7 +37,7 @@ export default function DashboardPage() {
 function ClientHome() {
   const { profile, role, user } = useAuth();
   const supabase = createClient();
-  const [stats, setStats] = useState({ bookings: 0, services: 0, appointments: [] as any[] });
+  const [stats, setStats] = useState({ bookings: 0, services: 0, appointments: [] as DashboardAppointment[] });
   const [loading, setLoading] = useState(true);
   const [dbError, setDbError] = useState<string | null>(null);
 
@@ -49,7 +57,7 @@ function ClientHome() {
       }
 
       let bookingsCount = 0;
-      let upcomingApts: any[] = [];
+      let upcomingApts: DashboardAppointment[] = [];
 
       if (user) {
         const col = role === 'master' ? 'master_id' : 'client_id';
@@ -74,7 +82,7 @@ function ClientHome() {
 
         if (aErr) console.error('[Dashboard] appointments error:', aErr);
         if (aErr) nextDbError = aErr.message;
-        upcomingApts = (apts as any[]) || [];
+        upcomingApts = (apts as DashboardAppointment[]) || [];
       }
 
       setStats({
@@ -83,9 +91,9 @@ function ClientHome() {
         appointments: upcomingApts,
       });
       setDbError(nextDbError);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('[Dashboard] fetch error:', err);
-      setDbError(err?.message || 'Unknown error');
+      setDbError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
       setLoading(false);
     }
@@ -185,7 +193,7 @@ function ClientHome() {
               <Star size={20} className="text-white" />
             </div>
             <div>
-              <p className="text-3xl font-bold text-[var(--color-text-primary)]">{loading ? '—' : ((profile as any)?.loyalty_points || 0)}</p>
+              <p className="text-3xl font-bold text-[var(--color-text-primary)]">{loading ? '—' : ((profile as Record<string, unknown>)?.loyalty_points as number || 0)}</p>
               <p className="text-sm font-medium text-[var(--color-text-secondary)] mt-1">Loyalty Points</p>
             </div>
           </div>
@@ -225,7 +233,7 @@ function ClientHome() {
             </div>
           ) : stats.appointments.length > 0 ? (
             <div className="space-y-3">
-              {stats.appointments.map((apt: any) => {
+              {stats.appointments.map((apt) => {
                 const dateObj = new Date(apt.start_time);
                 return (
                   <div key={apt.id} className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-pink-50 to-purple-50 border border-pink-100/50 hover:shadow-md transition-all">
