@@ -115,8 +115,8 @@ export default function LoyaltyPage() {
       if (error) throw error;
       setPoints((prev) => prev - reward.points_cost);
       showToast(`"${reward.name}" redeemed! 🎉`, 'success');
-    } catch (err: any) {
-      showToast(err.message || 'Redemption failed', 'error');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Redemption failed', 'error');
     } finally {
       setRedeeming(null);
     }
