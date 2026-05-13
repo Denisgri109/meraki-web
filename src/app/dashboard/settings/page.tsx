@@ -205,7 +205,6 @@ export default function SettingsPage() {
       const { data, error } = await supabase.functions.invoke('create-portal-session', {
         body: { return_url: window.location.href }
       });
-      console.log('Billing portal response:', { data, error });
 
       const errorMessage = error?.message || data?.error || (typeof data === 'string' ? data : null);
       if (errorMessage) {
