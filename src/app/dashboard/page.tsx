@@ -89,12 +89,14 @@ function ClientHome() {
     } finally {
       setLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, role]);
+  }, [user, role, supabase]);
 
   // Initial fetch
   useEffect(() => {
-    fetchDashboardInfo();
+    const init = async () => {
+      await fetchDashboardInfo();
+    };
+    init();
   }, [fetchDashboardInfo]);
 
   // Re-fetch when tab becomes visible (session may have just refreshed)
