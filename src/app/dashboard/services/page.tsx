@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/components/Toast';
-import { Scissors, Plus, Clock, Edit3, ToggleLeft, ToggleRight, Sparkles, X, Loader2, Save } from 'lucide-react';
+import { Scissors, Plus, Clock, Edit3, ToggleLeft, ToggleRight, Sparkles, X, Loader2, Save, Trash2, AlertTriangle, Activity, CalendarDays, ChevronRight } from 'lucide-react';
 import type { Tables, TablesInsert } from '@/types/database';
-import { PilatesTimetableManager } from '@/components/PilatesTimetableManager';
 
 type Service = Tables<'services'>;
 type ServiceInsert = TablesInsert<'services'>;
@@ -15,6 +15,7 @@ const CATEGORIES = ['Nails', 'Lashes', 'Brows', 'Hair', 'Makeup', 'Skincare', 'P
 
 export default function ServicesPage() {
   const { user, profile } = useAuth();
+  const router = useRouter();
   const supabase = createClient();
   const { showToast } = useToast();
   const [services, setServices] = useState<Service[]>([]);
@@ -27,7 +28,12 @@ export default function ServicesPage() {
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [form, setForm] = useState({ name: '', description: '', base_price: '', duration_minutes: '60', category: 'Nails', requires_consultation: false });
   const [saving, setSaving] = useState(false);
-  const [managingPilatesService, setManagingPilatesService] = useState<Service | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Service | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [showPilatesHub, setShowPilatesHub] = useState(false);
+  const [creatingDefaultPilates, setCreatingDefaultPilates] = useState(false);
+
+  const pilatesServices = services.filter((s) => s.category === 'Pilates');
 
   const refreshServices = async () => {
     if (!user) return;
@@ -53,6 +59,22 @@ export default function ServicesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const { error } = await supabase.from('services').delete().eq('id', deleteTarget.id);
+      if (error) throw error;
+      showToast('Service deleted', 'success');
+      setDeleteTarget(null);
+      refreshServices();
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : 'Failed to delete service', 'error');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const toggleService = async (id: string, current: boolean) => {
     setServices((prev) => prev.map((s) => (s.id === id ? { ...s, is_active: !current } : s)));
     await supabase.from('services').update({ is_active: !current }).eq('id', id);
@@ -63,6 +85,49 @@ export default function ServicesPage() {
     setEditingService(null);
     setForm({ name: '', description: '', base_price: '', duration_minutes: '60', category: categories[0] || 'Nails', requires_consultation: false });
     setShowModal(true);
+  };
+
+  const openCreatePilates = () => {
+    setEditingService(null);
+    setForm({ name: 'Pilates Studio', description: 'Reformer & mat Pilates classes.', base_price: '25', duration_minutes: '50', category: 'Pilates', requires_consultation: false });
+    setShowPilatesHub(false);
+    setShowModal(true);
+  };
+
+  const quickCreatePilatesAndOpen = async () => {
+    if (!user) return;
+    setCreatingDefaultPilates(true);
+    try {
+      const payload: Omit<ServiceInsert, 'created_by' | 'is_active'> = {
+        name: 'Pilates Studio',
+        description: 'Reformer & mat Pilates classes.',
+        category: 'Pilates',
+        base_price: 25,
+        duration_minutes: 50,
+        requires_consultation: false,
+      };
+      const { data: serviceData, error: serviceError } = await supabase
+        .from('services')
+        .insert({ ...payload, created_by: user.id, is_active: true })
+        .select()
+        .single();
+      if (serviceError) throw serviceError;
+      await supabase.from('master_services').insert({
+        master_id: user.id,
+        service_id: serviceData.id,
+        is_available: true,
+        custom_price: null,
+        custom_duration: null,
+      });
+      showToast('Pilates studio created!', 'success');
+      await refreshServices();
+      setShowPilatesHub(false);
+      router.push(`/dashboard/services/pilates/${serviceData.id}`);
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : 'Failed to create Pilates studio', 'error');
+    } finally {
+      setCreatingDefaultPilates(false);
+    }
   };
 
   const openEdit = (service: Service) => {
@@ -142,12 +207,25 @@ export default function ServicesPage() {
         </div>
       </div>
 
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-8 gap-3 flex-wrap">
         <h2 className="text-2xl font-bold text-[var(--color-text-primary)]">Service List</h2>
-        <button onClick={openCreate} className="btn-pink shadow-lg hover:shadow-xl flex items-center gap-2 px-5 py-2.5 text-sm cursor-pointer">
-          <Plus size={16} />
-          Add Service
-        </button>
+        <div className="flex items-center gap-2">
+          {isOwner && (
+            <button
+              onClick={() => setShowPilatesHub(true)}
+              className="shadow-lg hover:shadow-xl flex items-center gap-2 px-5 py-2.5 text-sm cursor-pointer rounded-xl font-semibold text-white transition-all"
+              style={{ background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)' }}
+              title="Manage Pilates studio & timetable"
+            >
+              <Activity size={16} />
+              Pilates
+            </button>
+          )}
+          <button onClick={openCreate} className="btn-pink shadow-lg hover:shadow-xl flex items-center gap-2 px-5 py-2.5 text-sm cursor-pointer">
+            <Plus size={16} />
+            Add Service
+          </button>
+        </div>
       </div>
 
       {/* Stats row */}
@@ -225,16 +303,25 @@ export default function ServicesPage() {
                 </div>
 
                 <div className="flex items-center gap-3 shrink-0 self-end sm:self-center bg-[var(--color-surface-light)] p-2 rounded-xl border border-[var(--color-border-light)]">
+                  {service.category !== 'Pilates' && (
+                    <button
+                      onClick={() => openEdit(service)}
+                      className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white hover:shadow-sm transition-all text-[var(--color-text-secondary)] hover:text-cyan-600 cursor-pointer"
+                      title="Edit service"
+                    >
+                      <Edit3 size={18} />
+                    </button>
+                  )}
                   <button
-                    onClick={() => openEdit(service)}
-                    className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white hover:shadow-sm transition-all text-[var(--color-text-secondary)] hover:text-cyan-600 cursor-pointer"
-                    title="Edit service"
+                    onClick={() => setDeleteTarget(service)}
+                    className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white hover:shadow-sm transition-all text-[var(--color-text-secondary)] hover:text-rose-600 cursor-pointer"
+                    title="Delete service"
                   >
-                    <Edit3 size={18} />
+                    <Trash2 size={18} />
                   </button>
                   {service.category === 'Pilates' && isOwner && (
                     <button
-                      onClick={() => setManagingPilatesService(service)}
+                      onClick={() => router.push(`/dashboard/services/pilates/${service.id}`)}
                       className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white hover:shadow-sm transition-all text-emerald-600 hover:text-emerald-700 cursor-pointer"
                       title="Manage Pilates timetable"
                     >
@@ -347,14 +434,123 @@ export default function ServicesPage() {
           </div>
         </div>
       )}
-      {managingPilatesService && (
-        <PilatesTimetableManager
-          service={managingPilatesService}
-          onClose={() => {
-            setManagingPilatesService(null);
-            refreshServices();
-          }}
-        />
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)' }}>
+          <div className="glass-card p-6 w-full max-w-md animate-scale-in" style={{ background: 'white' }}>
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-full bg-rose-50 flex items-center justify-center shrink-0">
+                <AlertTriangle size={22} className="text-rose-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-[var(--color-text-primary)]">Delete service?</h3>
+                <p className="text-sm text-[var(--color-text-secondary)] mt-1">
+                  This will permanently remove <span className="font-semibold">{deleteTarget.name}</span>. If it has past bookings, it will be deactivated instead.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 mt-6">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                disabled={deleting}
+                className="px-4 py-2 text-sm font-semibold rounded-lg border border-[var(--color-border-light)] hover:bg-[var(--color-surface-light)] cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="px-4 py-2 text-sm font-semibold rounded-lg bg-rose-600 text-white hover:bg-rose-700 cursor-pointer flex items-center gap-2"
+              >
+                {deleting ? <><Loader2 size={14} className="animate-spin" /> Deleting...</> : <><Trash2 size={14} /> Delete</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showPilatesHub && isOwner && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)' }}>
+          <div className="glass-card p-6 w-full max-w-xl max-h-[85vh] overflow-y-auto animate-scale-in" style={{ background: 'white' }}>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)' }}>
+                  <Activity size={20} className="text-white" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-[var(--color-text-primary)]">Pilates Studio</h2>
+                  <p className="text-xs text-[var(--color-text-muted)]">Manage your Pilates services, classes & timetable</p>
+                </div>
+              </div>
+              <button onClick={() => setShowPilatesHub(false)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[var(--color-surface-light)] cursor-pointer"><X size={18} /></button>
+            </div>
+
+            <div className="my-5 p-4 rounded-2xl border border-emerald-100" style={{ background: 'linear-gradient(135deg, #ECFDF5 0%, #F0FDFA 100%)' }}>
+              <p className="text-[11px] font-bold uppercase tracking-widest text-emerald-700 mb-1">How it works</p>
+              <p className="text-sm text-emerald-900/80 leading-relaxed">
+                Pilates services use a weekly timetable with capacity limits, hosts and recurring sessions. Create a studio service, then open its timetable to set hours, hosts and class details.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-bold uppercase tracking-widest text-[var(--color-text-muted)]">Your Studios ({pilatesServices.length})</p>
+              <button
+                onClick={openCreatePilates}
+                className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 cursor-pointer flex items-center gap-1"
+              >
+                <Plus size={14} /> Custom studio
+              </button>
+            </div>
+
+            {pilatesServices.length === 0 ? (
+              <div className="rounded-2xl border-2 border-dashed border-emerald-200 p-8 text-center bg-emerald-50/40">
+                <CalendarDays size={36} className="mx-auto text-emerald-600 mb-3" />
+                <p className="font-semibold text-[var(--color-text-primary)]">No Pilates studio yet</p>
+                <p className="text-sm text-[var(--color-text-muted)] mt-1 mb-4">Spin up a studio with sensible defaults and start adding classes.</p>
+                <button
+                  onClick={quickCreatePilatesAndOpen}
+                  disabled={creatingDefaultPilates}
+                  className="px-5 py-2.5 rounded-xl text-white font-semibold inline-flex items-center gap-2 cursor-pointer disabled:opacity-60"
+                  style={{ background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)' }}
+                >
+                  {creatingDefaultPilates ? <><Loader2 size={16} className="animate-spin" /> Creating...</> : <><Plus size={16} /> Create Pilates Studio</>}
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {pilatesServices.map((service) => (
+                  <button
+                    key={service.id}
+                    onClick={() => {
+                      setShowPilatesHub(false);
+                      router.push(`/dashboard/services/pilates/${service.id}`);
+                    }}
+                    className="w-full text-left flex items-center gap-3 p-4 rounded-xl border border-[var(--color-border-light)] hover:border-emerald-300 hover:bg-emerald-50/40 transition-all cursor-pointer"
+                  >
+                    <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
+                      <CalendarDays size={18} className="text-emerald-700" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold text-[var(--color-text-primary)] truncate">{service.name}</p>
+                        {!service.is_active && (
+                          <span className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded bg-[var(--color-surface-light)] text-[var(--color-text-muted)]">Inactive</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-[var(--color-text-muted)] truncate">{service.duration_minutes} min · £{service.base_price?.toFixed(2)} · Manage timetable, hosts & sessions</p>
+                    </div>
+                    <ChevronRight size={18} className="text-[var(--color-text-muted)] shrink-0" />
+                  </button>
+                ))}
+                <button
+                  onClick={quickCreatePilatesAndOpen}
+                  disabled={creatingDefaultPilates}
+                  className="w-full mt-2 px-5 py-3 rounded-xl border-2 border-dashed border-emerald-200 hover:border-emerald-400 hover:bg-emerald-50/40 text-emerald-700 font-semibold inline-flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+                >
+                  {creatingDefaultPilates ? <><Loader2 size={16} className="animate-spin" /> Creating...</> : <><Plus size={16} /> Add another Pilates studio</>}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

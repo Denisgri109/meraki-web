@@ -28,6 +28,7 @@ const ownerNav = [
   { href: '/dashboard/appointments', label: 'Bookings', icon: CalendarCheck },
   { href: '/dashboard/analytics', label: 'Analytics', icon: BarChart3 },
   { href: '/dashboard/inventory', label: 'Inventory', icon: Package },
+  { href: '/dashboard/loyalty', label: 'Rewards', icon: Gift },
   { href: '/dashboard/discover', label: 'Discover', icon: Search },
 ];
 
@@ -36,7 +37,7 @@ const masterNav = [
   { href: '/dashboard/appointments', label: 'Bookings', icon: CalendarCheck },
   { href: '/dashboard/availability', label: 'Schedule', icon: Clock },
   { href: '/dashboard/services', label: 'Services', icon: Scissors },
-  { href: '/dashboard/discover', label: 'Discover', icon: Search },
+  { href: '/dashboard/loyalty', label: 'Rewards', icon: Gift },
 ];
 
 interface MainNavbarProps {
@@ -80,6 +81,7 @@ export function MainNavbar({ transparent = false }: MainNavbarProps) {
   const displayName = profile?.full_name || (typeof user?.user_metadata?.full_name === 'string' ? user.user_metadata.full_name : null) || user?.email || 'User';
   const displayEmail = profile?.email || user?.email || '';
   const displayInitial = displayName.charAt(0).toUpperCase();
+  const avatarUrl = profile?.avatar_url || (typeof user?.user_metadata?.avatar_url === 'string' ? user.user_metadata.avatar_url : null) || null;
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -102,11 +104,9 @@ export function MainNavbar({ transparent = false }: MainNavbarProps) {
   }, [role]);
 
   const handleNotificationsToggle = () => {
-    setNotificationsOpen((open) => {
-      const next = !open;
-      if (next) markNotificationsSeen();
-      return next;
-    });
+    const next = !notificationsOpen;
+    setNotificationsOpen(next);
+    if (next) markNotificationsSeen();
     setProfileOpen(false);
   };
 
@@ -271,8 +271,13 @@ export function MainNavbar({ transparent = false }: MainNavbarProps) {
                 aria-label="Toggle profile menu"
                 aria-expanded={profileOpen}
               >
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[var(--color-brand-pink)] to-[var(--color-brand-pink-dark)] flex items-center justify-center text-white text-sm font-semibold">
-                  {displayInitial}
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[var(--color-brand-pink)] to-[var(--color-brand-pink-dark)] flex items-center justify-center text-white text-sm font-semibold overflow-hidden">
+                  {avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={avatarUrl} alt={displayName} className="w-full h-full object-cover" />
+                  ) : (
+                    displayInitial
+                  )}
                 </div>
                 <span className="hidden sm:block text-sm font-medium text-[var(--color-text-primary)] max-w-[100px] truncate">
                   {displayName.split(' ')[0] || 'User'}

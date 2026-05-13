@@ -19,6 +19,7 @@ const quickActions = [
 export interface DashboardAppointment {
   id: string;
   start_time: string;
+  service_name: string | null;
   service: { name: string | null } | null;
   services?: { name: string | null } | null;
   master_profiles?: { full_name: string | null } | null;
@@ -76,7 +77,7 @@ function ClientHome() {
 
         const { data: apts, error: aErr } = await supabase
           .from('appointments')
-          .select(`id, start_time, service:services(name)`)
+          .select(`id, start_time, service_name, service:services(name)`)
           .eq(col, user.id)
           .gte('start_time', new Date().toISOString())
           .order('start_time', { ascending: true })
@@ -274,7 +275,7 @@ function ClientHome() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-[var(--color-text-primary)] truncate">
-                        {apt.service?.name || 'Appointment'}
+                        {apt.service?.name || apt.service_name || 'Appointment'}
                       </p>
                       <p className="text-xs text-[var(--color-text-muted)]">
                         {dateObj.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}

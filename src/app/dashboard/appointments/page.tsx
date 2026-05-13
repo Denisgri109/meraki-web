@@ -14,6 +14,8 @@ interface Appointment {
   end_time: string;
   status: string;
   notes: string | null;
+  service_name: string | null;
+  service_category: string | null;
   service?: { name: string; base_price?: number } | null;
   master?: { full_name: string; specialties: string[] | null } | null;
   client?: { full_name: string } | null;
@@ -50,7 +52,7 @@ export default function AppointmentsPage() {
         let query = supabase
           .from('appointments')
           .select(`
-            id, start_time, end_time, status, notes,
+            id, start_time, end_time, status, notes, service_name, service_category,
             service:services(name, base_price),
             master:profiles!appointments_master_id_fkey(full_name, specialties),
             client:profiles!appointments_client_id_fkey(full_name)
@@ -174,7 +176,7 @@ export default function AppointmentsPage() {
                   {/* Details */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1.5">
-                      <p className="font-bold text-[var(--color-text-primary)]">{apt.service?.name || 'Appointment'}</p>
+                      <p className="font-bold text-[var(--color-text-primary)]">{apt.service?.name || apt.service_name || 'Appointment'}</p>
                       <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${getStatusColor(apt.status)}`}>
                         {apt.status}
                       </span>

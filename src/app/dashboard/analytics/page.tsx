@@ -95,7 +95,7 @@ export default function AnalyticsPage() {
         // Recent activity: latest appointments + recent profile signups
         const { data: recentApts } = await supabase
           .from('appointments')
-          .select('id, status, created_at, service:services(name), client:profiles!appointments_client_id_fkey(full_name)')
+          .select('id, status, created_at, service_name, service:services(name), client:profiles!appointments_client_id_fkey(full_name)')
           .order('created_at', { ascending: false })
           .limit(5);
 
@@ -103,11 +103,12 @@ export default function AnalyticsPage() {
           id: string;
           status: string;
           created_at: string;
+          service_name: string | null;
           service: { name: string | null } | null;
           client: { full_name: string | null } | null;
         }>) || []).map((a) => ({
           type: a.status,
-          message: `${a.client?.full_name || 'Client'} · ${a.service?.name || 'Service'} (${a.status})`,
+          message: `${a.client?.full_name || 'Client'} · ${a.service?.name || a.service_name || 'Service'} (${a.status})`,
           time: formatRelative(a.created_at),
         }));
 

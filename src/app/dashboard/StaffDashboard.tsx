@@ -26,6 +26,7 @@ type ApptRow = {
   start_time: string;
   status: string;
   price: number | null;
+  service_name: string | null;
   service: { name: string | null } | null;
   client: { full_name: string | null } | null;
 };
@@ -95,7 +96,7 @@ export default function StaffDashboard() {
       const todayQ = masterFilter(
         supabase
           .from('appointments')
-          .select('id, start_time, status, price, service:services(name), client:profiles!appointments_client_id_fkey(full_name)')
+          .select('id, start_time, status, price, service_name, service:services(name), client:profiles!appointments_client_id_fkey(full_name)')
           .gte('start_time', todayStart.toISOString())
           .lt('start_time', todayEnd.toISOString())
           .in('status', ['confirmed', 'pending', 'completed'])
@@ -112,7 +113,7 @@ export default function StaffDashboard() {
       const upcomingQ = masterFilter(
         supabase
           .from('appointments')
-          .select('id, start_time, status, price, service:services(name), client:profiles!appointments_client_id_fkey(full_name)')
+          .select('id, start_time, status, price, service_name, service:services(name), client:profiles!appointments_client_id_fkey(full_name)')
           .eq('status', 'confirmed')
           .gte('start_time', new Date().toISOString())
           .order('start_time', { ascending: true })
@@ -391,7 +392,7 @@ export default function StaffDashboard() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-[var(--color-text-primary)] truncate">
-                      {apt.service?.name || 'Service'}
+                      {apt.service?.name || apt.service_name || 'Service'}
                     </p>
                     <p className="text-xs text-[var(--color-text-muted)] truncate">
                       {apt.client?.full_name || 'Client'} ·{' '}

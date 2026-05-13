@@ -101,7 +101,7 @@ describe('PilatesTimetableManager error handling', () => {
     mockSupabase.rpc.mockRejectedValue(new Error('Failed to load Pilates timetable'));
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    render(<PilatesTimetableManager service={mockService as any} onClose={jest.fn()} />);
+    render(<PilatesTimetableManager service={mockService as any} onServiceUpdate={jest.fn()} />);
 
     await waitFor(() => {
       expect(mockShowToast).toHaveBeenCalledWith('Failed to load Pilates timetable', 'error');
@@ -112,7 +112,7 @@ describe('PilatesTimetableManager error handling', () => {
     mockSupabase.rpc.mockRejectedValue('String error');
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    render(<PilatesTimetableManager service={mockService as any} onClose={jest.fn()} />);
+    render(<PilatesTimetableManager service={mockService as any} onServiceUpdate={jest.fn()} />);
 
     await waitFor(() => {
       expect(mockShowToast).toHaveBeenCalledWith('Failed to load Pilates timetable', 'error');
@@ -129,7 +129,7 @@ describe('PilatesTimetableManager error handling', () => {
     });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    render(<PilatesTimetableManager service={mockService as any} onClose={jest.fn()} />);
+    render(<PilatesTimetableManager service={mockService as any} onServiceUpdate={jest.fn()} />);
 
     await waitFor(() => {
       expect(mockSupabase.rpc).toHaveBeenCalled();
@@ -153,7 +153,7 @@ describe('PilatesTimetableManager error handling', () => {
     });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    render(<PilatesTimetableManager service={mockService as any} onClose={jest.fn()} />);
+    render(<PilatesTimetableManager service={mockService as any} onServiceUpdate={jest.fn()} />);
 
     await waitFor(() => {
       expect(mockSupabase.rpc).toHaveBeenCalled();
@@ -189,7 +189,7 @@ describe('PilatesTimetableManager error handling', () => {
     });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    render(<PilatesTimetableManager service={mockService as any} onClose={jest.fn()} />);
+    render(<PilatesTimetableManager service={mockService as any} onServiceUpdate={jest.fn()} />);
 
     await waitFor(() => {
       expect(mockSupabase.rpc).toHaveBeenCalled();
@@ -230,7 +230,7 @@ describe('PilatesTimetableManager error handling', () => {
     });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    render(<PilatesTimetableManager service={mockService as any} onClose={jest.fn()} />);
+    render(<PilatesTimetableManager service={mockService as any} onServiceUpdate={jest.fn()} />);
 
     await waitFor(() => {
       expect(mockSupabase.rpc).toHaveBeenCalled();
@@ -283,7 +283,7 @@ describe('PilatesTimetableManager error handling', () => {
     });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    render(<PilatesTimetableManager service={mockService as any} onClose={jest.fn()} />);
+    render(<PilatesTimetableManager service={mockService as any} onServiceUpdate={jest.fn()} />);
 
     await waitFor(() => {
       expect(mockSupabase.rpc).toHaveBeenCalled();

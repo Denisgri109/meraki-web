@@ -225,8 +225,10 @@ export type Database = {
           proposed_start_time: string | null
           requires_confirmation: boolean | null
           reschedule_initiated_by: string | null
+          service_category: string | null
           service_duration_minutes: number | null
-          service_id: string
+          service_id: string | null
+          service_name: string | null
           start_time: string
           status: Database["public"]["Enums"]["appointment_status"]
           status_updated_at: string | null
@@ -260,8 +262,10 @@ export type Database = {
           proposed_start_time?: string | null
           requires_confirmation?: boolean | null
           reschedule_initiated_by?: string | null
+          service_category?: string | null
           service_duration_minutes?: number | null
-          service_id: string
+          service_id?: string | null
+          service_name?: string | null
           start_time: string
           status?: Database["public"]["Enums"]["appointment_status"]
           status_updated_at?: string | null
@@ -295,8 +299,10 @@ export type Database = {
           proposed_start_time?: string | null
           requires_confirmation?: boolean | null
           reschedule_initiated_by?: string | null
+          service_category?: string | null
           service_duration_minutes?: number | null
-          service_id?: string
+          service_id?: string | null
+          service_name?: string | null
           start_time?: string
           status?: Database["public"]["Enums"]["appointment_status"]
           status_updated_at?: string | null
@@ -2646,6 +2652,7 @@ export type Database = {
           equipment_provided: boolean
           id: string
           location_notes: string | null
+          operating_days: number[]
           owner_id: string
           require_health_declaration: boolean
           service_id: string
@@ -2661,6 +2668,7 @@ export type Database = {
           equipment_provided?: boolean
           id?: string
           location_notes?: string | null
+          operating_days?: number[]
           owner_id: string
           require_health_declaration?: boolean
           service_id: string
@@ -2676,6 +2684,7 @@ export type Database = {
           equipment_provided?: boolean
           id?: string
           location_notes?: string | null
+          operating_days?: number[]
           owner_id?: string
           require_health_declaration?: boolean
           service_id?: string

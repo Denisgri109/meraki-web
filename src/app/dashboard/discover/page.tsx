@@ -97,7 +97,7 @@ export default function DiscoverPage() {
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-pink-400 to-violet-400 flex items-center justify-center">
             <TrendingUp size={14} className="text-white" />
           </div>
-          <h2 className="text-sm font-bold text-[var(--color-text-primary)] uppercase tracking-wider">Trending</h2>
+          <h2 className="text-sm font-bold text-[var(--color-text-primary)] uppercase tracking-wider">Popular</h2>
         </div>
         <div className="flex flex-wrap gap-2">
           {trendingTags.map((tag, idx) => (

@@ -203,10 +203,49 @@ const fallbackImages = [
 ];
 
 const SERVICE_CATEGORIES = ['All', 'Nails', 'Lashes', 'Brows', 'Hair', 'Makeup', 'Skincare', 'Pilates', 'Other'];
-const TIME_SLOTS = ['09:00', '09:30', '10:00', '10:30', '11:00', '13:00', '14:00', '15:30', '16:00', '17:00'];
 const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/;
+const DEFAULT_AVAILABILITY_START = '09:00';
+const DEFAULT_AVAILABILITY_END = '19:00';
 const BOOKING_DRAFT_STORAGE_PREFIX = 'meraki:booking:draft:';
+
+type MasterAvailability = {
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
+  is_available: boolean;
+};
+
+type BlockedSlot = {
+  start_time: string;
+  end_time: string;
+};
+
+const normalizeTimeString = (value: string | null | undefined) => {
+  if (!value) return '';
+  const trimmed = value.slice(0, 5);
+  return TIME_PATTERN.test(trimmed) ? trimmed : '';
+};
+
+const generateTimeSlotsForRange = (start: string, end: string) => {
+  const startNorm = normalizeTimeString(start) || DEFAULT_AVAILABILITY_START;
+  const endNorm = normalizeTimeString(end) || DEFAULT_AVAILABILITY_END;
+  const [startHour, startMin] = startNorm.split(':').map(Number);
+  const [endHour, endMin] = endNorm.split(':').map(Number);
+  const slots: string[] = [];
+  let hour = startHour;
+  let minute = startMin;
+  while (hour < endHour || (hour === endHour && minute < endMin)) {
+    slots.push(`${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`);
+    minute += 30;
+    if (minute >= 60) {
+      minute = 0;
+      hour += 1;
+    }
+  }
+  return slots;
+};
 
 const getStartOfToday = () => {
   const today = new Date();
@@ -234,7 +273,7 @@ const isSelectableDateKey = (dateKey: string) => {
 };
 
 const getAppointmentDateTime = (dateKey: string, time: string) => {
-  if (!isSelectableDateKey(dateKey) || !TIME_SLOTS.includes(time)) return null;
+  if (!isSelectableDateKey(dateKey) || !TIME_PATTERN.test(time)) return null;
   const date = getDateFromKey(dateKey);
   if (!date) return null;
   const [hours, minutes] = time.split(':').map(Number);
@@ -273,7 +312,7 @@ const parseBookingDraft = (value: string | null) => {
       selectedMasterId: typeof draft.selectedMasterId === 'string' ? draft.selectedMasterId : null,
       selectedPilatesSessionId: typeof draft.selectedPilatesSessionId === 'string' ? draft.selectedPilatesSessionId : null,
       selectedDate: typeof draft.selectedDate === 'string' && DATE_KEY_PATTERN.test(draft.selectedDate) ? draft.selectedDate : '',
-      selectedTime: typeof draft.selectedTime === 'string' && TIME_SLOTS.includes(draft.selectedTime) ? draft.selectedTime : '',
+      selectedTime: typeof draft.selectedTime === 'string' && TIME_PATTERN.test(draft.selectedTime) ? draft.selectedTime : '',
       calendarMonth: typeof draft.calendarMonth === 'string' && DATE_KEY_PATTERN.test(draft.calendarMonth) ? draft.calendarMonth : '',
       selectedCategory: typeof draft.selectedCategory === 'string' ? draft.selectedCategory : 'All',
       searchQuery: typeof draft.searchQuery === 'string' ? draft.searchQuery : '',
@@ -322,6 +361,10 @@ export default function BookingPage() {
   const [pilatesSettings, setPilatesSettings] = useState<PilatesSettings | null>(null);
   const [pilatesSessions, setPilatesSessions] = useState<PilatesSession[]>([]);
   const [loadingPilatesSessions, setLoadingPilatesSessions] = useState(false);
+  const [masterAvailability, setMasterAvailability] = useState<MasterAvailability[]>([]);
+  const [blockedSlots, setBlockedSlots] = useState<BlockedSlot[]>([]);
+  const [bookedSlotKeys, setBookedSlotKeys] = useState<string[]>([]);
+  const [isFetchingSlots, setIsFetchingSlots] = useState(false);
   const selectedService = useMemo(
     () => services.find((service) => service.id === selectedServiceId) ?? null,
     [selectedServiceId, services]
@@ -453,8 +496,6 @@ export default function BookingPage() {
     fetchPilatesSessions();
   }, [selectedService?.id, selectedService?.category, supabase, user?.id]);
 
-  // Time slots generator (mock available times for demo)
-  const timeSlots = TIME_SLOTS;
   const isPilatesService = selectedService?.category === 'Pilates';
   const today = getStartOfToday();
   const minimumCalendarMonth = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -463,17 +504,128 @@ export default function BookingPage() {
   const selectedDateLabel = selectedDate ? formatDateLabel(selectedDate) : 'Choose a day';
   const selectedHostId = selectedPilatesSession?.host?.profile_id || selectedPilatesSession?.owner_id || selectedMaster?.id;
   const isSelfBooking = Boolean(user?.id && selectedHostId === user.id);
+
+  useEffect(() => {
+    if (!selectedMasterId || isPilatesService) {
+      setMasterAvailability([]);
+      setBlockedSlots([]);
+      return;
+    }
+    let cancelled = false;
+    const fetchMasterSchedule = async () => {
+      try {
+        const [availabilityRes, blockedRes] = await Promise.all([
+          supabase
+            .from('master_availability')
+            .select('day_of_week, start_time, end_time, is_available')
+            .eq('master_id', selectedMasterId),
+          supabase
+            .from('blocked_slots')
+            .select('start_time, end_time')
+            .eq('master_id', selectedMasterId),
+        ]);
+        if (cancelled) return;
+        setMasterAvailability((availabilityRes.data as MasterAvailability[]) || []);
+        setBlockedSlots((blockedRes.data as BlockedSlot[]) || []);
+      } catch (err) {
+        if (!cancelled) console.error('Error loading master schedule:', err);
+      }
+    };
+    fetchMasterSchedule();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedMasterId, isPilatesService, supabase]);
+
+  useEffect(() => {
+    if (!selectedMasterId || isPilatesService || !selectedDate || !DATE_KEY_PATTERN.test(selectedDate)) {
+      setBookedSlotKeys([]);
+      return;
+    }
+    let cancelled = false;
+    const fetchBooked = async () => {
+      setIsFetchingSlots(true);
+      try {
+        const { data } = await supabase
+          .from('appointments')
+          .select('start_time')
+          .eq('master_id', selectedMasterId)
+          .gte('start_time', `${selectedDate}T00:00:00`)
+          .lt('start_time', `${selectedDate}T23:59:59`)
+          .in('status', ['pending', 'confirmed']);
+        if (cancelled) return;
+        const keys = ((data as { start_time: string }[]) || []).map((apt) => {
+          const d = new Date(apt.start_time);
+          return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+        });
+        setBookedSlotKeys(keys);
+      } catch (err) {
+        if (!cancelled) console.error('Error fetching booked slots:', err);
+      } finally {
+        if (!cancelled) setIsFetchingSlots(false);
+      }
+    };
+    fetchBooked();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedMasterId, isPilatesService, selectedDate, supabase]);
+
+  const selectedDayAvailability = useMemo(() => {
+    if (!selectedDate) return null;
+    const date = getDateFromKey(selectedDate);
+    if (!date) return null;
+    const dayOfWeek = date.getDay();
+    return (
+      masterAvailability.find((a) => a.day_of_week === dayOfWeek && a.is_available) || null
+    );
+  }, [selectedDate, masterAvailability]);
+
+  const timeSlots = useMemo(() => {
+    if (isPilatesService) return [];
+    if (!selectedDayAvailability) return [];
+    return generateTimeSlotsForRange(
+      selectedDayAvailability.start_time,
+      selectedDayAvailability.end_time
+    );
+  }, [isPilatesService, selectedDayAvailability]);
+
+  const isTimeSlotDisabled = (time: string) => {
+    if (!selectedDate || isFetchingSlots) return true;
+    const appointmentDate = getAppointmentDateTime(selectedDate, time);
+    if (!appointmentDate) return true;
+    if (bookedSlotKeys.includes(time)) return true;
+    for (const blocked of blockedSlots) {
+      const blockStart = new Date(blocked.start_time);
+      const blockEnd = new Date(blocked.end_time);
+      if (appointmentDate >= blockStart && appointmentDate < blockEnd) return true;
+    }
+    return false;
+  };
+
+  useEffect(() => {
+    if (!selectedTime) return;
+    if (isPilatesService) return;
+    if (timeSlots.length > 0 && !timeSlots.includes(selectedTime)) {
+      setSelectedTime('');
+      return;
+    }
+    if (bookedSlotKeys.includes(selectedTime)) {
+      setSelectedTime('');
+    }
+  }, [bookedSlotKeys, isPilatesService, selectedTime, timeSlots]);
+
   const dateTimeValidationMessage = isSelfBooking
     ? 'You cannot book an appointment with yourself.'
     : isPilatesService
     ? (!selectedPilatesSession ? 'Choose one available Pilates class.' : '')
     : !selectedDate
-      ? 'Pick a date from the calendar to unlock available times.'
-      : !isSelectableDateKey(selectedDate)
-        ? 'Please choose today or a future date from the calendar.'
+      ? 'Pick a day to see available times.'
+      : !selectedDayAvailability
+        ? 'This professional is not available on this day. Choose another date.'
         : !selectedTime
           ? 'Choose an available time for this date.'
-          : !getAppointmentDateTime(selectedDate, selectedTime)
+          : isTimeSlotDisabled(selectedTime)
             ? 'This date and time is no longer available. Pick another slot.'
             : '';
   const canContinueToConfirmation = isPilatesService ? Boolean(selectedPilatesSession) && !dateTimeValidationMessage : !dateTimeValidationMessage;
@@ -490,8 +642,6 @@ export default function BookingPage() {
     setSelectedDate(dateKey);
     setSelectedTime('');
   };
-
-  const isTimeSlotDisabled = (time: string) => !selectedDate || !getAppointmentDateTime(selectedDate, time);
 
   const handleContinueToConfirmation = () => {
     if (!canContinueToConfirmation) return;
@@ -887,7 +1037,15 @@ export default function BookingPage() {
                     )}
                   </div>
 
-                  {selectedDate ? (
+                  {!selectedDate ? (
+                    <div className="min-h-56 flex items-center justify-center p-8 border-2 border-dashed border-violet-100 bg-white/40 rounded-3xl">
+                      <p className="text-[var(--color-text-muted)] text-center">Choose a day from the calendar to reveal available appointment times.</p>
+                    </div>
+                  ) : timeSlots.length === 0 ? (
+                    <div className="min-h-56 flex items-center justify-center p-8 border-2 border-dashed border-amber-200 bg-amber-50/40 rounded-3xl">
+                      <p className="text-[var(--color-text-muted)] text-center">This professional is not available on this day. Pick another date.</p>
+                    </div>
+                  ) : (
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-2 lg:grid-cols-3 gap-3">
                       {timeSlots.map((time) => {
                         const isSelected = selectedTime === time;
@@ -913,10 +1071,6 @@ export default function BookingPage() {
                           </button>
                         );
                       })}
-                    </div>
-                  ) : (
-                    <div className="min-h-56 flex items-center justify-center p-8 border-2 border-dashed border-violet-100 bg-white/40 rounded-3xl">
-                      <p className="text-[var(--color-text-muted)] text-center">Choose a day from the calendar to reveal available appointment times.</p>
                     </div>
                   )}
                 </div>
