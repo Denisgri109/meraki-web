@@ -104,8 +104,12 @@ export default function ChatPage() {
               .select('content, sender_id, media_type')
               .eq('id', newMsg.reply_to_id)
               .single();
-            if (replyData) {
-              enrichedMsg.reply_to = replyData;
+            if (replyData && replyData.sender_id) {
+              enrichedMsg.reply_to = {
+                content: replyData.content,
+                sender_id: replyData.sender_id,
+                media_type: replyData.media_type
+              };
             }
           }
 
@@ -417,10 +421,11 @@ export default function ChatPage() {
       if (insertError) throw insertError;
 
       // Optimistically update messages if not already added by realtime
-      if (insertedMsg) {
+      if (insertedMsg && insertedMsg.id) {
+        const msgToState = insertedMsg as unknown as Message;
         setMessages(prev => {
-          if (prev.find(m => m.id === insertedMsg.id)) return prev;
-          const newMessages = [...prev, insertedMsg].sort((a, b) =>
+          if (prev.find(m => m.id === msgToState.id)) return prev;
+          const newMessages = [...prev, msgToState].sort((a, b) =>
             new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
           );
           return newMessages;
@@ -464,10 +469,11 @@ export default function ChatPage() {
       .select('*, reply_to:reply_to_id(content, sender_id, media_type)')
       .single();
 
-    if (!insertError && insertedMsg) {
+    if (!insertError && insertedMsg && insertedMsg.id) {
+      const msgToState = insertedMsg as unknown as Message;
       setMessages(prev => {
-        if (prev.find(m => m.id === insertedMsg.id)) return prev;
-        const newMessages = [...prev, insertedMsg].sort((a, b) =>
+        if (prev.find(m => m.id === msgToState.id)) return prev;
+        const newMessages = [...prev, msgToState].sort((a, b) =>
           new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
         );
         return newMessages;
