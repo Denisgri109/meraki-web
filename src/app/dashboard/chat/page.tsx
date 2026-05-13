@@ -211,10 +211,18 @@ export default function ChatPage() {
         }
       }
 
+      const profilesMap = new Map<string, any>(profilesData.map(p => [p.id, p]));
+      const messagesMap = new Map<string, any>();
+      for (const m of messagesData) {
+        if (!messagesMap.has(m.conversation_id)) {
+          messagesMap.set(m.conversation_id, m);
+        }
+      }
+
       const convos: Conversation[] = conversationsData.map((c: any) => {
         const otherId = c.client_id === user.id ? c.master_id : c.client_id;
-        const profile = profilesData.find((p) => p.id === otherId);
-        const lastMsg = messagesData.find((m) => m.conversation_id === c.id);
+        const profile = profilesMap.get(otherId);
+        const lastMsg = messagesMap.get(c.id);
         
         let displayMsg = lastMsg?.content;
         if (!displayMsg && lastMsg?.media_type) {
