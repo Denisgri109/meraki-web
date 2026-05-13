@@ -47,7 +47,6 @@ export default function DiscoverPage() {
           .limit(24);
 
         if (error) console.error('[Discover] masters error:', error);
-        console.log('[Discover] fetched masters:', data?.length || 0);
         setMasters((data as unknown as Master[]) || []);
       } catch (err) {
         console.error('[Discover] unexpected error:', err);
