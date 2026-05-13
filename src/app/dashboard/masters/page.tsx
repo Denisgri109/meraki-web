@@ -39,8 +39,7 @@ export default function MastersPage() {
       setLoading(false);
     };
     fetchMasters();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [supabase]);
 
   const filtered = masters.filter((m) =>
     !search || m.full_name?.toLowerCase().includes(search.toLowerCase()) || (m.specialties || []).some((s) => s?.toLowerCase().includes(search.toLowerCase()))
