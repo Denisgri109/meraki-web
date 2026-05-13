@@ -35,6 +35,7 @@ describe('getCountryName', () => {
   it('returns the country code if it is not found in the list', () => {
     expect(getCountryName('US')).toBe('US');
     expect(getCountryName('XYZ')).toBe('XYZ');
+    expect(getCountryName('INVALID')).toBe('INVALID');
   });
 
   it('returns the original input if given an empty string', () => {
