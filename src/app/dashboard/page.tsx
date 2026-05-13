@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNotifications } from '@/contexts/NotificationsContext';
 import { createClient } from '@/lib/supabase/client';
-import { Calendar, ShoppingBag, GraduationCap, Gift, Search, ArrowRight, Sparkles, Star, TrendingUp, Heart } from 'lucide-react';
+import { Calendar, ShoppingBag, GraduationCap, Gift, Search, ArrowRight, Sparkles, Star, TrendingUp, Heart, MessageSquare, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import StaffDashboard from './StaffDashboard';
 
@@ -36,6 +37,7 @@ export default function DashboardPage() {
 
 function ClientHome() {
   const { profile, role, user } = useAuth();
+  const { unreadMessages } = useNotifications();
   const supabase = createClient();
   const [stats, setStats] = useState({ bookings: 0, services: 0, appointments: [] as DashboardAppointment[] });
   const [loading, setLoading] = useState(true);
@@ -156,6 +158,29 @@ function ClientHome() {
       {dbError && (
         <div className="glass-card p-4 mb-6 border-l-4 border-red-400 bg-red-50/50">
           <p className="text-sm text-red-600 font-medium">⚠️ Database error: {dbError}</p>
+        </div>
+      )}
+
+      {/* Alerts */}
+      {unreadMessages > 0 && (
+        <div className="mb-8">
+          <Link
+            href="/dashboard/chat"
+            className="glass-card p-4 flex items-center justify-between border border-pink-100 hover:shadow-md transition-all bg-gradient-to-r from-pink-50/80 to-rose-50/40"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-400 to-rose-300 flex items-center justify-center">
+                <MessageSquare size={18} className="text-white" />
+              </div>
+              <div>
+                <p className="font-semibold text-sm text-[var(--color-text-primary)]">
+                  {unreadMessages} Unread Message{unreadMessages !== 1 ? 's' : ''}
+                </p>
+                <p className="text-xs text-[var(--color-text-muted)]">Tap to open inbox</p>
+              </div>
+            </div>
+            <ChevronRight size={18} className="text-[var(--color-text-muted)]" />
+          </Link>
         </div>
       )}
 

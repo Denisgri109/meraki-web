@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { GraduationCap, Play, Star, Search, Users, ArrowLeft, CheckCircle2, Clock, BookOpen, ShieldCheck } from 'lucide-react';
+import { GraduationCap, Play, Search, Users, ArrowLeft, CheckCircle2, Clock, BookOpen, ShieldCheck } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 interface Course {
@@ -13,6 +13,8 @@ interface Course {
   price: number;
   thumbnail_url: string | null;
   instructor_id: string | null;
+  enrollment_count?: number;
+  lesson_count?: number;
 }
 
 export default function AcademyPage() {
@@ -34,13 +36,20 @@ export default function AcademyPage() {
       try {
         const { data, error } = await supabase
           .from('courses')
-          .select('*')
+          .select('*, course_enrollments(count), lessons(count)')
           .eq('is_published', true)
           .order('created_at', { ascending: false })
           .limit(20);
 
         if (error) console.error('[Academy] courses error:', error);
-        setCourses((data as unknown as Course[]) || []);
+
+        const coursesWithEnrollment = (data || []).map((c: any) => ({
+          ...c,
+          enrollment_count: c.course_enrollments?.[0]?.count || 0,
+          lesson_count: c.lessons?.[0]?.count || 0,
+        }));
+
+        setCourses(coursesWithEnrollment as Course[]);
       } catch (err) {
         console.error('[Academy] unexpected error:', err);
       } finally {
@@ -144,18 +153,18 @@ export default function AcademyPage() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-6 border-y border-[var(--color-border-light)]">
                 <div className="flex flex-col gap-1 text-center p-3">
                   <Clock size={24} className="text-cyan-500 mx-auto" />
-                  <span className="text-xs text-[var(--color-text-muted)] mt-2 uppercase tracking-wide font-bold">Duration</span>
-                  <span className="font-semibold text-[var(--color-text-primary)]">4 Weeks</span>
+                  <span className="text-xs text-[var(--color-text-muted)] mt-2 uppercase tracking-wide font-bold">Access</span>
+                  <span className="font-semibold text-[var(--color-text-primary)]">Lifetime</span>
                 </div>
                 <div className="flex flex-col gap-1 text-center p-3">
-                  <BookOpen size={24} className="text-pink-500 mx-auto" />
-                  <span className="text-xs text-[var(--color-text-muted)] mt-2 uppercase tracking-wide font-bold">Lessons</span>
-                  <span className="font-semibold text-[var(--color-text-primary)]">24 Modules</span>
+                  <Users size={24} className="text-pink-500 mx-auto" />
+                  <span className="text-xs text-[var(--color-text-muted)] mt-2 uppercase tracking-wide font-bold">Enrolled</span>
+                  <span className="font-semibold text-[var(--color-text-primary)]">{selectedCourse.enrollment_count || 0} Students</span>
                 </div>
                 <div className="flex flex-col gap-1 text-center p-3">
-                  <Star size={24} className="text-amber-400 mx-auto" />
-                  <span className="text-xs text-[var(--color-text-muted)] mt-2 uppercase tracking-wide font-bold">Rating</span>
-                  <span className="font-semibold text-[var(--color-text-primary)]">5.0 (Review)</span>
+                  <BookOpen size={24} className="text-amber-400 mx-auto" />
+                  <span className="text-xs text-[var(--color-text-muted)] mt-2 uppercase tracking-wide font-bold">Content</span>
+                  <span className="font-semibold text-[var(--color-text-primary)]">{selectedCourse.lesson_count || 0} Lessons</span>
                 </div>
                 <div className="flex flex-col gap-1 text-center p-3">
                   <ShieldCheck size={24} className="text-emerald-500 mx-auto" />
@@ -291,8 +300,7 @@ export default function AcademyPage() {
                   <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)', marginTop: '4px', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{course.description}</p>
                 )}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '12px', fontSize: '12px', color: 'var(--color-text-muted)' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Users size={12} />0 enrolled</span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '2px 8px', borderRadius: '9999px', background: '#FFFBEB', color: '#F59E0B' }}><Star size={12} fill="currentColor" />5.0</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Users size={12} />{course.enrollment_count || 0} enrolled</span>
                 </div>
                 <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--color-border-light)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <span className="text-gradient-pink" style={{ fontSize: '18px', fontWeight: 700 }}>£{course.price?.toFixed(2) || '0.00'}</span>

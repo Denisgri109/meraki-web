@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { Users, Search, MapPin, Star, Mail, Phone, MoreVertical, Eye } from 'lucide-react';
+import { Users, Search, MapPin, Mail, Phone, MoreVertical, Eye } from 'lucide-react';
 import { useToast } from '@/components/Toast';
 import { useRouter } from 'next/navigation';
 
@@ -186,10 +186,6 @@ export default function MastersPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1 text-xs text-[var(--color-warning)]">
-                  <Star size={12} fill="currentColor" />
-                  <span className="font-medium">5.0</span>
-                </div>
               </div>
             </div>
           ))}
