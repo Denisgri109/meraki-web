@@ -58,7 +58,6 @@ export default function LoyaltyPage() {
           .order('points_cost', { ascending: true });
 
         if (rErr) console.error('[Loyalty] rewards error:', rErr);
-        console.log('[Loyalty] rewards:', rewardsData?.length || 0);
         setRewards((rewardsData as unknown as LoyaltyReward[]) || []);
       } catch (err) {
         console.error('[Loyalty] unexpected error:', err);
