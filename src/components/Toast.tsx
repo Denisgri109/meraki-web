@@ -88,6 +88,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             <span style={{ flex: 1 }}>{toast.message}</span>
             <button
               onClick={() => dismiss(toast.id)}
+              aria-label="Dismiss notification"
               style={{
                 background: 'rgba(255,255,255,0.2)',
                 border: 'none',

@@ -307,7 +307,7 @@ export function PilatesTimetableManager({ service, onClose }: PilatesTimetableMa
             <h2 className="mt-1 text-2xl font-bold text-[var(--color-text-primary)]">{service.name}</h2>
             <p className="mt-1 text-sm text-[var(--color-text-secondary)]">Create weekly classes, assign hosts, and adjust live session capacity.</p>
           </div>
-          <button onClick={onClose} className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-surface-light)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]">
+          <button onClick={onClose} aria-label="Close timetable manager" className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-surface-light)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]">
             <X size={18} />
           </button>
         </div>
@@ -438,7 +438,7 @@ export function PilatesTimetableManager({ service, onClose }: PilatesTimetableMa
                 <p className="text-xs font-bold uppercase tracking-widest text-violet-600">Edit class</p>
                 <h3 className="text-xl font-bold text-[var(--color-text-primary)]">{new Date(editingSession.starts_at).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</h3>
               </div>
-              <button onClick={() => setEditingSession(null)}><X size={18} /></button>
+              <button onClick={() => setEditingSession(null)} aria-label="Close class editor"><X size={18} /></button>
             </div>
             <div className="space-y-3">
               <select value={sessionForm.host_id} onChange={(e) => setSessionForm({ ...sessionForm, host_id: e.target.value })} className="input-glass">

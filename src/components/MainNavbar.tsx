@@ -209,6 +209,7 @@ export function MainNavbar({ transparent = false }: MainNavbarProps) {
                 className="relative w-9 h-9 flex items-center justify-center rounded-full hover:bg-[var(--color-brand-pink-light)] transition-colors text-[var(--color-text-secondary)] hover:text-[var(--color-brand-pink-dark)] cursor-pointer"
                 title="Notifications"
                 aria-label="Notifications"
+                aria-expanded={notificationsOpen}
               >
                 <Bell size={18} />
                 {unreadNotifications > 0 && (
@@ -267,6 +268,8 @@ export function MainNavbar({ transparent = false }: MainNavbarProps) {
               <button
                 onClick={() => setProfileOpen(!profileOpen)}
                 className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-full hover:bg-[var(--color-brand-pink-light)] transition-all cursor-pointer"
+                aria-label="Toggle profile menu"
+                aria-expanded={profileOpen}
               >
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[var(--color-brand-pink)] to-[var(--color-brand-pink-dark)] flex items-center justify-center text-white text-sm font-semibold">
                   {displayInitial}
@@ -311,6 +314,8 @@ export function MainNavbar({ transparent = false }: MainNavbarProps) {
             <button
               onClick={() => setMobileOpen(!mobileOpen)}
               className="lg:hidden w-9 h-9 flex items-center justify-center rounded-full hover:bg-[var(--color-brand-pink-light)] transition-colors text-[var(--color-text-secondary)] hover:text-[var(--color-brand-pink-dark)]"
+              aria-label="Toggle mobile menu"
+              aria-expanded={mobileOpen}
             >
               {mobileOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
