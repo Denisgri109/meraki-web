@@ -35,6 +35,27 @@ interface Message {
   } | null;
 }
 
+interface ConversationData {
+  id: string;
+  client_id: string;
+  master_id: string;
+  last_message_at: string | null;
+}
+
+interface ProfileData {
+  id: string;
+  full_name: string | null;
+}
+
+interface MessageData {
+  conversation_id: string;
+  content: string | null;
+  created_at: string;
+  media_type: string | null;
+  sender_id: string;
+  is_read: boolean;
+}
+
 export default function ChatPage() {
   const { user } = useAuth();
   const { refresh: refreshNotifications } = useNotifications();
@@ -137,12 +158,12 @@ export default function ChatPage() {
         }
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages' }, (payload) => {
-        const updated = payload.new as any;
+        const updated = payload.new as { id: string, conversation_id: string, content: string | null, edited_at: string | null, is_deleted: boolean | null };
 
         // Update message in current chat (edits + deletes)
         if (updated.conversation_id === activeConversationRef.current) {
           setMessages((prev) =>
-            prev.map(m => m.id === updated.id ? { ...m, content: updated.content, edited_at: updated.edited_at, is_deleted: updated.is_deleted } : m)
+            prev.map(m => m.id === updated.id ? { ...m, content: updated.content || '', edited_at: updated.edited_at, is_deleted: updated.is_deleted } : m)
           );
         }
 
@@ -180,11 +201,11 @@ export default function ChatPage() {
         return;
       }
 
-      const otherUserIds = Array.from(new Set(conversationsData.map((c: any) => 
+      const otherUserIds = Array.from(new Set((conversationsData as ConversationData[]).map((c: ConversationData) =>
         c.client_id === user.id ? c.master_id : c.client_id
       ).filter(Boolean)));
 
-      let profilesData: any[] = [];
+      let profilesData: ProfileData[] = [];
       if (otherUserIds.length > 0) {
         const { data } = await supabase
           .from('profiles')
@@ -193,14 +214,14 @@ export default function ChatPage() {
         if (data) profilesData = data;
       }
 
-      let messagesData: any[] = [];
+      let messagesData: MessageData[] = [];
       if (conversationsData.length > 0) {
         const { data } = await supabase
           .from('messages')
           .select('conversation_id, content, created_at, media_type, sender_id, is_read')
           .in('conversation_id', conversationsData.map(c => c.id))
           .order('created_at', { ascending: false });
-        if (data) messagesData = data;
+        if (data) messagesData = data as MessageData[];
       }
 
       // Per-conversation unread count: messages from others that are not yet read
@@ -219,7 +240,7 @@ export default function ChatPage() {
         }
       }
 
-      const convos: Conversation[] = conversationsData.map((c: any) => {
+      const convos: Conversation[] = (conversationsData as ConversationData[]).map((c: ConversationData) => {
         const otherId = c.client_id === user.id ? c.master_id : c.client_id;
         const profile = profilesMap.get(otherId);
         const lastMsg = messagesMap.get(c.id);
