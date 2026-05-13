@@ -1,4 +1,21 @@
-import { getShippingCost, getCountryName } from './shipping';
+import { EUROPEAN_COUNTRIES_SORTED, getShippingCost, getCountryName } from './shipping';
+
+describe('EUROPEAN_COUNTRIES_SORTED', () => {
+  it('should be sorted by country name alphabetically', () => {
+    const names = EUROPEAN_COUNTRIES_SORTED.map(country => country.name);
+    const sortedNames = [...names].sort((a, b) => a.localeCompare(b));
+    expect(names).toEqual(sortedNames);
+  });
+
+  it('should contain some known countries', () => {
+    expect(EUROPEAN_COUNTRIES_SORTED).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'FR', name: 'France' }),
+        expect.objectContaining({ code: 'DE', name: 'Germany' })
+      ])
+    );
+  });
+});
 
 describe('getShippingCost', () => {
   it('should return the correct shipping cost for a valid country code', () => {
@@ -11,6 +28,7 @@ describe('getShippingCost', () => {
     expect(getShippingCost('US')).toBe(0);
     expect(getShippingCost('CA')).toBe(0);
     expect(getShippingCost('XYZ')).toBe(0);
+    expect(getShippingCost('XX')).toBe(0);
   });
 
   it('should return 0 for an empty string', () => {
@@ -36,6 +54,7 @@ describe('getCountryName', () => {
     expect(getCountryName('US')).toBe('US');
     expect(getCountryName('XYZ')).toBe('XYZ');
     expect(getCountryName('INVALID')).toBe('INVALID');
+    expect(getCountryName('XX')).toBe('XX');
   });
 
   it('returns the original input if given an empty string', () => {
