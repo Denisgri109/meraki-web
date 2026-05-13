@@ -213,7 +213,12 @@ export default function SettingsPage() {
       }
 
       if (data?.url) {
-        window.location.href = data.url;
+        const urlObj = new URL(data.url);
+        if (urlObj.hostname.endsWith('.stripe.com')) {
+          window.location.href = data.url;
+        } else {
+          throw new Error('Security Error: Invalid billing portal URL domain.');
+        }
       } else {
         throw new Error(`Invalid response: ${JSON.stringify(data)}`);
       }
