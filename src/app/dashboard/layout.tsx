@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { ToastProvider } from '@/components/Toast';
 import { Footer } from '@/components/Footer';
@@ -10,13 +10,28 @@ import { NotificationsProvider } from '@/contexts/NotificationsContext';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { loading, session } = useAuth();
+  const pathname = usePathname();
+  const { loading, session, profile } = useAuth();
 
   useEffect(() => {
     if (!loading && !session) {
       router.replace('/login');
     }
   }, [loading, router, session]);
+
+  // Gate masters who haven't completed onboarding — mirrors mobile MasterOnboardingScreen
+  useEffect(() => {
+    if (loading || !session || !profile) return;
+    const isMaster = profile.role === 'master';
+    const onboardingDone = profile.onboarding_completed === true;
+    const onOnboarding = pathname?.startsWith('/dashboard/onboarding');
+
+    if (isMaster && !onboardingDone && !onOnboarding) {
+      router.replace('/dashboard/onboarding');
+    } else if ((!isMaster || onboardingDone) && onOnboarding) {
+      router.replace('/dashboard');
+    }
+  }, [loading, session, profile, pathname, router]);
 
   // Only show the full-screen splash on initial load (before any session).
   // Once a session exists, keep children mounted so transient `loading`

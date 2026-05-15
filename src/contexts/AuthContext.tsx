@@ -23,6 +23,7 @@ export interface Profile {
   tos_accepted: boolean | null;
   tos_accepted_at: string | null;
   tos_version: string | null;
+  onboarding_completed: boolean | null;
   created_at: string | null;
   updated_at: string | null;
   stripe_customer_id: string | null;
@@ -78,6 +79,7 @@ function createFallbackProfile(authUser: User): Profile {
     tos_accepted: null,
     tos_accepted_at: null,
     tos_version: null,
+    onboarding_completed: null,
     created_at: null,
     updated_at: null,
     stripe_customer_id: null,

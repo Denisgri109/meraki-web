@@ -1,11 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/components/Toast';
-import { Settings, User, Shield, Save, Loader2, Camera, CreditCard, Mail, Dumbbell } from 'lucide-react';
+import { Settings, User, Shield, Save, Loader2, Camera, CreditCard, Mail, Dumbbell, AlertTriangle, X } from 'lucide-react';
 import type { Tables } from '@/types/database';
+
+const DELETE_PHRASE = 'DELETE MY ACCOUNT';
 
 const baseNavItems = [
   { label: 'Profile', value: 'profile', icon: User },
@@ -43,7 +46,8 @@ const getErrorMessage = (error: unknown, fallback: string) => {
 };
 
 export default function SettingsPage() {
-  const { profile, updateProfile } = useAuth();
+  const { profile, updateProfile, signOut } = useAuth();
+  const router = useRouter();
   const supabase = createClient();
   const { showToast } = useToast();
   const [activeSection, setActiveSection] = useState('profile');
@@ -53,6 +57,13 @@ export default function SettingsPage() {
   const [newEmail, setNewEmail] = useState('');
   const [updatingEmail, setUpdatingEmail] = useState(false);
   const [openingPortal, setOpeningPortal] = useState(false);
+  // Delete account flow
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deletePhrase, setDeletePhrase] = useState('');
+  const [deleteOtp, setDeleteOtp] = useState('');
+  const [deleteOtpSent, setDeleteOtpSent] = useState(false);
+  const [sendingDeleteOtp, setSendingDeleteOtp] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [pilatesSettings, setPilatesSettings] = useState<PilatesSettingsForm>(PILATES_DEFAULT_SETTINGS);
   const [pilatesService, setPilatesService] = useState<Tables<'services'> | null>(null);
   const [loadingPilates, setLoadingPilates] = useState(false);
@@ -182,15 +193,28 @@ export default function SettingsPage() {
   };
 
   const handleChangeEmail = async () => {
-    if (!newEmail || !newEmail.includes('@')) {
+    const trimmed = newEmail.trim().toLowerCase();
+    if (!trimmed || !trimmed.includes('@')) {
       showToast('Please enter a valid email address', 'error');
+      return;
+    }
+    if (profile?.email && trimmed === profile.email.toLowerCase()) {
+      showToast('That is already your current email', 'error');
       return;
     }
     setUpdatingEmail(true);
     try {
-      const { error } = await supabase.auth.updateUser({ email: newEmail });
+      // Route confirmation links through our auth callback so PKCE codes are exchanged.
+      const emailRedirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent('/dashboard/settings?email_changed=1')}`;
+      const { error } = await supabase.auth.updateUser(
+        { email: trimmed },
+        { emailRedirectTo }
+      );
       if (error) throw error;
-      showToast('Verification emails sent to both your old and new addresses.', 'success');
+      showToast(
+        'Confirmation links sent. Open BOTH emails (old + new) and click the link in each to finish the change.',
+        'success'
+      );
       setNewEmail('');
     } catch (err: unknown) {
       showToast(getErrorMessage(err, 'Failed to update email'), 'error');
@@ -258,9 +282,72 @@ export default function SettingsPage() {
     }
   };
 
-  const handleDeleteAccount = () => {
-    if (confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
-      showToast('Account deletion requires contacting support', 'info');
+  const openDeleteModal = () => {
+    setDeleteOpen(true);
+    setDeletePhrase('');
+    setDeleteOtp('');
+    setDeleteOtpSent(false);
+  };
+
+  const closeDeleteModal = () => {
+    if (deleting) return;
+    setDeleteOpen(false);
+  };
+
+  const handleSendDeleteOtp = async () => {
+    const email = profile?.email;
+    if (!email) {
+      showToast('No email on profile — contact support', 'error');
+      return;
+    }
+    if (deletePhrase !== DELETE_PHRASE) {
+      showToast(`Type the phrase exactly: ${DELETE_PHRASE}`, 'error');
+      return;
+    }
+    setSendingDeleteOtp(true);
+    try {
+      // Sends a 6-digit OTP to the user's existing email. shouldCreateUser=false
+      // ensures we never accidentally create a new account from this code path.
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: { shouldCreateUser: false },
+      });
+      if (error) throw error;
+      setDeleteOtpSent(true);
+      showToast('Verification code sent. Check your email.', 'success');
+    } catch (err: unknown) {
+      showToast(getErrorMessage(err, 'Failed to send verification code'), 'error');
+    } finally {
+      setSendingDeleteOtp(false);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (deletePhrase !== DELETE_PHRASE) {
+      showToast(`Type the phrase exactly: ${DELETE_PHRASE}`, 'error');
+      return;
+    }
+    if (!/^\d{6}$/.test(deleteOtp.trim())) {
+      showToast('Enter the 6-digit code from your email', 'error');
+      return;
+    }
+    setDeleting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('delete-account', {
+        body: { otp: deleteOtp.trim(), phrase: deletePhrase },
+      });
+      const errorMessage =
+        error?.message || data?.error || (typeof data === 'string' ? data : null);
+      if (errorMessage) throw new Error(errorMessage);
+      if (!data?.success) throw new Error('Unexpected response from server');
+
+      showToast('Account deleted. Goodbye.', 'success');
+      await signOut();
+      router.replace('/');
+    } catch (err: unknown) {
+      console.error('Delete account error:', err);
+      showToast(getErrorMessage(err, 'Failed to delete account'), 'error');
+      setDeleting(false);
     }
   };
 
@@ -408,9 +495,9 @@ export default function SettingsPage() {
 
                 <div className="p-4 rounded-[var(--radius-lg)] bg-red-50 mt-8 border border-red-100">
                   <h3 className="font-medium text-sm text-red-600 mb-1">Danger Zone</h3>
-                  <p className="text-xs text-red-500 mb-3">Permanently delete your account and all associated data</p>
+                  <p className="text-xs text-red-500 mb-3">Permanently delete your account and all associated data. We&apos;ll require a confirmation phrase and a 6-digit code emailed to you.</p>
                   <button
-                    onClick={handleDeleteAccount}
+                    onClick={openDeleteModal}
                     className="text-xs px-4 py-2 rounded-[var(--radius-md)] border border-red-300 text-red-600 font-semibold hover:bg-red-100 transition-colors cursor-pointer bg-white"
                   >
                     Delete Account
@@ -560,6 +647,109 @@ export default function SettingsPage() {
           )}
         </div>
       </div>
+
+      {/* Delete Account Modal */}
+      {deleteOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.45)' }}
+          onClick={closeDeleteModal}
+        >
+          <div
+            className="glass-card max-w-md w-full p-6 relative animate-fade-in"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={closeDeleteModal}
+              disabled={deleting}
+              className="absolute top-3 right-3 p-1.5 rounded-full hover:bg-black/5 cursor-pointer disabled:opacity-40"
+              aria-label="Close"
+            >
+              <X size={18} />
+            </button>
+
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                <AlertTriangle size={20} className="text-red-600" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">
+                  Delete your account?
+                </h2>
+                <p className="text-sm text-[var(--color-text-secondary)] mt-1">
+                  This is permanent. All bookings, services, messages, and personal data tied to{' '}
+                  <span className="font-semibold">{profile?.email}</span> will be erased.
+                </p>
+              </div>
+            </div>
+
+            {/* Step 1: phrase */}
+            <div className="mt-5">
+              <label className="label-upper">
+                Type <span className="font-mono text-red-600">{DELETE_PHRASE}</span> to confirm
+              </label>
+              <input
+                type="text"
+                value={deletePhrase}
+                onChange={(e) => setDeletePhrase(e.target.value)}
+                disabled={deleting}
+                className="input-glass font-mono"
+                placeholder={DELETE_PHRASE}
+                autoComplete="off"
+                spellCheck={false}
+              />
+            </div>
+
+            {/* Step 2: OTP */}
+            {deleteOtpSent && (
+              <div className="mt-4 animate-fade-in">
+                <label className="label-upper">6-digit code from email</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={deleteOtp}
+                  onChange={(e) => setDeleteOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  disabled={deleting}
+                  className="input-glass font-mono tracking-[0.3em] text-center"
+                  placeholder="000000"
+                  autoComplete="one-time-code"
+                />
+              </div>
+            )}
+
+            <div className="flex flex-col gap-2 mt-6">
+              {!deleteOtpSent ? (
+                <button
+                  onClick={handleSendDeleteOtp}
+                  disabled={sendingDeleteOtp || deletePhrase !== DELETE_PHRASE}
+                  className="w-full h-11 rounded-[var(--radius-lg)] bg-red-600 text-white font-semibold text-sm hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  {sendingDeleteOtp ? <Loader2 size={16} className="animate-spin" /> : <Mail size={16} />}
+                  {sendingDeleteOtp ? 'Sending code…' : 'Send 6-digit code to my email'}
+                </button>
+              ) : (
+                <button
+                  onClick={handleConfirmDelete}
+                  disabled={deleting || deletePhrase !== DELETE_PHRASE || deleteOtp.length !== 6}
+                  className="w-full h-11 rounded-[var(--radius-lg)] bg-red-600 text-white font-semibold text-sm hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  {deleting ? <Loader2 size={16} className="animate-spin" /> : <AlertTriangle size={16} />}
+                  {deleting ? 'Deleting account…' : 'Permanently delete my account'}
+                </button>
+              )}
+
+              <button
+                onClick={closeDeleteModal}
+                disabled={deleting}
+                className="w-full h-10 rounded-[var(--radius-lg)] border border-[var(--color-border-light)] bg-white text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-light)] transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

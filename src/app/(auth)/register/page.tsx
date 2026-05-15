@@ -4,11 +4,40 @@ import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth, UserRole } from '@/contexts/AuthContext';
-import { Loader2, User, Scissors, Eye, EyeOff, Mail, Lock, Phone, ShieldCheck } from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
+import {
+  validateIrishPhone,
+  formatIrishPhone,
+  validateEmail,
+  validatePassword,
+  validateFullName,
+} from '@/lib/validation';
+import {
+  Loader2,
+  User,
+  Scissors,
+  Eye,
+  EyeOff,
+  Mail,
+  Lock,
+  Phone,
+  ShieldCheck,
+  Check,
+} from 'lucide-react';
+
+type FieldErrors = {
+  fullName?: string;
+  phone?: string;
+  email?: string;
+  password?: string;
+  confirmPassword?: string;
+};
 
 export default function RegisterPage() {
   const router = useRouter();
   const { signUp } = useAuth();
+  const supabase = createClient();
+
   const [selectedRole, setSelectedRole] = useState<UserRole>('client');
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
@@ -18,9 +47,10 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [tosAccepted, setTosAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [errors, setErrors] = useState<FieldErrors>({});
+  const [topError, setTopError] = useState<string | null>(null);
 
-  // Password strength meter
+  // Password strength meter (matches mobile)
   const strength = useMemo(() => {
     if (!password) return 0;
     let s = 0;
@@ -35,54 +65,93 @@ export default function RegisterPage() {
   const strengthLabel = strength <= 2 ? 'Weak' : strength <= 3 ? 'Medium' : 'Strong';
   const strengthColor = strength <= 2 ? '#EF4444' : strength <= 3 ? '#F59E0B' : '#10B981';
 
+  const validate = (): boolean => {
+    const next: FieldErrors = {};
+
+    const nameRes = validateFullName(fullName);
+    if (!nameRes.valid) next.fullName = nameRes.error;
+
+    // Phone is optional — only validate when provided (matches mobile)
+    if (phone.trim()) {
+      const phoneRes = validateIrishPhone(phone);
+      if (!phoneRes.valid) next.phone = phoneRes.error;
+    }
+
+    const emailRes = validateEmail(email);
+    if (!emailRes.valid) next.email = emailRes.error;
+
+    const passwordRes = validatePassword(password);
+    if (!passwordRes.valid) next.password = passwordRes.error;
+
+    if (password !== confirmPassword) next.confirmPassword = 'Passwords do not match';
+
+    setErrors(next);
+    return Object.keys(next).length === 0;
+  };
+
+  const handlePhoneBlur = () => {
+    if (phone.trim()) {
+      const v = validateIrishPhone(phone);
+      if (v.valid) setPhone(formatIrishPhone(phone));
+    }
+  };
+
+  const clearError = (field: keyof FieldErrors) => {
+    if (errors[field]) setErrors((prev) => ({ ...prev, [field]: undefined }));
+  };
+
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    setTopError(null);
 
-    if (!fullName || !email || !password || !confirmPassword) {
-      setError('Please fill in all fields');
-      return;
-    }
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters');
-      return;
-    }
-    if (password !== confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
+    if (!validate()) return;
     if (!tosAccepted) {
-      setError('Please accept the Terms of Service');
+      setTopError('Please accept the Terms of Service to continue.');
       return;
     }
 
-    setError(null);
     setLoading(true);
-    const { error: authError } = await signUp(
-      email.trim().toLowerCase(),
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const { error: signUpError } = await signUp(
+      normalizedEmail,
       password,
       fullName.trim(),
       selectedRole,
       tosAccepted,
       '1.0'
     );
-    setLoading(false);
 
-    if (authError) {
-      let msg = authError.message;
-      if (msg?.includes('already registered') || msg?.includes('already exists')) {
+    if (signUpError) {
+      setLoading(false);
+      let msg = signUpError.message || 'An error occurred during registration.';
+      if (msg.includes('Database error')) {
+        msg = 'Database error creating account. Please try again or contact support.';
+      } else if (msg.includes('already registered') || msg.includes('already exists')) {
         msg = 'This email is already registered. Please sign in instead.';
+      } else if (msg.toLowerCase().includes('password')) {
+        msg = 'Password is too weak. Please use at least 6 characters.';
       }
-      setError(msg);
-    } else {
-      router.push('/verify');
+      setTopError(msg);
+      return;
     }
+
+    // Mirror mobile: explicitly resend the signup OTP to ensure delivery
+    await supabase.auth.resend({
+      type: 'signup',
+      email: normalizedEmail,
+    });
+
+    setLoading(false);
+    router.push(`/verify?email=${encodeURIComponent(normalizedEmail)}`);
   };
 
+  // ─── Styles ─────────────────────────────────────────────
   const labelStyle: React.CSSProperties = {
     display: 'block',
     fontSize: '11px',
     fontWeight: 600,
-    color: 'rgba(0,0,0,0.35)',
+    color: 'rgba(0,0,0,0.45)',
     letterSpacing: '1.5px',
     textTransform: 'uppercase',
     marginBottom: '8px',
@@ -94,33 +163,57 @@ export default function RegisterPage() {
     left: '16px',
     top: '50%',
     transform: 'translateY(-50%)',
-    color: 'rgba(0,0,0,0.25)',
+    color: 'rgba(0,0,0,0.3)',
     pointerEvents: 'none',
+  };
+
+  const fieldErrorStyle: React.CSSProperties = {
+    color: '#DC2626',
+    fontSize: '12px',
+    marginTop: '6px',
+    paddingLeft: '4px',
   };
 
   return (
     <div style={{ width: '100%' }}>
       {/* Brand Header */}
-      <div style={{ textAlign: 'center', marginBottom: '36px' }}>
+      <div style={{ textAlign: 'center', marginBottom: '28px' }}>
         <h1
           className="font-[family-name:var(--font-playfair)]"
           style={{
-            fontSize: '42px',
+            fontSize: '44px',
             fontStyle: 'italic',
             color: 'var(--color-primary)',
             margin: 0,
+            letterSpacing: '-0.02em',
           }}
         >
           Merakí
         </h1>
-        <p style={{ marginTop: '8px', fontSize: '14px', color: 'rgba(0,0,0,0.4)', letterSpacing: '0.5px' }}>
+        <p
+          style={{
+            marginTop: '6px',
+            fontSize: '10px',
+            letterSpacing: '3px',
+            textTransform: 'uppercase',
+            color: 'var(--color-brand-pink-dark)',
+            fontWeight: 600,
+            opacity: 0.75,
+          }}
+        >
+          Create Your Account
+        </p>
+        <p style={{ marginTop: '10px', fontSize: '14px', color: 'rgba(0,0,0,0.45)' }}>
           Join the Merakí community
         </p>
       </div>
 
       {/* Form */}
-      <form onSubmit={handleRegister} style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%' }}>
-        {error && (
+      <form
+        onSubmit={handleRegister}
+        style={{ display: 'flex', flexDirection: 'column', gap: '18px', width: '100%' }}
+      >
+        {topError && (
           <div
             style={{
               background: '#FEF2F2',
@@ -130,8 +223,9 @@ export default function RegisterPage() {
               padding: '12px 16px',
               borderRadius: 'var(--radius-lg)',
             }}
+            className="animate-fade-in"
           >
-            {error}
+            {topError}
           </div>
         )}
 
@@ -148,30 +242,39 @@ export default function RegisterPage() {
                 flexDirection: 'column',
                 alignItems: 'center',
                 gap: '10px',
-                padding: '20px',
+                padding: '18px',
                 borderRadius: 'var(--radius-xl)',
-                border: `2px solid ${selectedRole === 'client' ? 'var(--color-primary)' : 'rgba(0,0,0,0.06)'}`,
-                background: selectedRole === 'client' ? 'rgba(0,0,0,0.02)' : 'rgba(0,0,0,0.01)',
+                border: `2px solid ${
+                  selectedRole === 'client' ? 'var(--color-primary)' : 'rgba(0,0,0,0.06)'
+                }`,
+                background:
+                  selectedRole === 'client' ? 'rgba(0,0,0,0.025)' : 'rgba(255,255,255,0.5)',
                 cursor: 'pointer',
                 transition: 'all 0.2s',
               }}
             >
               <div
                 style={{
-                  width: '48px',
-                  height: '48px',
+                  width: '44px',
+                  height: '44px',
                   borderRadius: '50%',
-                  background: selectedRole === 'client' ? 'rgba(0,0,0,0.06)' : 'rgba(0,0,0,0.03)',
+                  background:
+                    selectedRole === 'client' ? 'rgba(0,0,0,0.06)' : 'rgba(0,0,0,0.03)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
               >
-                <User size={24} style={{ color: selectedRole === 'client' ? 'var(--color-primary)' : 'rgba(0,0,0,0.3)' }} />
+                <User
+                  size={22}
+                  style={{
+                    color: selectedRole === 'client' ? 'var(--color-primary)' : 'rgba(0,0,0,0.3)',
+                  }}
+                />
               </div>
               <span
                 style={{
-                  fontSize: '14px',
+                  fontSize: '13px',
                   fontWeight: selectedRole === 'client' ? 700 : 600,
                   color: selectedRole === 'client' ? 'var(--color-primary)' : 'rgba(0,0,0,0.5)',
                 }}
@@ -188,30 +291,39 @@ export default function RegisterPage() {
                 flexDirection: 'column',
                 alignItems: 'center',
                 gap: '10px',
-                padding: '20px',
+                padding: '18px',
                 borderRadius: 'var(--radius-xl)',
-                border: `2px solid ${selectedRole === 'master' ? 'var(--color-primary)' : 'rgba(0,0,0,0.06)'}`,
-                background: selectedRole === 'master' ? 'rgba(0,0,0,0.02)' : 'rgba(0,0,0,0.01)',
+                border: `2px solid ${
+                  selectedRole === 'master' ? 'var(--color-primary)' : 'rgba(0,0,0,0.06)'
+                }`,
+                background:
+                  selectedRole === 'master' ? 'rgba(0,0,0,0.025)' : 'rgba(255,255,255,0.5)',
                 cursor: 'pointer',
                 transition: 'all 0.2s',
               }}
             >
               <div
                 style={{
-                  width: '48px',
-                  height: '48px',
+                  width: '44px',
+                  height: '44px',
                   borderRadius: '50%',
-                  background: selectedRole === 'master' ? 'rgba(0,0,0,0.06)' : 'rgba(0,0,0,0.03)',
+                  background:
+                    selectedRole === 'master' ? 'rgba(0,0,0,0.06)' : 'rgba(0,0,0,0.03)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
               >
-                <Scissors size={24} style={{ color: selectedRole === 'master' ? 'var(--color-primary)' : 'rgba(0,0,0,0.3)' }} />
+                <Scissors
+                  size={22}
+                  style={{
+                    color: selectedRole === 'master' ? 'var(--color-primary)' : 'rgba(0,0,0,0.3)',
+                  }}
+                />
               </div>
               <span
                 style={{
-                  fontSize: '14px',
+                  fontSize: '13px',
                   fontWeight: selectedRole === 'master' ? 700 : 600,
                   color: selectedRole === 'master' ? 'var(--color-primary)' : 'rgba(0,0,0,0.5)',
                 }}
@@ -230,13 +342,23 @@ export default function RegisterPage() {
             <input
               type="text"
               value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
+              onChange={(e) => {
+                setFullName(e.target.value);
+                clearError('fullName');
+              }}
               placeholder="Julianne Moore"
               autoComplete="name"
+              autoCapitalize="words"
               className="input-glass"
-              style={{ paddingLeft: '44px', width: '100%', boxSizing: 'border-box' }}
+              style={{
+                paddingLeft: '44px',
+                width: '100%',
+                boxSizing: 'border-box',
+                borderColor: errors.fullName ? '#FCA5A5' : undefined,
+              }}
             />
           </div>
+          {errors.fullName && <p style={fieldErrorStyle}>{errors.fullName}</p>}
         </div>
 
         {/* Phone */}
@@ -247,13 +369,23 @@ export default function RegisterPage() {
             <input
               type="tel"
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={(e) => {
+                setPhone(e.target.value);
+                clearError('phone');
+              }}
+              onBlur={handlePhoneBlur}
               placeholder="+353 87 123 4567"
               autoComplete="tel"
               className="input-glass"
-              style={{ paddingLeft: '44px', width: '100%', boxSizing: 'border-box' }}
+              style={{
+                paddingLeft: '44px',
+                width: '100%',
+                boxSizing: 'border-box',
+                borderColor: errors.phone ? '#FCA5A5' : undefined,
+              }}
             />
           </div>
+          {errors.phone && <p style={fieldErrorStyle}>{errors.phone}</p>}
         </div>
 
         {/* Email */}
@@ -264,13 +396,22 @@ export default function RegisterPage() {
             <input
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                clearError('email');
+              }}
               placeholder="name@example.com"
               autoComplete="email"
               className="input-glass"
-              style={{ paddingLeft: '44px', width: '100%', boxSizing: 'border-box' }}
+              style={{
+                paddingLeft: '44px',
+                width: '100%',
+                boxSizing: 'border-box',
+                borderColor: errors.email ? '#FCA5A5' : undefined,
+              }}
             />
           </div>
+          {errors.email && <p style={fieldErrorStyle}>{errors.email}</p>}
         </div>
 
         {/* Password */}
@@ -281,11 +422,20 @@ export default function RegisterPage() {
             <input
               type={showPassword ? 'text' : 'password'}
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Min. 8 characters"
+              onChange={(e) => {
+                setPassword(e.target.value);
+                clearError('password');
+              }}
+              placeholder="Min. 6 characters"
               autoComplete="new-password"
               className="input-glass"
-              style={{ paddingLeft: '44px', paddingRight: '48px', width: '100%', boxSizing: 'border-box' }}
+              style={{
+                paddingLeft: '44px',
+                paddingRight: '48px',
+                width: '100%',
+                boxSizing: 'border-box',
+                borderColor: errors.password ? '#FCA5A5' : undefined,
+              }}
             />
             <button
               type="button"
@@ -298,18 +448,30 @@ export default function RegisterPage() {
                 background: 'none',
                 border: 'none',
                 cursor: 'pointer',
-                color: 'rgba(0,0,0,0.3)',
+                color: 'rgba(0,0,0,0.35)',
                 padding: 0,
                 display: 'flex',
               }}
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
             >
               {showPassword ? <Eye size={18} /> : <EyeOff size={18} />}
             </button>
           </div>
 
+          {errors.password && <p style={fieldErrorStyle}>{errors.password}</p>}
+
           {/* Password Strength Meter */}
           {password.length > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '10px', paddingLeft: '4px', paddingRight: '4px' }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                marginTop: '10px',
+                paddingLeft: '4px',
+                paddingRight: '4px',
+              }}
+            >
               <div style={{ display: 'flex', flex: 1, gap: '4px' }}>
                 {[1, 2, 3, 4, 5].map((i) => (
                   <div
@@ -348,49 +510,98 @@ export default function RegisterPage() {
             <input
               type="password"
               value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
+              onChange={(e) => {
+                setConfirmPassword(e.target.value);
+                clearError('confirmPassword');
+              }}
               placeholder="••••••••"
               autoComplete="new-password"
               className="input-glass"
-              style={{ paddingLeft: '44px', width: '100%', boxSizing: 'border-box' }}
+              style={{
+                paddingLeft: '44px',
+                width: '100%',
+                boxSizing: 'border-box',
+                borderColor: errors.confirmPassword ? '#FCA5A5' : undefined,
+              }}
             />
           </div>
+          {errors.confirmPassword && <p style={fieldErrorStyle}>{errors.confirmPassword}</p>}
         </div>
 
-        {/* TOS */}
-        <label
+        {/* TOS — custom checkbox to match mobile */}
+        <div
+          role="checkbox"
+          aria-checked={tosAccepted}
+          tabIndex={0}
+          onClick={() => setTosAccepted(!tosAccepted)}
+          onKeyDown={(e) => {
+            if (e.key === ' ' || e.key === 'Enter') {
+              e.preventDefault();
+              setTosAccepted(!tosAccepted);
+            }
+          }}
           style={{
             display: 'flex',
             alignItems: 'flex-start',
             gap: '12px',
             cursor: 'pointer',
             userSelect: 'none',
+            marginTop: '4px',
+            outline: 'none',
           }}
         >
-          <input
-            type="checkbox"
-            checked={tosAccepted}
-            onChange={(e) => setTosAccepted(e.target.checked)}
+          <span
             style={{
-              marginTop: '3px',
-              width: '18px',
-              height: '18px',
-              accentColor: 'var(--color-primary)',
-              cursor: 'pointer',
               flexShrink: 0,
+              width: '20px',
+              height: '20px',
+              borderRadius: '6px',
+              border: `2px solid ${
+                tosAccepted ? 'var(--color-primary)' : 'rgba(0,0,0,0.18)'
+              }`,
+              background: tosAccepted ? 'var(--color-primary)' : 'transparent',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.15s ease',
+              marginTop: '1px',
             }}
-          />
-          <span style={{ fontSize: '13px', color: 'rgba(0,0,0,0.5)', lineHeight: '20px' }}>
+          >
+            {tosAccepted && <Check size={13} color="#fff" strokeWidth={3} />}
+          </span>
+          <span style={{ fontSize: '13px', color: 'rgba(0,0,0,0.6)', lineHeight: '20px' }}>
             I agree to the{' '}
-            <Link href="/terms" style={{ color: 'var(--color-primary)', fontWeight: 600, textDecoration: 'underline' }}>
+            <Link
+              href="/terms-of-service"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                color: 'var(--color-brand-pink-dark)',
+                fontWeight: 600,
+                textDecoration: 'underline',
+                textUnderlineOffset: '3px',
+              }}
+            >
               Terms of Service
             </Link>{' '}
-            &{' '}
-            <Link href="/privacy" style={{ color: 'var(--color-primary)', fontWeight: 600, textDecoration: 'underline' }}>
+            &amp;{' '}
+            <Link
+              href="/privacy-policy"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                color: 'var(--color-brand-pink-dark)',
+                fontWeight: 600,
+                textDecoration: 'underline',
+                textUnderlineOffset: '3px',
+              }}
+            >
               Privacy Policy
             </Link>
           </span>
-        </label>
+        </div>
 
         {/* Submit */}
         <button
@@ -414,7 +625,14 @@ export default function RegisterPage() {
         </button>
 
         {/* Sign in link */}
-        <p style={{ textAlign: 'center', fontSize: '14px', color: 'rgba(0,0,0,0.35)', marginTop: '8px' }}>
+        <p
+          style={{
+            textAlign: 'center',
+            fontSize: '14px',
+            color: 'rgba(0,0,0,0.45)',
+            marginTop: '4px',
+          }}
+        >
           Already have an account?{' '}
           <Link
             href="/login"

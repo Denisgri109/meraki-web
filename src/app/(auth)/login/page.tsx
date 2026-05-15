@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
-import { Eye, EyeOff, Loader2, Mail, Lock } from 'lucide-react';
+import { Eye, EyeOff, Loader2, Mail, Lock, Sparkles } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -35,19 +35,40 @@ export default function LoginPage() {
     }
   };
 
+  const iconStyle: React.CSSProperties = {
+    position: 'absolute',
+    left: '16px',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    color: 'rgba(0,0,0,0.3)',
+    pointerEvents: 'none',
+  };
+
+  const labelStyle: React.CSSProperties = {
+    display: 'block',
+    fontSize: '11px',
+    fontWeight: 600,
+    color: 'rgba(0,0,0,0.45)',
+    letterSpacing: '1.5px',
+    textTransform: 'uppercase',
+    marginBottom: '8px',
+    paddingLeft: '4px',
+  };
+
   return (
     <div style={{ width: '100%' }}>
       {/* Brand Header */}
-      <div style={{ textAlign: 'center', marginBottom: '48px' }}>
+      <div style={{ textAlign: 'center', marginBottom: '36px' }}>
         <div style={{ position: 'relative', display: 'inline-block' }}>
           <h1
             className="font-[family-name:var(--font-playfair)]"
             style={{
-              fontSize: '48px',
+              fontSize: '52px',
               fontStyle: 'italic',
               color: 'var(--color-primary)',
-              textShadow: '0 0 15px rgba(212, 138, 130, 0.4)',
+              textShadow: '0 0 20px rgba(212, 138, 130, 0.35)',
               margin: 0,
+              letterSpacing: '-0.02em',
             }}
           >
             Merakí
@@ -56,33 +77,57 @@ export default function LoginPage() {
           <div
             style={{
               position: 'absolute',
-              inset: '-16px',
-              background: 'rgba(212,138,130,0.08)',
+              inset: '-20px',
+              background:
+                'radial-gradient(circle, rgba(212,138,130,0.18), transparent 70%)',
               borderRadius: '9999px',
               filter: 'blur(20px)',
               zIndex: -1,
             }}
           />
+          {/* Sparkle accent */}
+          <Sparkles
+            size={16}
+            style={{
+              position: 'absolute',
+              top: '-4px',
+              right: '-22px',
+              color: 'var(--color-brand-pink)',
+            }}
+          />
         </div>
         <p
           style={{
-            marginTop: '12px',
+            marginTop: '14px',
             fontSize: '10px',
-            letterSpacing: '3px',
+            letterSpacing: '4px',
             textTransform: 'uppercase',
             color: 'var(--color-brand-pink-dark)',
-            fontWeight: 500,
-            opacity: 0.7,
+            fontWeight: 600,
+            opacity: 0.75,
           }}
         >
-          Beauty With Soul
+          Welcome Back
+        </p>
+        <p
+          style={{
+            marginTop: '8px',
+            fontSize: '14px',
+            color: 'rgba(0,0,0,0.45)',
+          }}
+        >
+          Sign in to continue your journey
         </p>
       </div>
 
       {/* Login Form */}
-      <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%' }}>
+      <form
+        onSubmit={handleLogin}
+        style={{ display: 'flex', flexDirection: 'column', gap: '18px', width: '100%' }}
+      >
         {error && (
           <div
+            className="animate-fade-in"
             style={{
               background: '#FEF2F2',
               border: '1px solid #FECACA',
@@ -98,32 +143,9 @@ export default function LoginPage() {
 
         {/* Email */}
         <div style={{ width: '100%' }}>
-          <label
-            style={{
-              display: 'block',
-              fontSize: '11px',
-              fontWeight: 600,
-              color: 'rgba(0,0,0,0.35)',
-              letterSpacing: '1.5px',
-              textTransform: 'uppercase',
-              marginBottom: '8px',
-              paddingLeft: '4px',
-            }}
-          >
-            Email Address
-          </label>
+          <label style={labelStyle}>Email Address</label>
           <div style={{ position: 'relative', width: '100%' }}>
-            <Mail
-              size={18}
-              style={{
-                position: 'absolute',
-                left: '16px',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                color: 'rgba(0,0,0,0.25)',
-                pointerEvents: 'none',
-              }}
-            />
+            <Mail size={18} style={iconStyle} />
             <input
               type="email"
               value={email}
@@ -138,32 +160,9 @@ export default function LoginPage() {
 
         {/* Password */}
         <div style={{ width: '100%' }}>
-          <label
-            style={{
-              display: 'block',
-              fontSize: '11px',
-              fontWeight: 600,
-              color: 'rgba(0,0,0,0.35)',
-              letterSpacing: '1.5px',
-              textTransform: 'uppercase',
-              marginBottom: '8px',
-              paddingLeft: '4px',
-            }}
-          >
-            Password
-          </label>
+          <label style={labelStyle}>Password</label>
           <div style={{ position: 'relative', width: '100%' }}>
-            <Lock
-              size={18}
-              style={{
-                position: 'absolute',
-                left: '16px',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                color: 'rgba(0,0,0,0.25)',
-                pointerEvents: 'none',
-              }}
-            />
+            <Lock size={18} style={iconStyle} />
             <input
               type={showPassword ? 'text' : 'password'}
               value={password}
@@ -171,11 +170,17 @@ export default function LoginPage() {
               placeholder="••••••••"
               autoComplete="current-password"
               className="input-glass"
-              style={{ paddingLeft: '44px', paddingRight: '48px', width: '100%', boxSizing: 'border-box' }}
+              style={{
+                paddingLeft: '44px',
+                paddingRight: '48px',
+                width: '100%',
+                boxSizing: 'border-box',
+              }}
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
               style={{
                 position: 'absolute',
                 right: '16px',
@@ -184,7 +189,7 @@ export default function LoginPage() {
                 background: 'none',
                 border: 'none',
                 cursor: 'pointer',
-                color: 'rgba(0,0,0,0.3)',
+                color: 'rgba(0,0,0,0.35)',
                 padding: 0,
                 display: 'flex',
               }}
@@ -200,7 +205,7 @@ export default function LoginPage() {
             href="/forgot-password"
             style={{
               fontSize: '12px',
-              fontWeight: 500,
+              fontWeight: 600,
               color: 'var(--color-brand-pink-dark)',
               textDecoration: 'none',
             }}
@@ -224,27 +229,61 @@ export default function LoginPage() {
             fontSize: '14px',
             letterSpacing: '2px',
             textTransform: 'uppercase',
-            marginTop: '8px',
+            marginTop: '4px',
           }}
         >
           {loading ? <Loader2 size={20} className="animate-spin" /> : 'Sign In'}
         </button>
 
-        {/* Register link */}
-        <p style={{ textAlign: 'center', fontSize: '14px', color: 'var(--color-text-muted)', marginTop: '8px' }}>
-          Don&apos;t have an account?{' '}
-          <Link
-            href="/register"
+        {/* Divider */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            margin: '8px 0 0',
+          }}
+        >
+          <span style={{ height: '1px', flex: 1, background: 'rgba(0,0,0,0.08)' }} />
+          <span
             style={{
-              fontWeight: 700,
-              color: 'var(--color-primary)',
-              textDecoration: 'underline',
-              textUnderlineOffset: '3px',
+              fontSize: '11px',
+              color: 'rgba(0,0,0,0.35)',
+              letterSpacing: '1.5px',
+              textTransform: 'uppercase',
+              fontWeight: 600,
             }}
           >
-            Sign Up
-          </Link>
-        </p>
+            New to Merakí?
+          </span>
+          <span style={{ height: '1px', flex: 1, background: 'rgba(0,0,0,0.08)' }} />
+        </div>
+
+        {/* Register link */}
+        <Link
+          href="/register"
+          style={{
+            width: '100%',
+            height: '52px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            fontSize: '14px',
+            letterSpacing: '2px',
+            textTransform: 'uppercase',
+            fontWeight: 700,
+            color: 'var(--color-primary)',
+            border: '1.5px solid rgba(0,0,0,0.12)',
+            borderRadius: 'var(--radius-full)',
+            background: 'rgba(255,255,255,0.6)',
+            textDecoration: 'none',
+            transition: 'all 0.2s ease',
+          }}
+          className="hover:border-[var(--color-primary)] hover:bg-white"
+        >
+          Create Account
+        </Link>
       </form>
     </div>
   );
