@@ -9,21 +9,23 @@
 
 ### Authentication & Onboarding
 
-- [ ] Email/Password Registration
-- [ ] Email/Password Login
-- [ ] Role Selection (Client / Master) during signup
-- [ ] Profile Creation (name, photo, contact info) on signup
-- [ ] Password Recovery (forgot password with email reset link)
-- [ ] OTP Verification (email/phone code verification)
-- [ ] Secure Session (automatic token refresh, persistent login)
-- [ ] Terms of Service acceptance during registration
+- [x] Email/Password Registration
+- [x] Email/Password Login
+- [x] Role Selection (Client / Master) during signup
+- [x] Profile Creation (name, photo, contact info) on signup
+  > **Flow Discrepancy:** The registration page asks for name, email, phone, and password, but it does not ask for a photo on signup.
+- [x] Password Recovery (forgot password with email reset link)
+- [x] OTP Verification (email/phone code verification)
+  > **Flow Discrepancy:** OTP Verification is implemented for email, but phone verification is not currently supported.
+- [x] Secure Session (automatic token refresh, persistent login)
+- [x] Terms of Service acceptance during registration
 
 ### Profile Management
 
-- [ ] View Profile (personal info, avatar, contact details)
-- [ ] Edit Profile (name, phone, bio, profile photo)
-- [ ] Avatar Upload (upload/change profile picture)
-- [ ] Profile Visibility (Masters can view client profiles)
+- [x] View Profile (personal info, avatar, contact details)
+- [x] Edit Profile (name, phone, bio, profile photo)
+- [x] Avatar Upload (upload/change profile picture)
+- [x] Profile Visibility (Masters can view client profiles)
 
 ---
 
@@ -31,9 +33,10 @@
 
 #### Home Screen
 
-- [ ] Personalized Greeting (time-of-day aware welcome)
+- [x] Personalized Greeting (time-of-day aware welcome)
 - [ ] Featured Masters Carousel
-- [ ] Quick Action Buttons (Shop, Orders, Support, Promotions)
+- [x] Quick Action Buttons (Shop, Orders, Support, Promotions)
+  > **Flow Discrepancy:** Quick Action Buttons are present on the dashboard, but they link to Book Now, Discover, Shop, Academy, and Rewards rather than Orders, Support, and Promotions.
 - [ ] Popular Services Grid
 - [ ] Pull-to-Refresh
 
@@ -41,23 +44,23 @@
 
 - [ ] Browse Masters (all available service providers)
 - [ ] City Filter (filter Masters by location)
-- [ ] Master Profiles (bio, services, portfolio, availability)
-- [ ] Service Discovery (browse services by category)
+- [x] Master Profiles (bio, services, portfolio, availability)
+- [x] Service Discovery (browse services by category)
 - [ ] Service Detail View (description, duration, pricing, available specialists)
-- [ ] Search Masters (search by name/service)
+- [x] Search Masters (search by name/service)
 
 ---
 
 ### Service Booking Flow
 
-- [ ] Select Service (choose from available services)
-- [ ] Choose Master (pick from specialists offering service)
-- [ ] View Master Detail (full profile with bio, services, portfolio)
-- [ ] Select Date (30-day lookahead calendar)
-- [ ] Select Time (real-time availability based on Master's schedule)
-- [ ] Add Notes (special requests or requirements)
-- [ ] Confirm Booking (review and confirm appointment details)
-- [ ] Self-booking prevention (owners/masters can't book own services)
+- [x] Select Service (choose from available services)
+- [x] Choose Master (pick from specialists offering service)
+- [x] View Master Detail (full profile with bio, services, portfolio)
+- [x] Select Date (30-day lookahead calendar)
+- [x] Select Time (real-time availability based on Master's schedule)
+- [x] Add Notes (special requests or requirements)
+- [x] Confirm Booking (review and confirm appointment details)
+- [x] Self-booking prevention (owners/masters can't book own services)
 
 ---
 
@@ -65,21 +68,22 @@
 
 #### Appointment List
 
-- [ ] Unified History (all appointments in one place)
-- [ ] Tabbed View (Upcoming, Past, Cancelled)
-- [ ] Status Badges (Confirmed, Completed, Cancelled, Reschedule Pending, No-Show)
+- [x] Unified History (all appointments in one place)
+- [x] Tabbed View (Upcoming, Past, Cancelled)
+- [x] Status Badges (Confirmed, Completed, Cancelled, Reschedule Pending, No-Show)
+  > **Flow Discrepancy:** The code implements Status Badges for Confirmed, Pending, Completed, and Cancelled, but is missing badges for Reschedule Pending and No-Show.
 - [ ] Appointment Cards (date, time, service, Master, price)
 - [ ] Pull-to-Refresh
 
 #### Appointment Actions
 
-- [ ] View Details (full appointment information)
-- [ ] Direct Chat (message Master from appointment)
-- [ ] Reschedule — Early (>24h before) instant
-- [ ] Reschedule — Late (<24h before) requires Master approval
-- [ ] Cancel Appointment — Early (>24h) free and automatic
+- [x] View Details (full appointment information)
+- [x] Direct Chat (message Master from appointment)
+- [x] Reschedule — Early (>24h before) instant
+- [x] Reschedule — Late (<24h before) requires Master approval
+- [x] Cancel Appointment — Early (>24h) free and automatic
 - [ ] Cancel Appointment — Late (<24h) warning with 50% penalty fee
-- [ ] Cancellation Reasons (provide reason for cancellation)
+- [x] Cancellation Reasons (provide reason for cancellation)
 
 #### Appointment Confirmation System
 
@@ -100,16 +104,16 @@
 
 #### In-App Messaging
 
-- [ ] Conversation List (all active conversations)
-- [ ] Real-Time Chat (instant messaging)
-- [ ] Text Messages (send/receive)
-- [ ] Image Sharing (upload/send photos)
-- [ ] Video Sharing (upload/send videos)
+- [x] Conversation List (all active conversations)
+- [x] Real-Time Chat (instant messaging)
+- [x] Text Messages (send/receive)
+- [x] Image Sharing (upload/send photos)
+- [x] Video Sharing (upload/send videos)
 - [ ] Photo Consultation (send photos for pre-service assessment)
 - [ ] Message Grouping (grouped by sender)
-- [ ] Timestamps
-- [ ] Unread Count Badge
-- [ ] Mark Conversation as Read (RPC-based)
+- [x] Timestamps
+- [x] Unread Count Badge
+- [x] Mark Conversation as Read (RPC-based)
 
 #### Consultation System
 
@@ -124,7 +128,7 @@
 #### QR Code Scanning
 
 - [ ] Scan QR Codes (scan Master's QR to earn points)
-- [ ] Camera Integration (in-app QR scanner)
+- [x] Camera Integration (in-app QR scanner)
 - [ ] +50 Points Per Scan
 - [ ] Dynamic QR Codes (rotate after each scan)
 
@@ -134,15 +138,15 @@
 
 #### Stamp Cards
 
-- [ ] View Stamp Cards (loyalty cards from different Masters)
+- [x] View Stamp Cards (loyalty cards from different Masters)
 - [ ] Multiple Cards Per Master (different services)
 - [ ] Card Selection (choose which card to stamp)
 - [ ] Progress Tracking (visual stamp progress)
 
 #### Rewards
 
-- [ ] Rewards Catalog (browse available rewards)
-- [ ] Redeem Points (exchange for discounts/free services)
+- [x] Rewards Catalog (browse available rewards)
+- [x] Redeem Points (exchange for discounts/free services)
 - [ ] Transaction/Points History
 
 ---
@@ -151,29 +155,29 @@
 
 #### Product Browsing
 
-- [ ] Product Grid (browse all products)
+- [x] Product Grid (browse all products)
 - [ ] Category Filtering
-- [ ] Search Products by name
+- [x] Search Products by name
 - [ ] Product Detail View (images, description, pricing, stock)
 - [ ] Role-Based Pricing (retail for clients, wholesale for Masters)
 
 #### Shopping Cart
 
-- [ ] Add to Cart
-- [ ] Cart Management (view, adjust quantities, remove items, total)
+- [x] Add to Cart
+- [x] Cart Management (view, adjust quantities, remove items, total)
 
 #### Checkout
 
-- [ ] Shipping Address entry
-- [ ] Europe-Only Shipping restriction
-- [ ] Stripe Payment Processing
-- [ ] Secure Order Finalization (Edge Function)
-- [ ] Order Placement
+- [x] Shipping Address entry
+- [x] Europe-Only Shipping restriction
+- [x] Stripe Payment Processing
+- [x] Secure Order Finalization (Edge Function)
+- [x] Order Placement
 
 #### Order History
 
-- [ ] View Orders (list of all purchases)
-- [ ] Order Details (products, quantities, prices, status)
+- [x] View Orders (list of all purchases)
+- [x] Order Details (products, quantities, prices, status)
 - [ ] Order Status tracking
 
 ---
@@ -182,16 +186,16 @@
 
 #### Course Discovery
 
-- [ ] Course Catalog (browse all courses)
-- [ ] Course Detail View (description, lesson list, price, instructor)
+- [x] Course Catalog (browse all courses)
+- [x] Course Detail View (description, lesson list, price, instructor)
 - [ ] Course Purchase (buy through checkout)
 
 #### Learning Experience
 
-- [ ] Video Player (watch course videos)
+- [x] Video Player (watch course videos)
 - [ ] Lesson Progress (track completion)
 - [ ] Lesson Navigation (move between lessons)
-- [ ] Homework Submission (upload photos, submit assignments)
+- [x] Homework Submission (upload photos, submit assignments)
 - [ ] Homework Feedback (view instructor feedback)
 
 ---
@@ -208,13 +212,13 @@
 
 #### Payment History
 
-- [ ] Transaction List (all payments)
+- [x] Transaction List (all payments)
 - [ ] Transaction Details (date, amount, service/product, status, refund)
 
 #### Booking Payments
 
 - [ ] Pre-Authorization (hold funds, charge after service)
-- [ ] Deposit Payment (pay deposit to secure booking)
+- [x] Deposit Payment (pay deposit to secure booking)
 - [ ] Balance Due (remaining at salon)
 - [ ] Mandate Deposit (some services require deposit)
 
@@ -224,12 +228,12 @@
 
 - [ ] FAQ Section
 - [ ] Support Contact
-- [ ] Terms of Service page
-- [ ] Privacy Policy page
+- [x] Terms of Service page
+- [x] Privacy Policy page
 
 ### Notifications
 
-- [ ] Notification Center (view all notifications)
+- [x] Notification Center (view all notifications)
 - [ ] Push Notifications (booking, reminders, reschedule, messages, marketing)
 
 ---
@@ -238,10 +242,10 @@
 
 ### Dashboard & Overview
 
-- [ ] Today's Appointments overview
-- [ ] Real-Time Statistics (bookings count, earnings, completion rate)
-- [ ] Quick Stats Cards
-- [ ] Recent Messages Preview
+- [x] Today's Appointments overview
+- [x] Real-Time Statistics (bookings count, earnings, completion rate)
+- [x] Quick Stats Cards
+- [x] Recent Messages Preview
 - [ ] Pull-to-Refresh
 
 ---
@@ -250,17 +254,17 @@
 
 #### Appointment List
 
-- [ ] Tabbed View (Pending, Upcoming, Completed)
-- [ ] Appointment Cards (client details, service, time, status)
-- [ ] Status Badges
+- [x] Tabbed View (Pending, Upcoming, Completed)
+- [x] Appointment Cards (client details, service, time, status)
+- [x] Status Badges
 
 #### Appointment Actions
 
 - [ ] View Details
-- [ ] Confirm Appointment (approve pending bookings)
-- [ ] Decline Appointment (reject booking requests)
+- [x] Confirm Appointment (approve pending bookings)
+- [x] Decline Appointment (reject booking requests)
 - [ ] Mark as Completed
-- [ ] Mark as No-Show
+- [x] Mark as No-Show
 - [ ] Direct Chat (message client from appointment)
 - [ ] Reschedule (propose new date/time, client approval required)
 
@@ -280,7 +284,7 @@
 
 #### Weekly Availability
 
-- [ ] Weekly Schedule View (set per day)
+- [x] Weekly Schedule View (set per day)
 - [ ] Toggle Days (enable/disable per day)
 - [ ] Time Selection (start/end per day)
 - [ ] Save Schedule
@@ -304,7 +308,7 @@
 
 #### My Services
 
-- [ ] View All Services
+- [x] View All Services
 - [ ] Service Details (name, duration, price, description)
 - [ ] Toggle Availability (enable/disable services)
 - [ ] Custom Pricing (override default price per service)
@@ -312,7 +316,7 @@
 
 #### Create & Edit Services
 
-- [ ] Add New Service (name, description, price, duration, category, image)
+- [x] Add New Service (name, description, price, duration, category, image)
 - [ ] Edit Service
 - [ ] Deposit Override (per-service deposit requirements)
 - [ ] Delete Service
@@ -351,7 +355,7 @@
 
 ### Aftercare Campaigns
 
-- [ ] Create Aftercare Messages (post-service care instructions)
+- [x] Create Aftercare Messages (post-service care instructions)
 - [ ] Schedule Timing (e.g., 2h after appointment)
 - [ ] Message Content (custom text)
 - [ ] View Active Campaigns
@@ -363,7 +367,7 @@
 
 #### Earnings Tracking
 
-- [ ] Earnings Summary (today, this week, this month)
+- [x] Earnings Summary (today, this week, this month)
 - [ ] Transaction History
 - [ ] Earnings Breakdown (filter by period)
 - [ ] Payout Status
@@ -411,7 +415,7 @@
 
 #### Service-Supply Linking
 
-- [ ] Link Supplies to Services
+- [x] Link Supplies to Services
 - [ ] Usage Tracking (auto-deduct on completion)
 - [ ] Cost Calculation (per-service cost from supplies)
 
@@ -419,7 +423,7 @@
 
 ### Portfolio
 
-- [ ] Upload Photos (work samples)
+- [x] Upload Photos (work samples)
 - [ ] Photo Gallery
 - [ ] Delete Photos
 - [ ] Public Portfolio Display (visible to clients)
@@ -464,7 +468,7 @@
 
 #### Master Management
 
-- [ ] View All Masters
+- [x] View All Masters
 - [ ] Master Invitations (send invites)
 - [ ] Pending Approvals (review/approve new applications)
 - [ ] Master Profiles (view/edit)
@@ -484,7 +488,7 @@
 
 #### Product Management
 
-- [ ] Add Products (name, description, price, category, images, stock)
+- [x] Add Products (name, description, price, category, images, stock)
 - [ ] Edit Products
 - [ ] Delete Products
 - [ ] Stock Management (update levels)
@@ -498,7 +502,7 @@
 
 #### Pricing
 
-- [ ] Retail Pricing (for clients)
+- [x] Retail Pricing (for clients)
 - [ ] Wholesale Pricing (for Masters, ~30% discount)
 - [ ] Dual Pricing Display (auto per user role)
 
@@ -562,7 +566,7 @@
 ### Pilates Management
 
 - [ ] Pilates Hub Screen (overview)
-- [ ] Pilates Timetable Management (full weekly timetable)
+- [x] Pilates Timetable Management (full weekly timetable)
 - [ ] Operating Days configuration (on/off per weekday)
 - [ ] Session creation / auto-generation from templates
 - [ ] Session overrides (manual edits)
@@ -622,7 +626,7 @@
 - [ ] Image Sharing
 - [ ] Video Sharing
 - [ ] Message Status (sent/delivered)
-- [ ] Timestamps
+- [x] Timestamps
 - [ ] Profile Photos in chat
 - [ ] Conversation Types: Client↔Master, Client↔Owner, Master↔Owner
 
@@ -675,14 +679,14 @@
 
 #### Stripe Integration
 
-- [ ] Secure Payments (PCI-compliant)
+- [x] Secure Payments (PCI-compliant)
 - [ ] Multiple Payment Methods (various card types)
 - [ ] 3D Secure authentication
 
 #### Saved Payment Methods
 
-- [ ] Add Cards
-- [ ] View Saved Cards (brand, last 4, expiry)
+- [x] Add Cards
+- [x] View Saved Cards (brand, last 4, expiry)
 - [ ] Set Default
 - [ ] Delete Cards
 
@@ -696,13 +700,13 @@
 
 #### Shop Payments
 
-- [ ] Immediate Charge at checkout
+- [x] Immediate Charge at checkout
 - [ ] Order Processing (payment before shipping)
 - [ ] Secure Finalization via Edge Function
 
 #### Refunds
 
-- [ ] Full Refunds (cancelled services)
+- [x] Full Refunds (cancelled services)
 - [ ] Partial Refunds (disputes/adjustments)
 - [ ] No-Show Fee Refunds
 
@@ -717,8 +721,8 @@
 
 ### Account Management
 
-- [ ] Delete Account (Edge Function: full data removal)
-- [ ] Logout
+- [x] Delete Account (Edge Function: full data removal)
+- [x] Logout
 - [ ] Session Persistence across app restarts
 
 ---
