@@ -656,13 +656,15 @@
 
 
 
-- [ ] Require Deposit Toggle (ON/OFF)
+- [x] Require Deposit Toggle (ON/OFF)
 
-- [ ] Global Deposit Settings — Percentage mode (e.g., 20%)
+- [x] Global Deposit Settings — Percentage mode (e.g., 20%)
 
-- [ ] Global Deposit Settings — Fixed amount mode (e.g., €20)
+- [x] Global Deposit Settings — Fixed amount mode (e.g., €20)
 
 - [ ] Per-Service Deposit Override
+
+  > **Dependency:** Requires Phase 4 — Service Management to add per-service deposit columns. A cross-link is provided in the Business Settings UI.
 
 
 
@@ -670,11 +672,11 @@
 
 
 
-- [ ] Request Confirmation Timing (e.g., 48h before)
+- [x] Request Confirmation Timing (e.g., 48h before)
 
-- [ ] Response Timeout (e.g., 24h to respond)
+- [x] Response Timeout (e.g., 24h to respond)
 
-- [ ] Auto-Cancel unconfirmed appointments after deadline
+- [x] Auto-Cancel unconfirmed appointments after deadline
 
 
 
@@ -682,13 +684,13 @@
 
 
 
-- [ ] No-Show Charge Percentage
+- [x] No-Show Charge Percentage
 
-- [ ] Late Arrival Threshold (e.g., 15 minutes)
+- [x] Late Arrival Threshold (e.g., 15 minutes)
 
-- [ ] Grace Period Multiplier (e.g., 50% of service duration)
+- [x] Grace Period Multiplier (e.g., 50% of service duration)
 
-- [ ] Custom Terms & Conditions
+- [x] Custom Terms & Conditions
 
 
 
@@ -696,11 +698,11 @@
 
 
 
-- [ ] Push Notification Preferences
+- [x] Push Notification Preferences
 
-- [ ] Confirmation Reminders (automated)
+- [x] Confirmation Reminders (automated)
 
-- [ ] Aftercare Campaign toggle
+- [x] Aftercare Campaign toggle
 
 
 
@@ -714,13 +716,13 @@
 
 - [x] Create Aftercare Messages (post-service care instructions)
 
-- [ ] Schedule Timing (e.g., 2h after appointment)
+- [x] Schedule Timing (e.g., 2h after appointment)
 
-- [ ] Message Content (custom text)
+- [x] Message Content (custom text)
 
-- [ ] View Active Campaigns
+- [x] View Active Campaigns
 
-- [ ] Automated Delivery after appointment completion
+- [x] Automated Delivery after appointment completion
 
 
 
@@ -818,13 +820,13 @@
 
 
 
-- [ ] Add Supplies (name, quantity, unit, low stock threshold, cost)
+- [x] Add Supplies (name, quantity, unit, low stock threshold, cost)
 
-- [ ] Update Stock (add/remove)
+- [x] Update Stock (add/remove)
 
-- [ ] Low Stock Alerts
+- [x] Low Stock Alerts
 
-- [ ] Supply History (usage over time)
+- [x] Supply History (usage over time)
 
 
 
@@ -834,9 +836,9 @@
 
 - [x] Link Supplies to Services
 
-- [ ] Usage Tracking (auto-deduct on completion)
+- [x] Usage Tracking (auto-deduct on completion)
 
-- [ ] Cost Calculation (per-service cost from supplies)
+- [x] Cost Calculation (per-service cost from supplies)
 
 
 
@@ -1114,13 +1116,13 @@
 
 
 
-- [ ] Owner Supplies Screen (platform-wide)
+- [x] Owner Supplies Screen (platform-wide)
 
-- [ ] Add Owner Supply
+- [x] Add Owner Supply
 
-- [ ] Supply Tracking (monitor levels)
+- [x] Supply Tracking (monitor levels)
 
-- [ ] Usage Reports
+- [x] Usage Reports
 
 
 

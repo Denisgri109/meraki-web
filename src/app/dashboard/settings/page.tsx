@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/components/Toast';
-import { Settings, User, Shield, Save, Loader2, Camera, CreditCard, Mail, Dumbbell, AlertTriangle, X } from 'lucide-react';
+import { Settings, User, Shield, Save, Loader2, Camera, CreditCard, Mail, Dumbbell, AlertTriangle, X, Briefcase } from 'lucide-react';
+import BusinessSettingsPanel from '@/components/BusinessSettingsPanel';
 import type { Tables } from '@/types/database';
 
 const DELETE_PHRASE = 'DELETE MY ACCOUNT';
@@ -14,6 +15,10 @@ const baseNavItems = [
   { label: 'Profile', value: 'profile', icon: User },
   { label: 'Security', value: 'security', icon: Shield },
   { label: 'Billing', value: 'billing', icon: CreditCard },
+];
+
+const masterNavItems = [
+  { label: 'Business', value: 'business', icon: Briefcase },
 ];
 
 const PILATES_DEFAULT_SETTINGS = {
@@ -69,7 +74,12 @@ export default function SettingsPage() {
   const [loadingPilates, setLoadingPilates] = useState(false);
   const [savingPilates, setSavingPilates] = useState(false);
   const canManagePilates = profile?.role === 'owner';
-  const navItems = canManagePilates ? [...baseNavItems, { label: 'Pilates', value: 'pilates', icon: Dumbbell }] : baseNavItems;
+  const isMasterOrOwner = profile?.role === 'master' || profile?.role === 'owner';
+  const navItems = [
+    ...baseNavItems,
+    ...(isMasterOrOwner ? masterNavItems : []),
+    ...(canManagePilates ? [{ label: 'Pilates', value: 'pilates', icon: Dumbbell }] : []),
+  ];
 
   useEffect(() => {
     if (!profile?.id || !canManagePilates) return;
@@ -525,6 +535,10 @@ export default function SettingsPage() {
                 </div>
               </div>
             </div>
+          )}
+
+          {activeSection === 'business' && isMasterOrOwner && (
+            <BusinessSettingsPanel />
           )}
 
           {activeSection === 'pilates' && canManagePilates && (

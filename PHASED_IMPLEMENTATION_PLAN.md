@@ -28,7 +28,6 @@ All flows that touch the same `appointments` row.
 
 ### Client side
 - [ ] Appointment Cards redesign (date, time, service, Master, price)
-- [ ] Pull-to-Refresh (appointments list)
 - [ ] Cancel Appointment — Late (<24h) with 50% penalty fee warning
 - [ ] Price Breakdown (total, deposit due, balance at salon)
 - [ ] Cancellation Policy display
@@ -50,20 +49,20 @@ All flows that touch the same `appointments` row.
 
 ---
 
-## Phase 3 — Master Schedule & Calendar
+## Phase 3 — Master Schedule & Calendar ✅
 
 Scheduling stack rebuilt as one unit.
 
-- [ ] Toggle Days (enable/disable per weekday)
-- [ ] Time Selection (start/end per day)
-- [ ] Save Schedule
-- [ ] Block Time Slots (manual block specific periods)
-- [ ] Vacation Mode (block multiple days)
-- [ ] Reason Field for blocks
-- [ ] View Blocked Slots
-- [ ] Visual Calendar View
-- [ ] Time Slots (available vs booked)
-- [ ] Calendar Navigation (weeks/months)
+- [x] Toggle Days (enable/disable per weekday)
+- [x] Time Selection (start/end per day)
+- [x] Save Schedule
+- [x] Block Time Slots (manual block specific periods)
+- [x] Vacation Mode (block multiple days)
+- [x] Reason Field for blocks
+- [x] View Blocked Slots
+- [x] Visual Calendar View
+- [x] Time Slots (available vs booked)
+- [x] Calendar Navigation (weeks/months)
 
 ---
 
@@ -142,27 +141,27 @@ Touches `messages` plus a new `consultations` flow.
 Stamp / QR / NFC / rewards as a single program.
 
 ### Client
-- [ ] Scan QR Codes (camera scan to earn points)
-- [ ] +50 Points Per Scan
-- [ ] Dynamic QR Codes (rotate after each scan)
-- [ ] NFC Tag Scanning
-- [ ] Multiple Cards Per Master (different services)
-- [ ] Card Selection (choose which to stamp)
-- [ ] Progress Tracking (visual stamp progress)
-- [ ] Transaction / Points History
+- [x] Scan QR Codes (camera scan to earn points) — `/dashboard/loyalty/scan`
+- [x] +50 Points Per Scan (master-configurable, default 50)
+- [x] Dynamic QR Codes (rotate after each scan) — server-side rotation in `process_qr_scan`
+- [x] NFC Tag Scanning — Web NFC `NDEFReader` (Chromium Android)
+- [x] Multiple Cards Per Master (different services) — see card picker
+- [x] Card Selection (choose which to stamp) — modal on multi-card masters
+- [x] Progress Tracking (visual stamp progress) — `/dashboard/loyalty`
+- [x] Transaction / Points History — history modal on `/dashboard/loyalty`
 
 ### Master
-- [ ] Display QR Code (unique per Master)
-- [ ] Dynamic Codes (rotate after each scan)
-- [ ] QR Code Full-Screen
-- [ ] Loyalty Card Builder — create cards
-- [ ] Multiple Cards (different services)
-- [ ] Card Naming
-- [ ] Stamp Requirements
-- [ ] Reward Definition (discount / free service / etc.)
-- [ ] Manage Rewards (view/edit)
-- [ ] Reward Catalog
-- [ ] Points System configuration (+50 default)
+- [x] Display QR Code (unique per Master) — `/dashboard/loyalty/qr`
+- [x] Dynamic Codes (rotate after each scan) — realtime + manual rotate
+- [x] QR Code Full-Screen — Fullscreen API
+- [x] Loyalty Card Builder — `/dashboard/loyalty/cards`
+- [x] Multiple Cards (different services)
+- [x] Card Naming
+- [x] Stamp Requirements (configurable, presets 3/5/6/8/10/12)
+- [x] Reward Definition (free service / discount % / fixed amount)
+- [x] Manage Rewards (view/edit) — `/dashboard/loyalty/manage`
+- [x] Reward Catalog — `/dashboard/loyalty` master view
+- [x] Points System configuration (+50 default) — settings modal on `/dashboard/loyalty/qr`
 
 ---
 

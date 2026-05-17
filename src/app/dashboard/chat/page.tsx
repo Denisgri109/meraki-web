@@ -13,6 +13,8 @@ interface Conversation {
   id: string;
   other_user_id: string;
   other_name: string;
+  other_avatar_url: string | null;
+  other_role: string;
   last_message: string | null;
   last_message_at: string | null;
   unread_count: number;
@@ -26,6 +28,7 @@ interface Message {
   edited_at: string | null;
   is_deleted: boolean | null;
   reply_to_id: string | null;
+  is_read: boolean;
   media_type?: string | null;
   media_url?: string | null;
   reply_to?: {
@@ -45,6 +48,8 @@ interface ConversationData {
 interface ProfileData {
   id: string;
   full_name: string | null;
+  avatar_url: string | null;
+  role: string | null;
 }
 
 interface MessageData {
@@ -209,7 +214,7 @@ export default function ChatPage() {
       if (otherUserIds.length > 0) {
         const { data } = await supabase
           .from('profiles')
-          .select('id, full_name')
+          .select('id, full_name, avatar_url, role')
           .in('id', otherUserIds);
         if (data) profilesData = data;
       }
@@ -254,6 +259,8 @@ export default function ChatPage() {
           id: c.id as string,
           other_user_id: otherId as string,
           other_name: (profile?.full_name as string) || 'User',
+          other_avatar_url: profile?.avatar_url || null,
+          other_role: profile?.role || 'client',
           last_message: displayMsg || null,
           last_message_at: (c.last_message_at as string) || null,
           unread_count: unreadByConv[c.id] || 0,
@@ -290,7 +297,7 @@ export default function ChatPage() {
       const { data } = await supabase
         .from('messages')
         .select(`
-          id, sender_id, content, created_at, edited_at, is_deleted, reply_to_id,
+          id, sender_id, content, created_at, edited_at, is_deleted, reply_to_id, is_read,
           media_type, media_url,
           reply_to:reply_to_id(content, sender_id, media_type)
         `)
@@ -631,12 +638,16 @@ export default function ChatPage() {
                         <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-8 bg-gradient-to-b from-[var(--color-brand-pink)] to-[var(--color-secondary)] rounded-r-full" />
                       )}
                       <div className="relative shrink-0">
-                        <div className={`w-11 h-11 rounded-full flex items-center justify-center font-semibold text-sm shadow-sm ring-1 ring-white ${
+                        <div className={`w-11 h-11 rounded-full flex items-center justify-center font-semibold text-sm shadow-sm ring-1 ring-white overflow-hidden ${
                           isActive
                             ? 'bg-gradient-to-br from-[var(--color-brand-pink)] to-[var(--color-secondary)] text-white'
                             : 'bg-gradient-to-br from-[var(--color-brand-pink-light)] to-[var(--color-lavender)] text-[var(--color-brand-pink-dark)]'
                         }`}>
-                          {convo.other_name.charAt(0).toUpperCase()}
+                          {convo.other_avatar_url ? (
+                            <img src={convo.other_avatar_url} alt={convo.other_name} className="w-full h-full object-cover" />
+                          ) : (
+                            convo.other_name.charAt(0).toUpperCase()
+                          )}
                         </div>
                         {hasUnread && (
                           <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-[var(--color-brand-pink)] border-2 border-white" />
@@ -644,9 +655,18 @@ export default function ChatPage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-baseline justify-between gap-2">
-                          <p className={`text-sm truncate text-[var(--color-text-primary)] ${hasUnread ? 'font-bold' : 'font-medium'}`}>
-                            {convo.other_name}
-                          </p>
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <p className={`text-sm truncate text-[var(--color-text-primary)] ${hasUnread ? 'font-bold' : 'font-medium'}`}>
+                              {convo.other_name}
+                            </p>
+                            <span className={`shrink-0 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full ${
+                              convo.other_role === 'master' ? 'bg-purple-100 text-purple-600' :
+                              convo.other_role === 'owner' ? 'bg-amber-100 text-amber-700' :
+                              'bg-blue-50 text-blue-500'
+                            }`}>
+                              {convo.other_role === 'master' ? 'Pro' : convo.other_role === 'owner' ? 'Owner' : 'Client'}
+                            </span>
+                          </div>
                           {convo.last_message_at && (
                             <span className={`text-[10px] shrink-0 ${hasUnread ? 'text-[var(--color-brand-pink-dark)] font-semibold' : 'text-[var(--color-text-muted)]'}`}>
                               {formatInboxTime(convo.last_message_at)}
@@ -688,15 +708,20 @@ export default function ChatPage() {
               {/* Chat Header */}
               <div className="h-16 px-5 flex items-center justify-between border-b border-[var(--color-border-light)] bg-white/70 backdrop-blur-sm shrink-0">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[var(--color-brand-pink)] to-[var(--color-secondary)] flex items-center justify-center text-white font-semibold text-sm shadow-[0_4px_12px_rgba(236,153,182,0.3)] ring-2 ring-white">
-                    {activeConvo?.other_name.charAt(0).toUpperCase() || '?'}
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[var(--color-brand-pink)] to-[var(--color-secondary)] flex items-center justify-center text-white font-semibold text-sm shadow-[0_4px_12px_rgba(236,153,182,0.3)] ring-2 ring-white overflow-hidden">
+                    {activeConvo?.other_avatar_url ? (
+                      <img src={activeConvo.other_avatar_url} alt="Profile" className="w-full h-full object-cover" />
+                    ) : (
+                      activeConvo?.other_name.charAt(0).toUpperCase() || '?'
+                    )}
                   </div>
                   <div>
                     <p className="font-semibold text-sm text-[var(--color-text-primary)] leading-tight">
                       {activeConvo?.other_name || 'User'}
                     </p>
-                    <p className="text-[11px] text-[var(--color-text-muted)] mt-0.5">
-                      Direct message
+                    <p className="text-[11px] text-[var(--color-text-muted)] mt-0.5 flex items-center gap-1.5">
+                      <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                      {activeConvo?.other_role === 'master' ? 'Client ↔ Master' : activeConvo?.other_role === 'owner' ? 'Client ↔ Owner' : activeConvo?.other_role === 'client' ? 'Master ↔ Client' : 'Direct message'}
                     </p>
                   </div>
                 </div>
@@ -712,8 +737,13 @@ export default function ChatPage() {
                   const isMine = msg.sender_id === user?.id;
                   const isEditing = editingMessageId === msg.id;
                   const prev = idx > 0 ? messages[idx - 1] : null;
+                  const next = idx < messages.length - 1 ? messages[idx + 1] : null;
                   const showDaySeparator =
                     !prev || new Date(prev.created_at).toDateString() !== new Date(msg.created_at).toDateString();
+                  
+                  const isGrouped = !showDaySeparator && prev && prev.sender_id === msg.sender_id && (new Date(msg.created_at).getTime() - new Date(prev.created_at).getTime() < 2 * 60 * 1000);
+                  const isLastInGroup = !next || next.sender_id !== msg.sender_id || (new Date(next.created_at).getTime() - new Date(msg.created_at).getTime() >= 2 * 60 * 1000) || (new Date(next.created_at).toDateString() !== new Date(msg.created_at).toDateString());
+
                   return (
                     <div key={msg.id}>
                       {showDaySeparator && (
@@ -723,13 +753,19 @@ export default function ChatPage() {
                           </span>
                         </div>
                       )}
-                      <div className={`flex ${isMine ? 'justify-end' : 'justify-start'} group`}>
+                      <div className={`flex ${isMine ? 'justify-end' : 'justify-start'} group ${isGrouped ? 'msg-grouped' : 'mt-2.5'}`}>
                       <div className={`flex items-end gap-1.5 max-w-[68%] ${isMine ? 'flex-row-reverse' : 'flex-row'}`}>
 
                         {/* Avatar (friend only) */}
                         {!isMine && (
-                          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[var(--color-brand-pink)] to-[var(--color-secondary)] flex items-center justify-center text-white font-semibold text-[11px] shrink-0 mb-0.5 shadow-sm">
-                            {activeConvo?.other_name.charAt(0).toUpperCase() || '?'}
+                          <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white font-semibold text-[11px] shrink-0 mb-0.5 shadow-sm overflow-hidden ${isLastInGroup ? 'bg-gradient-to-br from-[var(--color-brand-pink)] to-[var(--color-secondary)]' : 'bg-transparent shadow-none'}`}>
+                            {isLastInGroup && (
+                              activeConvo?.other_avatar_url ? (
+                                <img src={activeConvo.other_avatar_url} alt="Profile" className="w-full h-full object-cover" />
+                              ) : (
+                                activeConvo?.other_name.charAt(0).toUpperCase() || '?'
+                              )
+                            )}
                           </div>
                         )}
 
@@ -777,8 +813,8 @@ export default function ChatPage() {
                         <div
                           className={`px-4 py-2.5 text-sm shadow-sm ${
                             isMine
-                              ? 'bg-gradient-to-br from-[#2C3E50] to-[#3D5166] text-white rounded-2xl rounded-br-sm shadow-[0_4px_14px_rgba(44,62,80,0.25)]'
-                              : 'bg-gradient-to-br from-[#EDE7F6] to-[#E8EAF6] text-[var(--color-text-primary)] rounded-2xl rounded-bl-sm border border-[#D1C4E9]/40'
+                              ? `bg-gradient-to-br from-[#2C3E50] to-[#3D5166] text-white rounded-2xl shadow-[0_4px_14px_rgba(44,62,80,0.25)] ${!isLastInGroup ? 'msg-grouped-radius-mine' : 'rounded-br-sm'}`
+                              : `bg-gradient-to-br from-[#EDE7F6] to-[#E8EAF6] text-[var(--color-text-primary)] rounded-2xl border border-[#D1C4E9]/40 ${!isLastInGroup ? 'msg-grouped-radius-other' : 'rounded-bl-sm'}`
                           } ${isEditing ? 'min-w-[200px]' : ''}`}
                         >
                           {/* Reply preview inside bubble */}
@@ -836,9 +872,21 @@ export default function ChatPage() {
                               {msg.content && (
                                 <p className="whitespace-pre-wrap break-words">{msg.content}</p>
                               )}
-                              <p className={`text-[10px] mt-1.5 ${isMine ? 'text-white/50 text-right' : 'text-[#9E9E9E] text-right'}`}>
-                                {formatTime(msg.created_at)}
-                                {msg.edited_at && <span className="ml-1 opacity-75">· edited</span>}
+                              <p className={`text-[10px] mt-1.5 flex items-center justify-end gap-1 ${isMine ? 'text-white/50' : 'text-[#9E9E9E]'}`}>
+                                <span>{formatTime(msg.created_at)}</span>
+                                {msg.edited_at && <span className="opacity-75">· edited</span>}
+                                {isMine && (
+                                  <span className="msg-status-check">
+                                    {msg.is_read ? (
+                                      <div className="flex -space-x-1">
+                                        <Check size={11} className="msg-status-read" />
+                                        <Check size={11} className="msg-status-read" />
+                                      </div>
+                                    ) : (
+                                      <Check size={11} className="msg-status-sent" />
+                                    )}
+                                  </span>
+                                )}
                               </p>
                             </>
                           )}

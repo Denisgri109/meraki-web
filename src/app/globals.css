@@ -593,3 +593,189 @@ body {
 .step-line-inactive {
   background: #E5E7EB;
 }
+
+/* ─── Slide-Over Panel ─────────────────────────────────────────────── */
+@keyframes slideOverIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+@keyframes slideOverOut {
+  from { transform: translateX(0); opacity: 1; }
+  to { transform: translateX(100%); opacity: 0; }
+}
+.slide-over-enter {
+  animation: slideOverIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.slide-over-exit {
+  animation: slideOverOut 0.25s ease-in forwards;
+}
+
+/* ─── Modal Overlay & Content ──────────────────────────────────────── */
+@keyframes overlayFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes modalScaleIn {
+  from { opacity: 0; transform: scale(0.95) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+.modal-overlay {
+  animation: overlayFadeIn 0.2s ease-out forwards;
+}
+.modal-content {
+  animation: modalScaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ─── Appointment Status Badges ────────────────────────────────────── */
+.badge-confirmed-protected {
+  background: linear-gradient(135deg, #34D399, #10B981);
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+.badge-no-show {
+  background: linear-gradient(135deg, #EF4444, #DC2626);
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.badge-late-arrival {
+  background: linear-gradient(135deg, #F59E0B, #D97706);
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.badge-reschedule {
+  background: linear-gradient(135deg, #8B5CF6, #7C3AED);
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ─── Countdown Timer ──────────────────────────────────────────────── */
+.countdown-ring {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 3px solid rgba(232, 160, 180, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-brand-pink-dark);
+  position: relative;
+}
+.countdown-ring::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  border-top-color: var(--color-brand-pink);
+  animation: spin 2s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ─── Confirmation Banner ──────────────────────────────────────────── */
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(232, 160, 180, 0.3); }
+  50% { box-shadow: 0 0 0 8px rgba(232, 160, 180, 0); }
+}
+.confirmation-banner {
+  animation: pulseGlow 2s ease-in-out infinite;
+}
+
+/* ─── Phase 6: Consultations & Chat Polish ─────────────────────────── */
+.photo-grid-upload {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 12px;
+}
+
+.photo-preview-item {
+  aspect-ratio: 1;
+  position: relative;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.timeline-line {
+  position: absolute;
+  left: 20px;
+  top: 40px;
+  bottom: 0;
+  width: 2px;
+  background: var(--color-border);
+  z-index: 0;
+}
+
+.timeline-line-active {
+  background: linear-gradient(180deg, var(--color-brand-pink) 0%, var(--color-secondary) 100%);
+}
+
+.msg-status-check {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 4px;
+}
+
+.msg-status-check svg {
+  width: 12px;
+  height: 12px;
+}
+
+.msg-status-sent {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.msg-status-delivered {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.msg-status-read {
+  color: #60A5FA;
+}
+
+/* Grouped messages spacing */
+.msg-grouped {
+  margin-top: 1px !important;
+}
+
+.msg-grouped-radius-mine {
+  border-top-right-radius: 6px !important;
+  border-bottom-right-radius: 6px !important;
+}
+
+.msg-grouped-radius-other {
+  border-top-left-radius: 6px !important;
+  border-bottom-left-radius: 6px !important;
+}

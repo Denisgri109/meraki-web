@@ -9,8 +9,8 @@ import { useNotifications, type NotificationItem } from '@/contexts/Notification
 import {
   Home, Calendar, Search, ShoppingBag, GraduationCap, Gift,
   MessageSquare, Settings, LogOut, Menu, X, ChevronDown,
-  Scissors, Clock, Package, BarChart3,
-  Bell, ShoppingCart, CalendarCheck, Inbox
+  Scissors, Clock, Package, BarChart3, Boxes,
+  Bell, ShoppingCart, CalendarCheck, Inbox, ClipboardList
 } from 'lucide-react';
 
 // ─── Navigation items ─────────────────────────────────────────────
@@ -21,6 +21,7 @@ const clientNav = [
   { href: '/dashboard/shop', label: 'Shop', icon: ShoppingBag },
   { href: '/dashboard/academy', label: 'Academy', icon: GraduationCap },
   { href: '/dashboard/loyalty', label: 'Rewards', icon: Gift },
+  { href: '/dashboard/consultations', label: 'Consults', icon: ClipboardList },
 ];
 
 const ownerNav = [
@@ -28,7 +29,9 @@ const ownerNav = [
   { href: '/dashboard/appointments', label: 'Bookings', icon: CalendarCheck },
   { href: '/dashboard/analytics', label: 'Analytics', icon: BarChart3 },
   { href: '/dashboard/inventory', label: 'Inventory', icon: Package },
+  { href: '/dashboard/supplies', label: 'Supplies', icon: Boxes },
   { href: '/dashboard/loyalty', label: 'Rewards', icon: Gift },
+  { href: '/dashboard/consultations', label: 'Consults', icon: ClipboardList },
   { href: '/dashboard/discover', label: 'Discover', icon: Search },
 ];
 
@@ -37,7 +40,9 @@ const masterNav = [
   { href: '/dashboard/appointments', label: 'Bookings', icon: CalendarCheck },
   { href: '/dashboard/availability', label: 'Schedule', icon: Clock },
   { href: '/dashboard/services', label: 'Services', icon: Scissors },
+  { href: '/dashboard/supplies', label: 'Supplies', icon: Boxes },
   { href: '/dashboard/loyalty', label: 'Rewards', icon: Gift },
+  { href: '/dashboard/consultations', label: 'Consults', icon: ClipboardList },
 ];
 
 interface MainNavbarProps {

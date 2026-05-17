@@ -5,11 +5,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 import {
   Gift, Star, Trophy, Sparkles, QrCode, Crown, Zap, Award, X, Loader2,
-  History, Clock, Ticket, Settings, Plus,
+  History, Clock, Ticket, Settings, Plus, Camera, Layers,
 } from 'lucide-react';
 import { useToast } from '@/components/Toast';
 import Link from 'next/link';
-import { QRCodeSVG } from 'qrcode.react';
 
 interface LoyaltyReward {
   id: string;
@@ -137,9 +136,6 @@ export default function LoyaltyPage() {
   const [stampsToday, setStampsToday] = useState(0);
   const [myRewards, setMyRewards] = useState<LoyaltyReward[]>([]);
 
-  // QR Modal (master/owner only)
-  const [showQrModal, setShowQrModal] = useState(false);
-  const qrValue = user ? `stamp:${user.id}` : null;
 
   // ── Fetch data based on role ───────────────────────────────────────────
   const fetchClientData = useCallback(async () => {
@@ -310,41 +306,6 @@ export default function LoyaltyPage() {
 
   return (
     <div className="max-w-4xl mx-auto animate-fade-in">
-      {/* QR Modal (master/owner only) */}
-      {showQrModal && qrValue && (
-        <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
-          style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)' }}
-          onClick={() => setShowQrModal(false)}
-        >
-          <div
-            className="relative bg-white rounded-3xl p-10 max-w-sm w-full text-center shadow-2xl animate-scale-in"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              onClick={() => setShowQrModal(false)}
-              className="absolute top-4 right-4 w-9 h-9 rounded-full bg-black/5 hover:bg-black/10 flex items-center justify-center cursor-pointer"
-              aria-label="Close"
-            >
-              <X size={18} />
-            </button>
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400 to-pink-400 flex items-center justify-center mx-auto mb-4 shadow-lg">
-              <QrCode size={28} className="text-white" />
-            </div>
-            <h3 className="text-xl font-bold text-[var(--color-text-primary)]">Your Stamp Card QR</h3>
-            <p className="text-sm text-[var(--color-text-muted)] mt-1 mb-6">
-              Ask your client to scan this to collect a stamp
-            </p>
-            <div className="bg-white p-6 rounded-2xl border border-black/5 shadow-sm inline-block">
-              <QRCodeSVG value={qrValue} size={220} level="H" bgColor="white" fgColor="#1a1a1a" />
-            </div>
-            <p className="text-xs text-[var(--color-text-muted)] mt-4 flex items-center justify-center gap-1.5">
-              <Ticket size={12} /> Client scans this to collect stamps
-            </p>
-          </div>
-        </div>
-      )}
-
       {/* ─── Hero Banner ─── */}
       <div className="relative rounded-[var(--radius-2xl)] overflow-hidden mb-10 h-[220px]">
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -374,7 +335,6 @@ export default function LoyaltyPage() {
         <MasterView
           stampsToday={stampsToday}
           myRewards={myRewards}
-          onShowQr={() => setShowQrModal(true)}
         />
       ) : (
         <ClientView
@@ -540,7 +500,13 @@ function ClientView({
             </div>
           )}
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              href="/dashboard/loyalty/scan"
+              className="flex items-center gap-2 px-6 py-3 rounded-full bg-white text-gray-900 text-sm font-bold hover:bg-gray-100 hover:scale-105 transition-all cursor-pointer shadow-lg"
+            >
+              <Camera size={14} /> Scan to earn
+            </Link>
             <button
               onClick={onShowHistory}
               className="flex items-center gap-2 px-6 py-3 rounded-full bg-white/10 text-white text-sm font-medium hover:bg-white/20 transition-all cursor-pointer backdrop-blur-sm"
@@ -813,15 +779,13 @@ function ClientView({
   );
 }
 
-// ─── Master / Owner View ───────────────────────────────────────────────────
+// ─── Master / Owner View ────────────────────────────────────────
 function MasterView({
   stampsToday,
   myRewards,
-  onShowQr,
 }: {
   stampsToday: number;
   myRewards: LoyaltyReward[];
-  onShowQr: () => void;
 }) {
   return (
     <>
@@ -834,13 +798,22 @@ function MasterView({
             <p className="text-6xl font-bold">{stampsToday}</p>
             <p className="text-sm text-white/70 mt-1">+1 stamp per appointment</p>
           </div>
-          <button
-            onClick={onShowQr}
-            className="flex items-center gap-2 px-6 py-3 rounded-full bg-white text-gray-900 text-sm font-bold hover:bg-gray-100 hover:scale-105 transition-all shadow-lg cursor-pointer"
-          >
-            <QrCode size={16} />
-            Show My Stamp QR
-          </button>
+          <div className="flex flex-col gap-2">
+            <Link
+              href="/dashboard/loyalty/qr"
+              className="flex items-center gap-2 px-6 py-3 rounded-full bg-white text-gray-900 text-sm font-bold hover:bg-gray-100 hover:scale-105 transition-all shadow-lg cursor-pointer"
+            >
+              <QrCode size={16} />
+              Show my QR
+            </Link>
+            <Link
+              href="/dashboard/loyalty/cards"
+              className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-sm font-semibold transition-all backdrop-blur-sm cursor-pointer"
+            >
+              <Layers size={14} />
+              Loyalty cards
+            </Link>
+          </div>
         </div>
       </div>
 

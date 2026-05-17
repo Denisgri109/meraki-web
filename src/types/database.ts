@@ -3664,15 +3664,16 @@ export type Database = {
           deposit_type: string
         }[]
       }
-      get_my_qr_code: { Args: never; Returns: string }
-      get_or_create_qr_code: {
-        Args: { p_owner_id: string }
+      ensure_loyalty_qr_code: {
+        Args: { p_user_id: string }
         Returns: {
           id: string
-          last_scanned_at: string
+          user_id: string
+          code: string
           points_value: number
-          token: string
-          total_scans: number
+          scans_count: number
+          is_active: boolean
+          updated_at: string
         }[]
       }
       handle_reschedule_expiration: { Args: never; Returns: undefined }
@@ -3708,14 +3709,17 @@ export type Database = {
         Args: { p_client_id: string; p_client_stamp_id: string }
         Returns: Json
       }
-      regenerate_qr_token: { Args: { p_owner_id: string }; Returns: string }
+      regenerate_loyalty_qr_code: {
+        Args: { p_user_id: string }
+        Returns: string
+      }
+      set_loyalty_qr_points_value: {
+        Args: { p_user_id: string; p_points: number }
+        Returns: number
+      }
       mark_conversation_read: {
         Args: { p_conversation_id: string }
         Returns: number
-      }
-      scan_loyalty_qr: {
-        Args: { p_client_id: string; p_token: string }
-        Returns: Json
       }
     }
     Enums: {
