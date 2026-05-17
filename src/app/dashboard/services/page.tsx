@@ -1,15 +1,22 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/components/Toast';
-import { Scissors, Plus, Clock, Edit3, ToggleLeft, ToggleRight, Sparkles, X, Loader2, Save, Trash2, AlertTriangle, Activity, CalendarDays, ChevronRight } from 'lucide-react';
+import {
+  Scissors, Plus, Clock, Edit3, ToggleLeft, ToggleRight, Sparkles, X, Loader2,
+  Save, Trash2, AlertTriangle, Activity, CalendarDays, ChevronRight, ChevronDown,
+  DollarSign, Settings2, Percent, BadgePoundSterling,
+} from 'lucide-react';
 import type { Tables, TablesInsert } from '@/types/database';
 
 type Service = Tables<'services'>;
+type MasterServiceRow = Tables<'master_services'>;
 type ServiceInsert = TablesInsert<'services'>;
+
+type ServiceWithConfig = Service & { config?: MasterServiceRow };
 
 const CATEGORIES = ['Nails', 'Lashes', 'Brows', 'Hair', 'Makeup', 'Skincare', 'Pilates', 'Other'];
 
@@ -18,7 +25,7 @@ export default function ServicesPage() {
   const router = useRouter();
   const supabase = createClient();
   const { showToast } = useToast();
-  const [services, setServices] = useState<Service[]>([]);
+  const [services, setServices] = useState<ServiceWithConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const isOwner = profile?.role === 'owner';
   const categories = isOwner ? CATEGORIES : CATEGORIES.filter((category) => category !== 'Pilates');
@@ -28,36 +35,166 @@ export default function ServicesPage() {
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [form, setForm] = useState({ name: '', description: '', base_price: '', duration_minutes: '60', category: 'Nails', requires_consultation: false });
   const [saving, setSaving] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<Service | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ServiceWithConfig | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [showPilatesHub, setShowPilatesHub] = useState(false);
   const [creatingDefaultPilates, setCreatingDefaultPilates] = useState(false);
 
+  // Expanded config panel per service
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [configSaving, setConfigSaving] = useState<string | null>(null);
+
+  // Per-service config form (custom price, duration, deposit)
+  const [configForm, setConfigForm] = useState<{
+    custom_price: string;
+    custom_duration: string;
+    deposit_override_type: string;
+    deposit_override_value: string;
+  }>({ custom_price: '', custom_duration: '', deposit_override_type: 'none', deposit_override_value: '' });
+
   const pilatesServices = services.filter((s) => s.category === 'Pilates');
 
-  const refreshServices = async () => {
+  const fetchAll = useCallback(async () => {
     if (!user) return;
-    const { data } = await supabase.from('services').select('*').eq('created_by', user.id).order('created_at', { ascending: false });
-    setServices(data || []);
+    const [{ data: svcData }, { data: cfgData }] = await Promise.all([
+      supabase.from('services').select('*').eq('created_by', user.id).order('created_at', { ascending: false }),
+      supabase.from('master_services').select('*').eq('master_id', user.id),
+    ]);
+    const merged: ServiceWithConfig[] = (svcData || []).map((s) => {
+      const config = cfgData?.find((c) => c.service_id === s.id);
+      return { ...s, config };
+    });
+    setServices(merged);
     setLoading(false);
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   useEffect(() => {
     if (!user) return;
-    let isMounted = true;
-    const loadServices = async () => {
-      const { data } = await supabase.from('services').select('*').eq('created_by', user.id).order('created_at', { ascending: false });
-      if (isMounted) {
-        setServices(data || []);
-        setLoading(false);
-      }
+    let mounted = true;
+    const load = async () => {
+      const [{ data: svcData }, { data: cfgData }] = await Promise.all([
+        supabase.from('services').select('*').eq('created_by', user.id).order('created_at', { ascending: false }),
+        supabase.from('master_services').select('*').eq('master_id', user.id),
+      ]);
+      if (!mounted) return;
+      const merged: ServiceWithConfig[] = (svcData || []).map((s) => {
+        const config = cfgData?.find((c) => c.service_id === s.id);
+        return { ...s, config };
+      });
+      setServices(merged);
+      setLoading(false);
     };
-    loadServices();
-    return () => {
-      isMounted = false;
-    };
+    load();
+    return () => { mounted = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  // --- Helpers ---
+
+  const ensureConfig = async (serviceId: string): Promise<MasterServiceRow> => {
+    const existing = services.find((s) => s.id === serviceId)?.config;
+    if (existing) return existing;
+    const { data, error } = await supabase
+      .from('master_services')
+      .insert({ master_id: user!.id, service_id: serviceId, is_available: true })
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  };
+
+  // --- Toggle availability (master_services.is_available) ---
+
+  const handleToggleAvailability = async (svc: ServiceWithConfig) => {
+    const current = svc.config?.is_available ?? false;
+    const newVal = !current;
+
+    // Optimistic
+    setServices((prev) =>
+      prev.map((s) =>
+        s.id === svc.id
+          ? { ...s, config: s.config ? { ...s.config, is_available: newVal } : undefined }
+          : s
+      )
+    );
+
+    try {
+      const cfg = await ensureConfig(svc.id);
+      await supabase.from('master_services').update({ is_available: newVal }).eq('id', cfg.id);
+      showToast(newVal ? 'Service enabled for booking' : 'Service disabled for booking', 'info');
+      fetchAll();
+    } catch {
+      showToast('Failed to toggle availability', 'error');
+      fetchAll();
+    }
+  };
+
+  // --- Toggle global is_active ---
+
+  const toggleService = async (id: string, current: boolean) => {
+    setServices((prev) => prev.map((s) => (s.id === id ? { ...s, is_active: !current } : s)));
+    await supabase.from('services').update({ is_active: !current }).eq('id', id);
+    showToast(!current ? 'Service activated' : 'Service deactivated', 'info');
+  };
+
+  // --- Config panel ---
+
+  const openConfig = (svc: ServiceWithConfig) => {
+    if (expandedId === svc.id) {
+      setExpandedId(null);
+      return;
+    }
+    setExpandedId(svc.id);
+    const cfg = svc.config;
+    setConfigForm({
+      custom_price: cfg?.custom_price != null ? cfg.custom_price.toString() : '',
+      custom_duration: cfg?.custom_duration != null ? cfg.custom_duration.toString() : '',
+      deposit_override_type: cfg?.deposit_override_type || 'none',
+      deposit_override_value: cfg?.deposit_override_value != null ? cfg.deposit_override_value.toString() : '',
+    });
+  };
+
+  const saveConfig = async (svc: ServiceWithConfig) => {
+    setConfigSaving(svc.id);
+    try {
+      const cfg = await ensureConfig(svc.id);
+      const customPrice = configForm.custom_price.trim() ? Number(configForm.custom_price) : null;
+      const customDuration = configForm.custom_duration.trim() ? Number(configForm.custom_duration) : null;
+      const depType = configForm.deposit_override_type === 'none' ? null : configForm.deposit_override_type;
+      const depValue = depType && configForm.deposit_override_value.trim() ? Number(configForm.deposit_override_value) : null;
+
+      if (customPrice !== null && (isNaN(customPrice) || customPrice < 0)) {
+        showToast('Invalid custom price', 'error');
+        return;
+      }
+      if (customDuration !== null && (isNaN(customDuration) || customDuration <= 0)) {
+        showToast('Invalid custom duration', 'error');
+        return;
+      }
+      if (depValue !== null && (isNaN(depValue) || depValue < 0)) {
+        showToast('Invalid deposit value', 'error');
+        return;
+      }
+
+      const { error } = await supabase.from('master_services').update({
+        custom_price: customPrice,
+        custom_duration: customDuration,
+        deposit_override_type: depType,
+        deposit_override_value: depValue,
+      }).eq('id', cfg.id);
+      if (error) throw error;
+
+      showToast('Configuration saved', 'success');
+      fetchAll();
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : 'Failed to save config', 'error');
+    } finally {
+      setConfigSaving(null);
+    }
+  };
+
+  // --- CRUD ---
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -67,18 +204,12 @@ export default function ServicesPage() {
       if (error) throw error;
       showToast('Service deleted', 'success');
       setDeleteTarget(null);
-      refreshServices();
+      fetchAll();
     } catch (err: unknown) {
       showToast(err instanceof Error ? err.message : 'Failed to delete service', 'error');
     } finally {
       setDeleting(false);
     }
-  };
-
-  const toggleService = async (id: string, current: boolean) => {
-    setServices((prev) => prev.map((s) => (s.id === id ? { ...s, is_active: !current } : s)));
-    await supabase.from('services').update({ is_active: !current }).eq('id', id);
-    showToast(!current ? 'Service activated' : 'Service deactivated', 'info');
   };
 
   const openCreate = () => {
@@ -120,7 +251,7 @@ export default function ServicesPage() {
         custom_duration: null,
       });
       showToast('Pilates studio created!', 'success');
-      await refreshServices();
+      await fetchAll();
       setShowPilatesHub(false);
       router.push(`/dashboard/services/pilates/${serviceData.id}`);
     } catch (err: unknown) {
@@ -183,13 +314,16 @@ export default function ServicesPage() {
         showToast('Service created!', 'success');
       }
       setShowModal(false);
-      refreshServices();
+      fetchAll();
     } catch (err: unknown) {
       showToast(err instanceof Error ? err.message : 'Failed to save service', 'error');
     } finally {
       setSaving(false);
     }
   };
+
+  // --- Computed stats ---
+  const availableCount = services.filter((s) => s.config?.is_available).length;
 
   return (
     <div className="max-w-4xl mx-auto animate-fade-in">
@@ -229,14 +363,18 @@ export default function ServicesPage() {
       </div>
 
       {/* Stats row */}
-      <div className="grid grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-4 gap-4 mb-8">
         <div className="glass-card p-4 text-center">
           <p className="text-2xl font-bold text-[var(--color-text-primary)]">{services.length}</p>
-          <p className="text-xs text-[var(--color-text-muted)] mt-1">Total Services</p>
+          <p className="text-xs text-[var(--color-text-muted)] mt-1">Total</p>
         </div>
         <div className="glass-card p-4 text-center">
           <p className="text-2xl font-bold text-emerald-600">{services.filter((s) => s.is_active).length}</p>
           <p className="text-xs text-[var(--color-text-muted)] mt-1">Active</p>
+        </div>
+        <div className="glass-card p-4 text-center">
+          <p className="text-2xl font-bold text-cyan-600">{availableCount}</p>
+          <p className="text-xs text-[var(--color-text-muted)] mt-1">Bookable</p>
         </div>
         <div className="glass-card p-4 text-center">
           <p className="text-2xl font-bold text-[var(--color-text-muted)]">{services.filter((s) => !s.is_active).length}</p>
@@ -267,83 +405,242 @@ export default function ServicesPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {services.map((service) => (
-            <div key={service.id} className={`glass-card p-5 sm:p-6 transition-all duration-300 hover:shadow-lg ${!service.is_active ? 'opacity-60 grayscale-[0.3]' : 'hover:border-[var(--color-brand-pink)]/30'}`}>
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-1">
-                    <h3 className="text-lg font-bold text-[var(--color-text-primary)]">{service.name}</h3>
-                    {service.category && (
-                      <span className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-pink-50 text-pink-600 border border-pink-100">
-                        {service.category}
-                      </span>
-                    )}
-                    {service.requires_consultation && (
-                      <span className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-amber-50 text-amber-600 border border-amber-100">
-                        Consultation
-                      </span>
-                    )}
-                    {service.category === 'Pilates' && (
-                      <span className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
-                        Timetable
-                      </span>
-                    )}
-                  </div>
-                  {service.description && (
-                    <p className="text-sm text-[var(--color-text-secondary)] mb-3 line-clamp-2 max-w-2xl">{service.description}</p>
-                  )}
-                  <div className="flex items-center gap-5 text-sm">
-                    <span className="flex items-center gap-1.5 font-medium text-[var(--color-text-muted)] bg-[var(--color-surface-light)] px-2.5 py-1 rounded-md">
-                      <Clock size={14} className="text-[var(--color-info)]" />{service.duration_minutes} min
-                    </span>
-                    <span className="flex items-center gap-1 font-bold text-[var(--color-text-primary)] bg-emerald-50 px-2.5 py-1 rounded-md text-emerald-700">
-                      £{service.base_price?.toFixed(2)}
-                    </span>
+          {services.map((service) => {
+            const isAvailable = service.config?.is_available ?? false;
+            const hasCustomPrice = service.config?.custom_price != null;
+            const hasCustomDuration = service.config?.custom_duration != null;
+            const hasDepositOverride = !!service.config?.deposit_override_type;
+            const isExpanded = expandedId === service.id;
+            const effectivePrice = hasCustomPrice ? service.config!.custom_price! : service.base_price;
+            const effectiveDuration = hasCustomDuration ? service.config!.custom_duration! : service.duration_minutes;
+
+            return (
+              <div key={service.id} className={`glass-card transition-all duration-300 hover:shadow-lg ${!service.is_active ? 'opacity-60 grayscale-[0.3]' : 'hover:border-[var(--color-brand-pink)]/30'}`}>
+                <div className="p-5 sm:p-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-1 flex-wrap">
+                        <h3 className="text-lg font-bold text-[var(--color-text-primary)]">{service.name}</h3>
+                        {service.category && (
+                          <span className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-pink-50 text-pink-600 border border-pink-100">
+                            {service.category}
+                          </span>
+                        )}
+                        {isAvailable && (
+                          <span className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
+                            Bookable
+                          </span>
+                        )}
+                        {service.requires_consultation && (
+                          <span className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-amber-50 text-amber-600 border border-amber-100">
+                            Consultation
+                          </span>
+                        )}
+                        {service.category === 'Pilates' && (
+                          <span className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
+                            Timetable
+                          </span>
+                        )}
+                        {hasDepositOverride && (
+                          <span className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-violet-50 text-violet-600 border border-violet-100">
+                            Custom Deposit
+                          </span>
+                        )}
+                      </div>
+                      {service.description && (
+                        <p className="text-sm text-[var(--color-text-secondary)] mb-3 line-clamp-2 max-w-2xl">{service.description}</p>
+                      )}
+                      <div className="flex items-center gap-3 text-sm flex-wrap">
+                        <span className="flex items-center gap-1.5 font-medium text-[var(--color-text-muted)] bg-[var(--color-surface-light)] px-2.5 py-1 rounded-md">
+                          <Clock size={14} className="text-[var(--color-info)]" />
+                          {effectiveDuration} min
+                          {hasCustomDuration && <span className="text-[10px] text-cyan-600 ml-1">(custom)</span>}
+                        </span>
+                        <span className="flex items-center gap-1 font-bold text-[var(--color-text-primary)] bg-emerald-50 px-2.5 py-1 rounded-md text-emerald-700">
+                          £{Number(effectivePrice).toFixed(2)}
+                          {hasCustomPrice && <span className="text-[10px] text-cyan-600 ml-1">(custom)</span>}
+                        </span>
+                        {hasCustomPrice && (
+                          <span className="text-xs text-[var(--color-text-muted)] line-through">
+                            £{Number(service.base_price).toFixed(2)} base
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0 self-end sm:self-center bg-[var(--color-surface-light)] p-2 rounded-xl border border-[var(--color-border-light)]">
+                      <button
+                        onClick={() => openConfig(service)}
+                        className={`w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white hover:shadow-sm transition-all cursor-pointer ${isExpanded ? 'text-cyan-600 bg-white shadow-sm' : 'text-[var(--color-text-secondary)]'}`}
+                        title="Service configuration"
+                      >
+                        <Settings2 size={18} />
+                      </button>
+                      {service.category !== 'Pilates' && (
+                        <button
+                          onClick={() => openEdit(service)}
+                          className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white hover:shadow-sm transition-all text-[var(--color-text-secondary)] hover:text-cyan-600 cursor-pointer"
+                          title="Edit service"
+                        >
+                          <Edit3 size={18} />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setDeleteTarget(service)}
+                        className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white hover:shadow-sm transition-all text-[var(--color-text-secondary)] hover:text-rose-600 cursor-pointer"
+                        title="Delete service"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                      {service.category === 'Pilates' && isOwner && (
+                        <button
+                          onClick={() => router.push(`/dashboard/services/pilates/${service.id}`)}
+                          className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white hover:shadow-sm transition-all text-emerald-600 hover:text-emerald-700 cursor-pointer"
+                          title="Manage Pilates timetable"
+                        >
+                          <Clock size={18} />
+                        </button>
+                      )}
+                      <div className="w-[1px] h-6 bg-[var(--color-border)] opacity-60"></div>
+                      <button
+                        onClick={() => handleToggleAvailability(service)}
+                        className="cursor-pointer w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white hover:shadow-sm transition-all group"
+                        title={isAvailable ? 'Disable for booking' : 'Enable for booking'}
+                      >
+                        {isAvailable ? (
+                          <ToggleRight size={24} className="text-emerald-500 group-hover:scale-110 transition-transform" />
+                        ) : (
+                          <ToggleLeft size={24} className="text-[var(--color-text-muted)] group-hover:scale-110 transition-transform" />
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 shrink-0 self-end sm:self-center bg-[var(--color-surface-light)] p-2 rounded-xl border border-[var(--color-border-light)]">
-                  {service.category !== 'Pilates' && (
+                {/* Expandable Config Panel */}
+                {isExpanded && (
+                  <div className="border-t border-[var(--color-border-light)] px-5 sm:px-6 py-5 bg-gradient-to-b from-[var(--color-surface-light)]/50 to-transparent">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Settings2 size={16} className="text-cyan-600" />
+                      <p className="text-xs font-bold uppercase tracking-widest text-[var(--color-text-muted)]">Service Configuration</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                      {/* Custom Price */}
+                      <div>
+                        <label className="label-upper flex items-center gap-1.5">
+                          <DollarSign size={12} className="text-emerald-600" />
+                          Custom Price (£)
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={configForm.custom_price}
+                          onChange={(e) => setConfigForm({ ...configForm, custom_price: e.target.value })}
+                          className="input-glass"
+                          placeholder={`Base: £${Number(service.base_price).toFixed(2)}`}
+                        />
+                        <p className="text-[11px] text-[var(--color-text-muted)] mt-1">Leave empty to use base price</p>
+                      </div>
+
+                      {/* Custom Duration */}
+                      <div>
+                        <label className="label-upper flex items-center gap-1.5">
+                          <Clock size={12} className="text-cyan-600" />
+                          Custom Duration (min)
+                        </label>
+                        <input
+                          type="number"
+                          value={configForm.custom_duration}
+                          onChange={(e) => setConfigForm({ ...configForm, custom_duration: e.target.value })}
+                          className="input-glass"
+                          placeholder={`Base: ${service.duration_minutes} min`}
+                        />
+                        <p className="text-[11px] text-[var(--color-text-muted)] mt-1">Leave empty to use base duration</p>
+                      </div>
+                    </div>
+
+                    {/* Deposit Override */}
+                    <div className="mb-4">
+                      <label className="label-upper flex items-center gap-1.5 mb-2">
+                        <BadgePoundSterling size={12} className="text-violet-600" />
+                        Deposit Override
+                      </label>
+                      <div className="flex flex-wrap gap-2 mb-3">
+                        {(['none', 'percentage', 'fixed'] as const).map((opt) => (
+                          <button
+                            key={opt}
+                            type="button"
+                            onClick={() => setConfigForm({ ...configForm, deposit_override_type: opt, deposit_override_value: opt === 'none' ? '' : configForm.deposit_override_value })}
+                            className={`px-4 py-1.5 rounded-full text-xs font-semibold cursor-pointer transition-all ${
+                              configForm.deposit_override_type === opt
+                                ? 'bg-violet-600 text-white'
+                                : 'bg-[var(--color-surface-light)] text-[var(--color-text-secondary)] border border-[var(--color-border-light)]'
+                            }`}
+                          >
+                            {opt === 'none' ? 'Use Global' : opt === 'percentage' ? 'Percentage' : 'Fixed Amount'}
+                          </button>
+                        ))}
+                      </div>
+                      {configForm.deposit_override_type !== 'none' && (
+                        <div className="max-w-xs">
+                          <div className="relative">
+                            <input
+                              type="number"
+                              step={configForm.deposit_override_type === 'percentage' ? '1' : '0.01'}
+                              value={configForm.deposit_override_value}
+                              onChange={(e) => setConfigForm({ ...configForm, deposit_override_value: e.target.value })}
+                              className="input-glass pr-10"
+                              placeholder={configForm.deposit_override_type === 'percentage' ? 'e.g. 30' : 'e.g. 15.00'}
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-[var(--color-text-muted)]">
+                              {configForm.deposit_override_type === 'percentage' ? <Percent size={14} /> : '£'}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-[var(--color-text-muted)] mt-1">
+                            {configForm.deposit_override_type === 'percentage'
+                              ? 'Percentage of service price required as deposit'
+                              : 'Fixed deposit amount in £'}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Active/Inactive toggle */}
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-white border border-[var(--color-border-light)] mb-4">
+                      <div>
+                        <p className="text-sm font-semibold text-[var(--color-text-primary)]">Service Active (Global)</p>
+                        <p className="text-xs text-[var(--color-text-muted)]">Deactivated services are hidden from all clients</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => toggleService(service.id, !!service.is_active)}
+                        className="cursor-pointer"
+                      >
+                        {service.is_active ? (
+                          <ToggleRight size={28} className="text-emerald-500" />
+                        ) : (
+                          <ToggleLeft size={28} className="text-[var(--color-text-muted)]" />
+                        )}
+                      </button>
+                    </div>
+
                     <button
-                      onClick={() => openEdit(service)}
-                      className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white hover:shadow-sm transition-all text-[var(--color-text-secondary)] hover:text-cyan-600 cursor-pointer"
-                      title="Edit service"
+                      onClick={() => saveConfig(service)}
+                      disabled={configSaving === service.id}
+                      className="btn-primary px-6 py-2.5 text-sm flex items-center gap-2 cursor-pointer"
                     >
-                      <Edit3 size={18} />
+                      {configSaving === service.id ? (
+                        <><Loader2 size={14} className="animate-spin" /> Saving...</>
+                      ) : (
+                        <><Save size={14} /> Save Configuration</>
+                      )}
                     </button>
-                  )}
-                  <button
-                    onClick={() => setDeleteTarget(service)}
-                    className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white hover:shadow-sm transition-all text-[var(--color-text-secondary)] hover:text-rose-600 cursor-pointer"
-                    title="Delete service"
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                  {service.category === 'Pilates' && isOwner && (
-                    <button
-                      onClick={() => router.push(`/dashboard/services/pilates/${service.id}`)}
-                      className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white hover:shadow-sm transition-all text-emerald-600 hover:text-emerald-700 cursor-pointer"
-                      title="Manage Pilates timetable"
-                    >
-                      <Clock size={18} />
-                    </button>
-                  )}
-                  <div className="w-[1px] h-6 bg-[var(--color-border)] opacity-60"></div>
-                  <button
-                    onClick={() => toggleService(service.id, !!service.is_active)}
-                    className="cursor-pointer w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white hover:shadow-sm transition-all group"
-                    title={service.is_active ? "Deactivate service" : "Activate service"}
-                  >
-                    {service.is_active ? (
-                      <ToggleRight size={24} className="text-emerald-500 group-hover:scale-110 transition-transform" />
-                    ) : (
-                      <ToggleLeft size={24} className="text-[var(--color-text-muted)] group-hover:scale-110 transition-transform" />
-                    )}
-                  </button>
-                </div>
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
