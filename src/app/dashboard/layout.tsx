@@ -7,6 +7,7 @@ import { ToastProvider } from '@/components/Toast';
 import { Footer } from '@/components/Footer';
 import { MainNavbar } from '@/components/MainNavbar';
 import { NotificationsProvider } from '@/contexts/NotificationsContext';
+import { TestPanel } from '@/components/TestPanel';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -69,6 +70,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <ToastProvider>{children}</ToastProvider>
         </main>
         <Footer />
+        <TestPanel />
       </NotificationsProvider>
     </div>
   );

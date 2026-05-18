@@ -12,6 +12,35 @@ import {
   DollarSign, Timer, StickyNote, CalendarPlus
 } from 'lucide-react';
 
+// ─── Error helper ───────────────────────────────────────────────────
+// Supabase PostgrestError instances stringify to "{}" in Turbopack's
+// console formatter, hiding the real cause. Pull out the useful fields.
+function describeError(err: unknown): { message: string; details: Record<string, unknown> } {
+  if (!err) return { message: 'Unknown error', details: {} };
+  if (err instanceof Error) {
+    return {
+      message: err.message || err.name || 'Error',
+      details: {
+        name: err.name,
+        message: err.message,
+        // PostgrestError extends Error and carries these:
+        code: (err as { code?: string }).code,
+        details: (err as { details?: string }).details,
+        hint: (err as { hint?: string }).hint,
+        stack: err.stack,
+      },
+    };
+  }
+  if (typeof err === 'object') {
+    const e = err as Record<string, unknown>;
+    return {
+      message: (e.message as string) || (e.error as string) || JSON.stringify(e),
+      details: e,
+    };
+  }
+  return { message: String(err), details: {} };
+}
+
 // ─── Types ──────────────────────────────────────────────────────────
 interface PhotoConsultation {
   id: string;
@@ -98,10 +127,14 @@ interface ServiceOption {
 const statusBadge = (status: string) => {
   const map: Record<string, { bg: string; text: string; icon: React.ReactNode; label: string }> = {
     pending: { bg: 'bg-amber-50 border-amber-200', text: 'text-amber-700', icon: <Clock size={12} />, label: 'Pending' },
+    // booking_consultations statuses
     approved: { bg: 'bg-emerald-50 border-emerald-200', text: 'text-emerald-700', icon: <CheckCircle2 size={12} />, label: 'Approved' },
     declined: { bg: 'bg-red-50 border-red-200', text: 'text-red-600', icon: <XCircle size={12} />, label: 'Declined' },
     chat_requested: { bg: 'bg-blue-50 border-blue-200', text: 'text-blue-600', icon: <MessageCircle size={12} />, label: 'Chat Requested' },
-    replied: { bg: 'bg-emerald-50 border-emerald-200', text: 'text-emerald-700', icon: <CheckCircle2 size={12} />, label: 'Replied' },
+    // photo_consultations statuses (check constraint: pending|in_review|responded|closed)
+    in_review: { bg: 'bg-blue-50 border-blue-200', text: 'text-blue-600', icon: <Clock size={12} />, label: 'In review' },
+    responded: { bg: 'bg-emerald-50 border-emerald-200', text: 'text-emerald-700', icon: <CheckCircle2 size={12} />, label: 'Responded' },
+    closed: { bg: 'bg-gray-100 border-gray-200', text: 'text-gray-600', icon: <XCircle size={12} />, label: 'Closed' },
   };
   const s = map[status] || map.pending;
   return (
@@ -338,8 +371,9 @@ export default function ConsultationsPage() {
       setActiveTab('My Requests');
       fetchData();
     } catch (err) {
-      console.error('Submit error:', err);
-      showToast('Failed to submit consultation', 'error');
+      const { message, details } = describeError(err);
+      console.error('Submit error:', message, details);
+      showToast(`Failed to submit consultation: ${message}`, 'error');
     } finally {
       setSubmitting(false);
     }
@@ -353,7 +387,9 @@ export default function ConsultationsPage() {
       const { error } = await supabase
         .from('photo_consultations')
         .update({
-          status: action === 'approved' ? 'replied' : 'declined',
+          // photo_consultations.status only accepts pending|in_review|responded|closed.
+          // The approve/decline distinction is already captured by is_doable below.
+          status: 'responded',
           master_reply: reviewNotes.trim() || null,
           master_id: user.id,
           responded_by: user.id,
@@ -373,8 +409,9 @@ export default function ConsultationsPage() {
       resetReviewForm();
       fetchData();
     } catch (err) {
-      console.error('Review error:', err);
-      showToast('Failed to submit review', 'error');
+      const { message, details } = describeError(err);
+      console.error('Review error:', message, details);
+      showToast(`Failed to submit review: ${message}`, 'error');
     } finally {
       setReviewSubmitting(false);
     }
@@ -403,8 +440,9 @@ export default function ConsultationsPage() {
       resetReviewForm();
       fetchData();
     } catch (err) {
-      console.error('Booking review error:', err);
-      showToast('Failed to submit review', 'error');
+      const { message, details } = describeError(err);
+      console.error('Booking review error:', message, details);
+      showToast(`Failed to submit review: ${message}`, 'error');
     } finally {
       setReviewSubmitting(false);
     }
@@ -434,8 +472,9 @@ export default function ConsultationsPage() {
       resetQuestionnaireForm();
       fetchData();
     } catch (err) {
-      console.error('Questionnaire error:', err);
-      showToast('Failed to submit form', 'error');
+      const { message, details } = describeError(err);
+      console.error('Questionnaire error:', message, details);
+      showToast(`Failed to submit form: ${message}`, 'error');
     } finally {
       setQuestionnaireSubmitting(false);
     }
