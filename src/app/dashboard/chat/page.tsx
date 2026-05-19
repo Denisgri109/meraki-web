@@ -280,6 +280,15 @@ export default function ChatPage() {
     fetchConversations();
   }, [fetchConversations]);
 
+  // Support direct chat redirect from appointments page
+  useEffect(() => {
+    const convoId = localStorage.getItem('meraki_active_chat_convo_id');
+    if (convoId && conversations.some(c => c.id === convoId)) {
+      setActiveConversation(convoId);
+      localStorage.removeItem('meraki_active_chat_convo_id');
+    }
+  }, [conversations]);
+
   // Re-fetch conversations when tab becomes visible after being backgrounded
   useEffect(() => {
     const handleVisibility = () => {
@@ -627,6 +636,7 @@ export default function ChatPage() {
                   return (
                     <button
                       key={convo.id}
+                      data-row-id={convo.id}
                       onClick={() => setActiveConversation(convo.id)}
                       className={`w-full flex items-center gap-3 px-4 py-3 transition-all cursor-pointer text-left relative ${
                         isActive
@@ -872,7 +882,7 @@ export default function ChatPage() {
                               {msg.content && (
                                 <p className="whitespace-pre-wrap break-words">{msg.content}</p>
                               )}
-                              <p className={`text-[10px] mt-1.5 flex items-center justify-end gap-1 ${isMine ? 'text-white/50' : 'text-[#9E9E9E]'}`}>
+                              <div className={`text-[10px] mt-1.5 flex items-center justify-end gap-1 ${isMine ? 'text-white/50' : 'text-[#9E9E9E]'}`}>
                                 <span>{formatTime(msg.created_at)}</span>
                                 {msg.edited_at && <span className="opacity-75">· edited</span>}
                                 {isMine && (
@@ -887,7 +897,7 @@ export default function ChatPage() {
                                     )}
                                   </span>
                                 )}
-                              </p>
+                              </div>
                             </>
                           )}
                         </div>

@@ -251,7 +251,7 @@ export default function LoyaltyCardsPage() {
       ) : (
         <div className="space-y-4">
           {cards.map((card) => (
-            <div key={card.id} className={`glass-card p-5 ${!card.is_active ? 'opacity-60' : ''}`}>
+            <div key={card.id} data-row-id={card.id} className={`glass-card p-5 ${!card.is_active ? 'opacity-60' : ''}`}>
               <div className="flex items-start justify-between mb-3 gap-3">
                 <div className="flex items-start gap-3 flex-1 min-w-0">
                   <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-400 to-pink-400 flex items-center justify-center shadow-md shrink-0">

@@ -1098,6 +1098,7 @@ export default function ConsultationsPage() {
                       return (
                         <button
                           key={pc.id}
+                          data-row-id={pc.id}
                           onClick={() => openDetail(pc, 'photo')}
                           className="w-full flex items-center gap-4 p-4 rounded-2xl border border-[var(--color-border-light)] bg-white/90 backdrop-blur-xl hover:shadow-md transition-all text-left"
                         >
@@ -1136,6 +1137,7 @@ export default function ConsultationsPage() {
                     {bookingConsultations.map(bc => (
                       <button
                         key={bc.id}
+                        data-row-id={bc.id}
                         onClick={() => openDetail(bc, 'booking')}
                         className="w-full flex items-center gap-4 p-4 rounded-2xl border border-[var(--color-border-light)] bg-white/90 backdrop-blur-xl hover:shadow-md transition-all text-left"
                       >
@@ -1228,6 +1230,7 @@ export default function ConsultationsPage() {
               return (
                 <button
                   key={pc.id}
+                  data-row-id={pc.id}
                   onClick={() => openDetail(pc, 'photo')}
                   className="w-full flex items-center gap-4 p-4 rounded-2xl border border-[var(--color-border-light)] bg-white/90 backdrop-blur-xl hover:shadow-md transition-all text-left"
                 >
@@ -1267,6 +1270,7 @@ export default function ConsultationsPage() {
             bookingConsultations.map(bc => (
               <button
                 key={bc.id}
+                data-row-id={bc.id}
                 onClick={() => openDetail(bc, 'booking')}
                 className="w-full flex items-center gap-4 p-4 rounded-2xl border border-[var(--color-border-light)] bg-white/90 backdrop-blur-xl hover:shadow-md transition-all text-left"
               >
@@ -1311,6 +1315,7 @@ export default function ConsultationsPage() {
             consultationResponses.map(cr => (
               <div
                 key={cr.id}
+                data-row-id={cr.id}
                 className="p-4 rounded-2xl border border-[var(--color-border-light)] bg-white/90 backdrop-blur-xl"
               >
                 <div className="flex items-start gap-4">

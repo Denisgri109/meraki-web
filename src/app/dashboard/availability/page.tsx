@@ -152,15 +152,16 @@ export default function AvailabilityPage() {
   const loadBlocks = useCallback(async () => {
     if (!profile?.id) return;
     setBlocksLoading(true);
+    // Fetch from the start of the currently viewed calendar month so that past blocks in the active month are visible on the calendar and list
+    const startOfTodayOrMonth = new Date(calYear, calMonth, 1);
     const { data, error } = await supabase
       .from('blocked_slots').select('*').eq('master_id', profile.id)
-      .gte('end_time', new Date().toISOString())
+      .gte('end_time', startOfTodayOrMonth.toISOString())
       .order('start_time', { ascending: true });
     if (error) console.error(error);
     setBlocks(data || []);
     setBlocksLoading(false);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile?.id]);
+  }, [profile?.id, calYear, calMonth]);
 
   useEffect(() => { loadBlocks(); }, [loadBlocks]);
 

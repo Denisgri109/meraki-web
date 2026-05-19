@@ -1,13 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/components/Toast';
-import { Settings, User, Shield, Save, Loader2, Camera, CreditCard, Mail, Dumbbell, AlertTriangle, X, Briefcase } from 'lucide-react';
+import { Settings, User, Shield, Save, Loader2, Camera, CreditCard, Mail, Dumbbell, AlertTriangle, X, Briefcase, Image as ImageIcon, Trash2, Plus, ExternalLink } from 'lucide-react';
 import BusinessSettingsPanel from '@/components/BusinessSettingsPanel';
-import type { Tables } from '@/types/database';
+import type { Tables, Portfolio } from '@/types/database';
 
 const DELETE_PHRASE = 'DELETE MY ACCOUNT';
 
@@ -18,6 +18,7 @@ const baseNavItems = [
 ];
 
 const masterNavItems = [
+  { label: 'Portfolio', value: 'portfolio', icon: ImageIcon },
   { label: 'Business', value: 'business', icon: Briefcase },
 ];
 
@@ -55,7 +56,9 @@ export default function SettingsPage() {
   const router = useRouter();
   const supabase = createClient();
   const { showToast } = useToast();
-  const [activeSection, setActiveSection] = useState('profile');
+  const searchParams = useSearchParams();
+  const initialTab = searchParams.get('tab') || 'profile';
+  const [activeSection, setActiveSection] = useState(initialTab);
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [sendingReset, setSendingReset] = useState(false);
@@ -73,6 +76,13 @@ export default function SettingsPage() {
   const [pilatesService, setPilatesService] = useState<Tables<'services'> | null>(null);
   const [loadingPilates, setLoadingPilates] = useState(false);
   const [savingPilates, setSavingPilates] = useState(false);
+  // Portfolio state
+  const [portfolioImages, setPortfolioImages] = useState<Portfolio[]>([]);
+  const [loadingPortfolio, setLoadingPortfolio] = useState(false);
+  const [uploadingPortfolio, setUploadingPortfolio] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState<Portfolio | null>(null);
+  const [editPhotoDesc, setEditPhotoDesc] = useState('');
+  const [savingPhotoDesc, setSavingPhotoDesc] = useState(false);
   const canManagePilates = profile?.role === 'owner';
   const isMasterOrOwner = profile?.role === 'master' || profile?.role === 'owner';
   const navItems = [
@@ -134,6 +144,116 @@ export default function SettingsPage() {
       isMounted = false;
     };
   }, [profile?.id, canManagePilates, supabase]);
+
+  // ─── Portfolio data loading ──────────────────────────────────────────────
+  useEffect(() => {
+    if (!profile?.id || !isMasterOrOwner) return;
+    let cancelled = false;
+    const load = async () => {
+      setLoadingPortfolio(true);
+      try {
+        const { data, error } = await supabase
+          .from('portfolios')
+          .select('*')
+          .eq('master_id', profile.id)
+          .order('created_at', { ascending: false });
+        if (error) throw error;
+        if (!cancelled) setPortfolioImages(data || []);
+      } catch (err) {
+        console.error('Error loading portfolio:', err);
+      } finally {
+        if (!cancelled) setLoadingPortfolio(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [profile?.id, isMasterOrOwner, supabase]);
+
+  const handlePortfolioUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0 || !profile?.id) return;
+
+    const maxSize = 5 * 1024 * 1024;
+    const validFiles = Array.from(files).filter((f) => {
+      if (f.size > maxSize) {
+        showToast(`${f.name} exceeds 5 MB limit`, 'error');
+        return false;
+      }
+      return true;
+    });
+    if (validFiles.length === 0) return;
+
+    setUploadingPortfolio(true);
+    let successCount = 0;
+    try {
+      for (const file of validFiles) {
+        const fileExt = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+        const fileName = `${profile.id}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${fileExt}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('portfolios')
+          .upload(fileName, file, { upsert: false });
+        if (uploadError) { console.error('Upload error:', uploadError); continue; }
+
+        const { data: urlData } = supabase.storage.from('portfolios').getPublicUrl(fileName);
+
+        const { error: dbError } = await supabase
+          .from('portfolios')
+          .insert({ master_id: profile.id, image_url: urlData.publicUrl, description: '' });
+        if (dbError) { console.error('DB error:', dbError); continue; }
+        successCount++;
+      }
+      if (successCount > 0) {
+        showToast(`${successCount} photo${successCount > 1 ? 's' : ''} uploaded`, 'success');
+        // Reload
+        const { data } = await supabase
+          .from('portfolios')
+          .select('*')
+          .eq('master_id', profile.id)
+          .order('created_at', { ascending: false });
+        setPortfolioImages(data || []);
+      }
+    } catch (err) {
+      showToast(getErrorMessage(err, 'Upload failed'), 'error');
+    } finally {
+      setUploadingPortfolio(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleDeletePhoto = async (photo: Portfolio) => {
+    if (!confirm('Delete this portfolio photo? This cannot be undone.')) return;
+    try {
+      const { error } = await supabase.from('portfolios').delete().eq('id', photo.id);
+      if (error) throw error;
+      setPortfolioImages((prev) => prev.filter((p) => p.id !== photo.id));
+      if (selectedPhoto?.id === photo.id) setSelectedPhoto(null);
+      showToast('Photo deleted', 'success');
+    } catch (err) {
+      showToast(getErrorMessage(err, 'Failed to delete photo'), 'error');
+    }
+  };
+
+  const handleSavePhotoDesc = async () => {
+    if (!selectedPhoto) return;
+    setSavingPhotoDesc(true);
+    try {
+      const { error } = await supabase
+        .from('portfolios')
+        .update({ description: editPhotoDesc.trim() || null })
+        .eq('id', selectedPhoto.id);
+      if (error) throw error;
+      setPortfolioImages((prev) =>
+        prev.map((p) => (p.id === selectedPhoto.id ? { ...p, description: editPhotoDesc.trim() || null } : p))
+      );
+      setSelectedPhoto((prev) => (prev ? { ...prev, description: editPhotoDesc.trim() || null } : null));
+      showToast('Description saved', 'success');
+    } catch (err) {
+      showToast(getErrorMessage(err, 'Failed to save description'), 'error');
+    } finally {
+      setSavingPhotoDesc(false);
+    }
+  };
 
   const handleSave = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -459,6 +579,21 @@ export default function SettingsPage() {
                   {saving ? 'Saving...' : 'Save Changes'}
                 </button>
               </form>
+
+              {isMasterOrOwner && profile?.id && (
+                <div className="mt-6 p-4 rounded-[var(--radius-lg)] bg-[var(--color-surface-light)] border border-[var(--color-border-light)] flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-sm text-[var(--color-text-primary)]">Public Profile</p>
+                    <p className="text-xs text-[var(--color-text-muted)]">See what clients see when they view your profile</p>
+                  </div>
+                  <button
+                    onClick={() => router.push(`/dashboard/masters/${profile.id}`)}
+                    className="btn-outline text-sm px-4 py-2 border-slate-300 flex items-center gap-2 cursor-pointer"
+                  >
+                    <ExternalLink size={14} /> View Public Profile
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -532,6 +667,128 @@ export default function SettingsPage() {
                   >
                     {openingPortal ? <><Loader2 size={16} className="animate-spin" /> Transferring to Stripe...</> : 'Open Billing Portal'}
                   </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeSection === 'portfolio' && isMasterOrOwner && (
+            <div className="glass-card p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Portfolio</h2>
+                  <p className="text-sm text-[var(--color-text-secondary)]">Showcase your best work to attract clients</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-medium text-[var(--color-text-muted)]">{portfolioImages.length} photo{portfolioImages.length !== 1 ? 's' : ''}</span>
+                  <input
+                    type="file"
+                    id="portfolio-upload"
+                    accept="image/*"
+                    multiple
+                    onChange={handlePortfolioUpload}
+                    disabled={uploadingPortfolio}
+                    className="hidden"
+                  />
+                  <label
+                    htmlFor="portfolio-upload"
+                    className="btn-primary text-sm px-4 py-2 flex items-center gap-2 cursor-pointer"
+                  >
+                    {uploadingPortfolio ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+                    {uploadingPortfolio ? 'Uploading...' : 'Add Photos'}
+                  </label>
+                </div>
+              </div>
+
+              {loadingPortfolio ? (
+                <div className="flex items-center justify-center py-16">
+                  <Loader2 size={24} className="animate-spin text-[var(--color-text-muted)]" />
+                </div>
+              ) : portfolioImages.length === 0 ? (
+                <div className="text-center py-16">
+                  <ImageIcon size={48} className="mx-auto text-[var(--color-text-muted)] mb-3" />
+                  <p className="font-medium text-[var(--color-text-secondary)] mb-1">No portfolio photos yet</p>
+                  <p className="text-xs text-[var(--color-text-muted)]">Upload photos to showcase your work to clients</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {portfolioImages.map((photo) => (
+                    <div
+                      key={photo.id}
+                      className="relative group rounded-[var(--radius-lg)] overflow-hidden border border-[var(--color-border-light)] aspect-[4/5] cursor-pointer"
+                      onClick={() => { setSelectedPhoto(photo); setEditPhotoDesc(photo.description || ''); }}
+                    >
+                      <img src={photo.image_url} alt={photo.description || 'Portfolio'} className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                        <span className="text-white text-xs font-medium">View</span>
+                      </div>
+                      {photo.description && (
+                        <div className="absolute bottom-0 left-0 right-0 bg-black/50 px-2 py-1">
+                          <p className="text-white text-[10px] truncate">{photo.description}</p>
+                        </div>
+                      )}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleDeletePhoto(photo); }}
+                        className="absolute top-2 right-2 w-7 h-7 rounded-full bg-red-500/80 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 cursor-pointer"
+                        title="Delete photo"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Photo detail / description modal */}
+          {selectedPhoto && (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center p-4"
+              style={{ background: 'rgba(0,0,0,0.6)' }}
+              onClick={() => setSelectedPhoto(null)}
+            >
+              <div
+                className="glass-card max-w-lg w-full p-0 relative animate-fade-in overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  onClick={() => setSelectedPhoto(null)}
+                  className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center cursor-pointer hover:bg-black/70"
+                  aria-label="Close"
+                >
+                  <X size={16} />
+                </button>
+                <img src={selectedPhoto.image_url} alt={selectedPhoto.description || 'Portfolio'} className="w-full max-h-[50vh] object-contain bg-black/5" />
+                <div className="p-5">
+                  <label className="label-upper">Description</label>
+                  <textarea
+                    value={editPhotoDesc}
+                    onChange={(e) => setEditPhotoDesc(e.target.value)}
+                    rows={3}
+                    maxLength={500}
+                    className="input-glass resize-none mb-1"
+                    placeholder="Add a description for this work..."
+                  />
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] text-[var(--color-text-muted)]">{editPhotoDesc.length}/500</span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleDeletePhoto(selectedPhoto)}
+                        className="text-xs text-red-500 hover:text-red-700 flex items-center gap-1 px-3 py-2 cursor-pointer"
+                      >
+                        <Trash2 size={12} /> Delete
+                      </button>
+                      <button
+                        onClick={handleSavePhotoDesc}
+                        disabled={savingPhotoDesc || (editPhotoDesc.trim() || '') === (selectedPhoto.description || '')}
+                        className="btn-primary text-xs px-4 py-2 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      >
+                        {savingPhotoDesc ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                        Save
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

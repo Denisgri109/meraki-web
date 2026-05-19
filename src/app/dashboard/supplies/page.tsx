@@ -579,6 +579,7 @@ export default function SuppliesPage() {
                 return (
                   <div
                     key={s.id}
+                    data-row-id={s.id}
                     className="grid grid-cols-12 gap-4 px-5 py-4 border-b border-[var(--color-border-light)] hover:bg-[var(--color-surface-light)]/50 transition-colors items-center"
                   >
                     <div className="col-span-4 flex items-center gap-3 min-w-0">

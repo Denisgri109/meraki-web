@@ -415,7 +415,7 @@ export default function ServicesPage() {
             const effectiveDuration = hasCustomDuration ? service.config!.custom_duration! : service.duration_minutes;
 
             return (
-              <div key={service.id} className={`glass-card transition-all duration-300 hover:shadow-lg ${!service.is_active ? 'opacity-60 grayscale-[0.3]' : 'hover:border-[var(--color-brand-pink)]/30'}`}>
+              <div key={service.id} data-row-id={service.id} className={`glass-card transition-all duration-300 hover:shadow-lg ${!service.is_active ? 'opacity-60 grayscale-[0.3]' : 'hover:border-[var(--color-brand-pink)]/30'}`}>
                 <div className="p-5 sm:p-6">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="flex-1">

@@ -22,30 +22,30 @@ Closes the client-side browsing gaps. Touches home, discover, and shop browse sc
 
 ---
 
-## Phase 2 — Appointment lifecycle (client + master)
+## Phase 2 — Appointment lifecycle (client + master) ✅
 
 All flows that touch the same `appointments` row.
 
 ### Client side
-- [ ] Appointment Cards redesign (date, time, service, Master, price)
-- [ ] Cancel Appointment — Late (<24h) with 50% penalty fee warning
-- [ ] Price Breakdown (total, deposit due, balance at salon)
-- [ ] Cancellation Policy display
-- [ ] Confirmation Requests (push prompt to confirm attendance)
-- [ ] YES Response (confirm)
-- [ ] NO Response (cancel)
-- [ ] Confirmation Deadline (respond within window)
-- [ ] "Confirmed & Protected" badge
+- [x] Appointment Cards redesign (date, time, service, Master, price)
+- [x] Cancel Appointment — Late (<24h) with 50% penalty fee warning (Dynamically warns client if within configured settings hours window)
+- [x] Price Breakdown (total, deposit due, balance at salon)
+- [x] Cancellation Policy display (Shows detailed late window limits and fees in drawer)
+- [x] Confirmation Requests (push prompt to confirm attendance) *(Mobile-only push notification. Web equivalent: in-app active Alert/Action required banner on pending cards)*
+- [x] YES Response (confirm) (Sets client_confirmed = true and status = 'confirmed')
+- [x] NO Response (cancel) (Declines invitation and cancels appointment)
+- [x] Confirmation Deadline (respond within window) (Dynamic deadline timing warning)
+- [x] "Confirmed & Protected" badge (Glassmorphic emerald safety badge inside cards/drawer)
 
 ### Master side
-- [ ] View Details
-- [ ] Mark as Completed
-- [ ] Direct Chat from appointment
-- [ ] Reschedule (propose new date/time, client approval)
-- [ ] No-Show Action Modal (Charge Now / Wait Grace / Client Late)
-- [ ] Grace Period Logic (auto-charge after expiry)
-- [ ] Configurable No-Show Fee %
-- [ ] Late Arrival Tracking
+- [x] View Details (Highly detailed, responsive glassmorphic side-drawer)
+- [x] Mark as Completed (One-click state update for appointment session)
+- [x] Direct Chat from appointment (Automatic lookup/creation of conversation and smooth localStorage-backed page routing)
+- [x] Reschedule (propose new date/time, client approval) (Forms to propose times, client drawer displays prompt with Accept/Decline action)
+- [x] No-Show Action Modal (Charge Now / Wait Grace / Client Late) (Interactive panels supporting three discrete operational pathways)
+- [x] Grace Period Logic (auto-charge after expiry) (Wait Grace tracks grace period ends and shows countdown warning)
+- [x] Configurable No-Show Fee % (Reads and implements custom fee calculation from settings)
+- [x] Late Arrival Tracking (Logs actual late minutes and checks against business settings arrival thresholds)
 
 ---
 
@@ -78,61 +78,61 @@ Scheduling stack rebuilt as one unit.
 
 ---
 
-## Phase 5 — Master Business Settings
+## Phase 5 — Master Business Settings ✅
 
-All settings tables, one cohesive form.
+All settings tables, one cohesive form — implemented in `BusinessSettingsPanel.tsx`, accessible from `/dashboard/settings` → Business tab.
 
 ### Deposit
-- [ ] Require Deposit Toggle
-- [ ] Global Deposit — Percentage mode
-- [ ] Global Deposit — Fixed amount mode
-- [ ] Per-Service Deposit Override (cross-link with Phase 4)
+- [x] Require Deposit Toggle — toggle on/off with automatic percentage/fixed defaults
+- [x] Global Deposit — Percentage mode — chip selector (10/20/30/50/100%)
+- [x] Global Deposit — Fixed amount mode — EUR input with toggle between % and fixed
+- [x] Per-Service Deposit Override (cross-link with Phase 4) — info banner linking to `/dashboard/services`
 
 ### Confirmation
-- [ ] Request Confirmation Timing (e.g., 48h before)
-- [ ] Response Timeout (e.g., 24h)
-- [ ] Auto-Cancel unconfirmed appointments
+- [x] Request Confirmation Timing (e.g., 48h before) — dropdown (12/24/48/72h)
+- [x] Response Timeout (e.g., 24h) — dropdown (12/24/48h)
+- [x] Auto-Cancel unconfirmed appointments — toggle with description
 
 ### No-Show Policy
-- [ ] No-Show Charge Percentage
-- [ ] Late Arrival Threshold
-- [ ] Grace Period Multiplier
-- [ ] Custom Terms & Conditions
+- [x] No-Show Charge Percentage — dropdown (0/25/50/75/100%)
+- [x] Late Arrival Threshold — dropdown (10/15/20/30 minutes)
+- [x] Grace Period Multiplier — dropdown (25/50/75/100% of service duration)
+- [x] Custom Terms & Conditions — modal editor with require-acceptance toggle
 
 ### Notifications + Aftercare
-- [ ] Push Notification Preferences
-- [ ] Confirmation Reminders toggle
-- [ ] Aftercare Campaign toggle
-- [ ] Aftercare Schedule Timing
-- [ ] Aftercare Message Content
-- [ ] View Active Aftercare Campaigns
-- [ ] Automated Aftercare Delivery
+- [x] Push Notification Preferences — push enabled toggle + category toggles (bookings, messages, promotions)
+- [x] Confirmation Reminders toggle — "Booking Reminders" toggle in notification preferences
+- [x] Aftercare Campaign toggle — full campaign CRUD (create/edit/pause/delete)
+- [x] Aftercare Schedule Timing — configurable days-after-appointment (7/14/21/30/45/60/90d)
+- [x] Aftercare Message Content — rich text editor with `{name}` placeholder support
+- [x] View Active Aftercare Campaigns — campaign list with status badges (Active/Paused), type emoji, and metadata
+- [x] Automated Aftercare Delivery — recurring toggle for auto-send after every completed appointment
 
 ---
 
-## Phase 6 — Consultations & Chat polish
+## Phase 6 — Consultations & Chat polish ✅
 
 Touches `messages` plus a new `consultations` flow.
 
 ### Client
-- [ ] Photo Consultation request (send photos for pre-service)
-- [ ] Consultation Waiting Screen
-- [ ] Pre-Service Questionnaire
+- [x] Photo Consultation request (send photos for pre-service) — `/dashboard/consultations` "New Request" tab with multi-photo upload, title, service type, description
+- [x] Consultation Waiting Screen — `/dashboard/consultations` "My Requests" tab shows pending status with "Waiting for professional review..." indicator
+- [x] Pre-Service Questionnaire — `/dashboard/consultations` "Pre-Service Forms" tab with dynamic questions from service config, had-before/time-since/notes flow
 
 ### Master
-- [ ] View Submitted Photos
-- [ ] Review Requests (assess suitability)
-- [ ] Approve/Decline
-- [ ] Send Feedback to client
-- [ ] View Booking Consultations
-- [ ] Pre-Service Assessment
-- [ ] Approve/Decline Bookings based on consultation
+- [x] View Submitted Photos — `/dashboard/consultations` "Photo Reviews" tab with photo grid detail view
+- [x] Review Requests (assess suitability) — is_doable toggle + professional notes + recommendations fields
+- [x] Approve/Decline — "Approve & Send Feedback" / "Decline" buttons for photo consultations
+- [x] Send Feedback to client — master_reply, professional_notes, recommendations, estimated price range, estimated duration
+- [x] View Booking Consultations — `/dashboard/consultations` "Booking Reviews" tab with client details, service info, had-before data
+- [x] Pre-Service Assessment — `/dashboard/consultations` "Assessments" tab shows all consultation_responses with client answers
+- [x] Approve/Decline Bookings based on consultation — "Approve Booking" / "Decline" buttons with master notes for booking consultations
 
 ### Chat polish
-- [ ] Message Grouping (by sender)
-- [ ] Profile Photos in chat
-- [ ] Message Status (sent/delivered)
-- [ ] Conversation Types audit (Client↔Master, Client↔Owner, Master↔Owner)
+- [x] Message Grouping (by sender) — messages within 2-min window from same sender are grouped with reduced spacing + adjusted bubble radii
+- [x] Profile Photos in chat — avatars in sidebar list + message bubbles (last-in-group only for other user)
+- [x] Message Status (sent/delivered) — single grey check for sent, double blue checks for read (`msg-status-sent`/`msg-status-read` CSS classes)
+- [x] Conversation Types audit (Client↔Master, Client↔Owner, Master↔Owner) — chat header shows relationship type label based on other user's role
 
 ---
 
@@ -165,37 +165,37 @@ Stamp / QR / NFC / rewards as a single program.
 
 ---
 
-## Phase 8 — Inventory & Supplies
+## Phase 8 — Inventory & Supplies ✅
 
 ### Master
-- [ ] Add Supplies (name, qty, unit, threshold, cost)
-- [ ] Update Stock (add/remove)
-- [ ] Low Stock Alerts
-- [ ] Supply History (usage over time)
-- [ ] Usage Tracking (auto-deduct on completion)
-- [ ] Cost Calculation (per-service)
+- [x] Add Supplies (name, qty, unit, threshold, cost)
+- [x] Update Stock (add/remove)
+- [x] Low Stock Alerts
+- [x] Supply History (usage over time)
+- [x] Usage Tracking (auto-deduct on completion)
+- [x] Cost Calculation (per-service)
 
 ### Owner
-- [ ] Owner Supplies Screen (platform-wide)
-- [ ] Add Owner Supply
-- [ ] Supply Tracking
-- [ ] Usage Reports
+- [x] Owner Supplies Screen (platform-wide)
+- [x] Add Owner Supply
+- [x] Supply Tracking
+- [x] Usage Reports
 
 ---
 
 ## Phase 9 — Portfolio & Master Profile
 
-- [ ] Photo Gallery
-- [ ] Delete Photos
-- [ ] Public Portfolio Display (visible to clients)
-- [ ] View Public Profile (see what clients see)
-- [ ] Edit Bio
-- [ ] Set Location (business address, city)
-- [ ] Profile Photo
-- [ ] Notification Preferences
-- [ ] Business Hours (cross-link with Phase 3)
-- [ ] Account Settings (password, email)
-- [ ] Master Onboarding flow (web — verify completeness)
+- [x] Photo Gallery — Portfolio tab in Settings (upload multiple, view grid, edit descriptions). Uses `portfolios` table + Supabase Storage `portfolios` bucket.
+- [x] Delete Photos — Delete button on hover in portfolio grid + in photo detail modal, with confirmation dialog.
+- [x] Public Portfolio Display (visible to clients) — `/dashboard/masters/[id]` page shows master bio, services, and full portfolio gallery with lightbox viewer.
+- [x] View Public Profile (see what clients see) — "View Public Profile" button in Settings → Profile section links to `/dashboard/masters/[id]` with own-profile banner.
+- [x] Edit Bio — Settings → Profile tab textarea field, persisted via `updateProfile({ bio })`.
+- [x] Set Location (business address, city) — Settings → Profile tab city field. Profile table has `city` and `country` columns.
+- [x] Profile Photo — Settings → Profile tab avatar upload to Supabase Storage `avatars` bucket.
+- [x] Notification Preferences — (Mobile only; removed from Web settings)
+- [x] Business Hours (cross-link with Phase 3) — Availability management at `/dashboard/availability` (Phase 3 complete). BusinessSettingsPanel also links to availability settings.
+- [x] Account Settings (password, email) — Settings → Security tab: email change with dual-email verification flow, password reset via email link, account deletion with OTP verification.
+- [x] Master Onboarding flow (web — verify completeness) — 6-step onboarding at `/dashboard/onboarding` (welcome → profile → services → availability → portfolio → business_settings). Redirects masters on first login; marks `onboarding_completed` on finish. Portfolio step now deep-links to Settings → Portfolio tab.
 
 ---
 

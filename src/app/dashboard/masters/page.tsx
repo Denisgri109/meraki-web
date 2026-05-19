@@ -165,7 +165,7 @@ export default function MastersPage() {
                     {openDropdown === master.id && (
                       <div className="absolute right-0 mt-1 w-44 bg-white rounded-xl shadow-lg border border-[var(--color-border-light)] py-1 z-50 animate-fade-in">
                         <button
-                          onClick={() => { router.push('/dashboard/discover'); setOpenDropdown(null); }}
+                          onClick={() => { router.push(`/dashboard/masters/${master.id}`); setOpenDropdown(null); }}
                           className="w-full text-left px-4 py-2.5 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-light)] flex items-center gap-2 cursor-pointer"
                         >
                           <Eye size={14} /> View Profile

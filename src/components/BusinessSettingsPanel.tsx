@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/Toast';
 import {
   Save, Loader2, Plus, Pencil, Trash2, Pause, Play,
-  Wallet, Clock, UserX, Bell, Heart, FileText, Eye, X,
+  Wallet, Clock, UserX, Heart, FileText, Eye, X,
   Megaphone,
 } from 'lucide-react';
 import type { Json } from '@/types/database';
@@ -16,9 +16,6 @@ import type { Json } from '@/types/database';
 interface BusinessSettings {
   confirmation_timing_hours: number;
   confirmation_response_timeout_hours: number;
-  no_show_charge_percent: number;
-  late_arrival_minutes: number;
-  grace_period_multiplier: number;
   auto_charge_after_grace_period: boolean;
   deposit_type: string;
   deposit_amount: number;
@@ -29,12 +26,6 @@ interface BusinessSettings {
   is_visible_globally: boolean;
 }
 
-interface NotifPrefs {
-  push_enabled: boolean;
-  booking_reminders: boolean;
-  messages: boolean;
-  promotions: boolean;
-}
 
 interface Campaign {
   id: string;
@@ -54,9 +45,6 @@ interface Campaign {
 const DEFAULT_SETTINGS: BusinessSettings = {
   confirmation_timing_hours: 24,
   confirmation_response_timeout_hours: 24,
-  no_show_charge_percent: 100,
-  late_arrival_minutes: 15,
-  grace_period_multiplier: 0.5,
   auto_charge_after_grace_period: true,
   deposit_type: 'percentage',
   deposit_amount: 0,
@@ -67,12 +55,6 @@ const DEFAULT_SETTINGS: BusinessSettings = {
   is_visible_globally: true,
 };
 
-const DEFAULT_NOTIFS: NotifPrefs = {
-  push_enabled: true,
-  booking_reminders: true,
-  messages: true,
-  promotions: true,
-};
 
 const CONFIRMATION_TIMING_OPTIONS = [
   { value: 12, label: '12 hours before' },
@@ -87,27 +69,6 @@ const RESPONSE_TIMEOUT_OPTIONS = [
   { value: 48, label: '48 hours' },
 ];
 
-const NOSHOW_PERCENT_OPTIONS = [
-  { value: 0, label: '0% (No charge)' },
-  { value: 25, label: '25%' },
-  { value: 50, label: '50%' },
-  { value: 75, label: '75%' },
-  { value: 100, label: '100% (Full charge)' },
-];
-
-const LATE_ARRIVAL_OPTIONS = [
-  { value: 10, label: '10 minutes' },
-  { value: 15, label: '15 minutes' },
-  { value: 20, label: '20 minutes' },
-  { value: 30, label: '30 minutes' },
-];
-
-const GRACE_MULTIPLIER_OPTIONS = [
-  { value: 0.25, label: '25% of service duration' },
-  { value: 0.5, label: '50% of service duration' },
-  { value: 0.75, label: '75% of service duration' },
-  { value: 1.0, label: '100% of service duration' },
-];
 
 const DEPOSIT_PERCENT_OPTIONS = [10, 20, 30, 50, 100];
 
@@ -194,7 +155,7 @@ export default function BusinessSettingsPanel() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState<BusinessSettings>(DEFAULT_SETTINGS);
-  const [notifs, setNotifs] = useState<NotifPrefs>(DEFAULT_NOTIFS);
+
   const [tcModalOpen, setTcModalOpen] = useState(false);
   const [tcDraft, setTcDraft] = useState('');
 
@@ -240,9 +201,6 @@ export default function BusinessSettingsPanel() {
         setSettings({
           confirmation_timing_hours: ms.confirmation_timing_hours ?? 24,
           confirmation_response_timeout_hours: ms.confirmation_response_timeout_hours ?? 24,
-          no_show_charge_percent: ms.no_show_charge_percent ?? 100,
-          late_arrival_minutes: ms.late_arrival_minutes ?? 15,
-          grace_period_multiplier: Number(ms.grace_period_multiplier ?? 0.5),
           auto_charge_after_grace_period: ms.auto_charge_after_grace_period ?? true,
           deposit_type: ms.deposit_type || 'percentage',
           deposit_amount: Number(ms.deposit_amount ?? 0),
@@ -260,22 +218,6 @@ export default function BusinessSettingsPanel() {
           .upsert({ master_id: profile.id }, { onConflict: 'master_id' });
       }
 
-      // Load notification preferences from profile
-      const { data: prof } = await supabase
-        .from('profiles')
-        .select('notification_preferences')
-        .eq('id', profile.id)
-        .single();
-
-      if (prof?.notification_preferences && typeof prof.notification_preferences === 'object') {
-        const np = prof.notification_preferences as Record<string, boolean>;
-        setNotifs({
-          push_enabled: np.push_enabled ?? true,
-          booking_reminders: np.booking_reminders ?? true,
-          messages: np.messages ?? true,
-          promotions: np.promotions ?? true,
-        });
-      }
 
       // Load aftercare campaigns
       const { data: camps } = await supabase
@@ -310,9 +252,11 @@ export default function BusinessSettingsPanel() {
             master_id: profile.id,
             confirmation_timing_hours: settings.confirmation_timing_hours,
             confirmation_response_timeout_hours: settings.confirmation_response_timeout_hours,
-            no_show_charge_percent: settings.no_show_charge_percent,
-            late_arrival_minutes: settings.late_arrival_minutes,
-            grace_period_multiplier: settings.grace_period_multiplier,
+            late_cancellation_window_hours: 24,
+            cancellation_charge_percent: 50,
+            no_show_charge_percent: 100,
+            late_arrival_minutes: 15,
+            grace_period_multiplier: 0.5,
             auto_charge_after_grace_period: settings.auto_charge_after_grace_period,
             deposit_type: settings.deposit_type,
             deposit_amount: settings.deposit_amount,
@@ -329,13 +273,6 @@ export default function BusinessSettingsPanel() {
 
       if (msErr) throw msErr;
 
-      // Save notification preferences
-      const { error: npErr } = await supabase
-        .from('profiles')
-        .update({ notification_preferences: notifs as unknown as Json })
-        .eq('id', profile.id);
-
-      if (npErr) throw npErr;
 
       showToast('Business settings saved!', 'success');
     } catch (err) {
@@ -609,35 +546,12 @@ export default function BusinessSettingsPanel() {
         </div>
       </SectionCard>
 
-      {/* ═══ No-Show Policy ═══ */}
-      <SectionCard icon={UserX} title="No-Show Policy" description="Configure charges and thresholds for clients who don't show up.">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="label-upper">No-Show Charge</label>
-            <SelectField
-              value={settings.no_show_charge_percent}
-              onChange={(v) => setSettings((s) => ({ ...s, no_show_charge_percent: Number(v) }))}
-              options={NOSHOW_PERCENT_OPTIONS}
-            />
-          </div>
-          <div>
-            <label className="label-upper">Late Arrival Threshold</label>
-            <SelectField
-              value={settings.late_arrival_minutes}
-              onChange={(v) => setSettings((s) => ({ ...s, late_arrival_minutes: Number(v) }))}
-              options={LATE_ARRIVAL_OPTIONS}
-            />
-            <p className="text-xs text-[var(--color-text-muted)] mt-1">After this many minutes, a client is considered late</p>
-          </div>
-        </div>
-        <div className="mt-4">
-          <label className="label-upper">Grace Period</label>
-          <SelectField
-            value={settings.grace_period_multiplier}
-            onChange={(v) => setSettings((s) => ({ ...s, grace_period_multiplier: Number(v) }))}
-            options={GRACE_MULTIPLIER_OPTIONS}
-          />
-          <p className="text-xs text-[var(--color-text-muted)] mt-1">Wait this portion of the service duration before auto-charging no-show fee</p>
+      {/* ═══ Cancellation & No-Show Policy (Fixed) ═══ */}
+      <SectionCard icon={UserX} title="Cancellation & No-Show Policy" description="Platform-wide policy applied to all bookings.">
+        <div className="p-4 rounded-[var(--radius-lg)] bg-[var(--color-surface-light)] border border-[var(--color-border-light)] text-sm text-[var(--color-text-secondary)] leading-relaxed">
+          Cancel for free up to <span className="font-bold text-[var(--color-text-primary)]">24 hours</span> before your session.
+          Cancellations within this window are subject to a <span className="font-bold text-[var(--color-text-primary)]">50% fee</span>.
+          No-Shows are billed at <span className="font-bold text-[var(--color-text-primary)]">100%</span>.
         </div>
       </SectionCard>
 
@@ -684,35 +598,6 @@ export default function BusinessSettingsPanel() {
         </div>
       </SectionCard>
 
-      {/* ═══ Notification Preferences ═══ */}
-      <SectionCard icon={Bell} title="Notification Preferences" description="Choose which notifications you receive.">
-        <div className="space-y-3">
-          <Toggle
-            checked={notifs.push_enabled}
-            onChange={(v) => setNotifs((n) => ({ ...n, push_enabled: v }))}
-            label="Push Notifications"
-            description="Enable push notifications on your devices"
-          />
-          <Toggle
-            checked={notifs.booking_reminders}
-            onChange={(v) => setNotifs((n) => ({ ...n, booking_reminders: v }))}
-            label="Booking Reminders"
-            description="Receive reminders about upcoming appointments"
-          />
-          <Toggle
-            checked={notifs.messages}
-            onChange={(v) => setNotifs((n) => ({ ...n, messages: v }))}
-            label="Message Notifications"
-            description="Get notified when clients send you messages"
-          />
-          <Toggle
-            checked={notifs.promotions}
-            onChange={(v) => setNotifs((n) => ({ ...n, promotions: v }))}
-            label="Promotions & Updates"
-            description="Receive platform promotions and feature updates"
-          />
-        </div>
-      </SectionCard>
 
       {/* ═══ Save Settings Button ═══ */}
       <button

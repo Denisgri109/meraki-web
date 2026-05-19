@@ -264,6 +264,7 @@ export default function ShopPage() {
           {filtered.map((product, idx) => (
             <div
               key={product.id}
+              data-row-id={product.id}
               role="button"
               tabIndex={0}
               onClick={() => router.push(`/dashboard/shop/${product.id}`)}

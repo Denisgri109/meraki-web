@@ -76,9 +76,8 @@
 
   > **Flow Discrepancy:** Quick Action Buttons are present on the dashboard, but they link to Book Now, Discover, Shop, Academy, and Rewards rather than Orders, Support, and Promotions.
 
-- [ ] Popular Services Grid
 
-- [ ] Pull-to-Refresh
+
 
 
 
@@ -146,9 +145,9 @@
 
   > **Flow Discrepancy:** The code implements Status Badges for Confirmed, Pending, Completed, and Cancelled, but is missing badges for Reschedule Pending and No-Show.
 
-- [ ] Appointment Cards (date, time, service, Master, price)
+- [x] Appointment Cards (date, time, service, Master, price)
 
-- [ ] Pull-to-Refresh
+
 
 
 
@@ -164,9 +163,7 @@
 
 - [x] Reschedule — Late (<24h before) requires Master approval
 
-- [x] Cancel Appointment — Early (>24h) free and automatic
-
-- [ ] Cancel Appointment — Late (<24h) warning with 50% penalty fee
+- [x] Cancel Appointment — Late (<24h) warning with 50% penalty fee
 
 - [x] Cancellation Reasons (provide reason for cancellation)
 
@@ -176,15 +173,15 @@
 
 
 
-- [ ] Confirmation Requests (push notification to confirm attendance)
+- [x] Confirmation Requests (push notification to confirm attendance) *(Mobile-only push notification. Web equivalent: active in-app Action Required banner inside drawer/cards)*
 
-- [ ] YES Response (confirm attendance)
+- [x] YES Response (confirm attendance)
 
-- [ ] NO Response (cancel appointment)
+- [x] NO Response (cancel appointment)
 
-- [ ] Confirmation Deadline (respond within specified time)
+- [x] Confirmation Deadline (respond within specified time)
 
-- [ ] "Confirmed & Protected" badge display
+- [x] "Confirmed & Protected" badge display
 
 
 
@@ -192,9 +189,9 @@
 
 
 
-- [ ] Price Breakdown (total cost, deposit due, balance at salon)
+- [x] Price Breakdown (total cost, deposit due, balance at salon)
 
-- [ ] Cancellation Policy display (fee warning for late cancellations)
+- [x] Cancellation Policy display (fee warning for late cancellations)
 
 
 
@@ -220,9 +217,9 @@
 
 - [x] Video Sharing (upload/send videos)
 
-- [ ] Photo Consultation (send photos for pre-service assessment)
+- [x] Photo Consultation (send photos for pre-service assessment)
 
-- [ ] Message Grouping (grouped by sender)
+- [x] Message Grouping (grouped by sender)
 
 - [x] Timestamps
 
@@ -236,11 +233,11 @@
 
 
 
-- [ ] Request Photo Consultation
+- [x] Request Photo Consultation
 
-- [ ] Consultation Waiting Screen
+- [x] Consultation Waiting Screen
 
-- [ ] Pre-Service Questionnaire
+- [x] Pre-Service Questionnaire
 
 
 
@@ -494,7 +491,7 @@
 
 - [x] Recent Messages Preview
 
-- [ ] Pull-to-Refresh
+
 
 
 
@@ -872,13 +869,13 @@
 
 
 
-- [ ] View Submitted Photos
+- [x] View Submitted Photos
 
-- [ ] Review Requests (assess suitability)
+- [x] Review Requests (assess suitability)
 
-- [ ] Approve/Decline
+- [x] Approve/Decline
 
-- [ ] Send Feedback to client
+- [x] Send Feedback to client
 
 
 
@@ -886,11 +883,11 @@
 
 
 
-- [ ] View Booking Consultations
+- [x] View Booking Consultations
 
-- [ ] Pre-Service Assessment
+- [x] Pre-Service Assessment
 
-- [ ] Approve/Decline Bookings based on consultation
+- [x] Approve/Decline Bookings based on consultation
 
 
 
@@ -1242,25 +1239,25 @@
 
 
 
-- [ ] Conversation List with unread indicators
+- [x] Conversation List with unread indicators
 
-- [ ] Recent message preview
+- [x] Recent message preview
 
-- [ ] Real-Time Messaging (instant delivery)
+- [x] Real-Time Messaging (instant delivery)
 
-- [ ] Text Messages
+- [x] Text Messages
 
-- [ ] Image Sharing
+- [x] Image Sharing
 
-- [ ] Video Sharing
+- [x] Video Sharing
 
-- [ ] Message Status (sent/delivered)
+- [x] Message Status (sent/delivered)
 
 - [x] Timestamps
 
-- [ ] Profile Photos in chat
+- [x] Profile Photos in chat
 
-- [ ] Conversation Types: Client↔Master, Client↔Owner, Master↔Owner
+- [x] Conversation Types: Client↔Master, Client↔Owner, Master↔Owner
 
 
 
@@ -1458,5 +1455,5 @@
 
 
 
-*Last updated: 2026-05-15*
+*Last updated: 2026-05-19*
 

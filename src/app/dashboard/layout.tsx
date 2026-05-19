@@ -8,6 +8,7 @@ import { Footer } from '@/components/Footer';
 import { MainNavbar } from '@/components/MainNavbar';
 import { NotificationsProvider } from '@/contexts/NotificationsContext';
 import { TestPanel } from '@/components/TestPanel';
+import { TestHighlighter } from '@/components/TestHighlighter';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -71,6 +72,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </main>
         <Footer />
         <TestPanel />
+        <TestHighlighter />
       </NotificationsProvider>
     </div>
   );

@@ -76,7 +76,7 @@ const STEPS: OnboardingStep[] = [
     description: 'Upload photos of your best work to attract more clients.',
     Icon: ImageIcon,
     actionLabel: 'Add Portfolio Photos',
-    actionHref: '/dashboard/settings',
+    actionHref: '/dashboard/settings?tab=portfolio',
   },
   {
     id: 'business_settings',
