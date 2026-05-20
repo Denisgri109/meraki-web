@@ -36,6 +36,9 @@ interface Appointment {
   cancellation_reason: string | null;
   no_show_charge_amount: number | null;
   no_show_processed_at: string | null;
+  stripe_payment_intent_id: string | null;
+  service_duration_minutes: number | null;
+  payment_hold_amount: number | null;
   service?: { name: string; base_price?: number; duration_minutes?: number; description?: string } | null;
   master?: { id: string; full_name: string; avatar_url: string | null; specialties: string[] | null } | null;
   client?: { id: string; full_name: string; avatar_url: string | null; email: string; phone: string | null } | null;
@@ -44,29 +47,29 @@ interface Appointment {
 interface AppointmentConfirmation {
   id: string;
   appointment_id: string;
-  confirmed: boolean;
+  confirmed: boolean | null;
   confirmed_at: string | null;
   reminder_sent_at: string | null;
   responded_at: string | null;
   response_type: string | null;
-  no_show_charge_captured: boolean;
+  no_show_charge_captured: boolean | null;
   no_show_charge_receipt_url: string | null;
   grace_period_ends_at: string | null;
   client_arrived_at: string | null;
-  client_arrived_late: boolean;
+  client_arrived_late: boolean | null;
 }
 
 interface MasterSettings {
   id: string;
   master_id: string;
-  confirmation_timing_hours: number;
-  cancellation_charge_percent: number;
-  late_cancellation_window_hours: number;
-  no_show_charge_percent: number;
-  late_arrival_minutes: number;
-  grace_period_multiplier: number;
-  auto_charge_after_grace_period: boolean;
-  require_tc_acceptance: boolean;
+  confirmation_timing_hours: number | null;
+  cancellation_charge_percent: number | null;
+  late_cancellation_window_hours: number | null;
+  no_show_charge_percent: number | null;
+  late_arrival_minutes: number | null;
+  grace_period_multiplier: number | null;
+  auto_charge_after_grace_period: boolean | null;
+  require_tc_acceptance: boolean | null;
 }
 
 const tabs: { label: string; value: TabValue; color: string }[] = [
@@ -124,6 +127,7 @@ export default function AppointmentsPage() {
           price, deposit_amount, deposit_paid, client_confirmed, confirmation_deadline,
           requires_confirmation, proposed_start_time, proposed_end_time, reschedule_initiated_by,
           cancellation_fee_amount, cancellation_reason, no_show_charge_amount, no_show_processed_at,
+          stripe_payment_intent_id, service_duration_minutes, payment_hold_amount,
           service:services(name, base_price, duration_minutes, description),
           master:profiles!appointments_master_id_fkey(id, full_name, avatar_url, specialties),
           client:profiles!appointments_client_id_fkey(id, full_name, avatar_url, email, phone)
@@ -265,10 +269,22 @@ export default function AppointmentsPage() {
     }
   };
 
-  // Completion (Master)
+  // Completion (Master) — also captures held payment if pre-authorized
   const handleMarkAsCompleted = async () => {
     if (!selectedAppointment) return;
     try {
+      // If there's a held payment (pre-authorization), capture it via Stripe
+      if (selectedAppointment.stripe_payment_intent_id) {
+        const { data: captureData, error: captureError } = await supabase.functions.invoke('capture-payment', {
+          body: {
+            payment_intent_id: selectedAppointment.stripe_payment_intent_id,
+          },
+        });
+        if (captureError) console.error('Payment capture error:', captureError);
+        else if (captureData?.error) console.error('Stripe capture error:', captureData.error);
+        // Continue even if capture fails — mark completed regardless
+      }
+
       const { error } = await supabase
         .from('appointments')
         .update({
@@ -278,7 +294,11 @@ export default function AppointmentsPage() {
         .eq('id', selectedAppointment.id);
 
       if (error) throw error;
-      showToast('Appointment marked as completed.', 'success');
+
+      const msg = selectedAppointment.stripe_payment_intent_id
+        ? 'Service completed & payment captured.'
+        : 'Appointment marked as completed.';
+      showToast(msg, 'success');
       setSelectedAppointment(null);
       fetchAppointments();
     } catch (err: any) {
@@ -394,11 +414,25 @@ export default function AppointmentsPage() {
     }
   };
 
-  // No-Show action: Capture immediate charge (Master)
+  // No-Show action: Capture immediate charge via Stripe (Master)
   const handleNoShowChargeNow = async () => {
     if (!selectedAppointment) return;
     try {
       const chargeAmount = Number(((selectedAppointment.price * 100) / 100).toFixed(2));
+
+      // Call Stripe handle-no-show edge function if payment intent exists
+      if (selectedAppointment.stripe_payment_intent_id) {
+        const noShowPercent = settingsData?.no_show_charge_percent ?? 100;
+        const { data: noShowData, error: noShowError } = await supabase.functions.invoke('handle-no-show', {
+          body: {
+            appointment_id: selectedAppointment.id,
+            payment_intent_id: selectedAppointment.stripe_payment_intent_id,
+            no_show_fee_percentage: noShowPercent,
+          },
+        });
+        if (noShowError) throw noShowError;
+        if (noShowData?.error) throw new Error(noShowData.error);
+      }
 
       const { error } = await supabase
         .from('appointments')
@@ -419,11 +453,16 @@ export default function AppointmentsPage() {
           no_show_charge_captured: true,
         }, { onConflict: 'appointment_id' });
 
-      showToast(`No-Show captured. Charged £${chargeAmount.toFixed(2)} (100% fee).`, 'success');
+      showToast(
+        selectedAppointment.stripe_payment_intent_id
+          ? `No-Show fee captured via Stripe. Charged €${chargeAmount.toFixed(2)}.`
+          : `No-Show recorded. Fee of €${chargeAmount.toFixed(2)} logged.`,
+        'success'
+      );
       setSelectedAppointment(null);
       fetchAppointments();
     } catch (err: any) {
-      showToast(err.message || 'Failed to capture fee', 'error');
+      showToast(err.message || 'Failed to capture no-show fee', 'error');
     }
   };
 

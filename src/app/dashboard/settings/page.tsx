@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/components/Toast';
 import { Settings, User, Shield, Save, Loader2, Camera, CreditCard, Mail, Dumbbell, AlertTriangle, X, Briefcase, Image as ImageIcon, Trash2, Plus, ExternalLink } from 'lucide-react';
 import BusinessSettingsPanel from '@/components/BusinessSettingsPanel';
+import PaymentMethodsManager from '@/components/PaymentMethodsManager';
 import type { Tables, Portfolio } from '@/types/database';
 
 const DELETE_PHRASE = 'DELETE MY ACCOUNT';
@@ -655,17 +656,19 @@ export default function SettingsPage() {
           {activeSection === 'billing' && (
             <div className="glass-card p-6">
               <h2 className="text-lg font-semibold text-[var(--color-text-primary)] mb-6">Billing & Payments</h2>
-              <div className="space-y-4">
-                <div className="p-5 rounded-[var(--radius-lg)] bg-[var(--color-surface-light)] border border-[var(--color-border-light)] flex flex-col gap-3 justify-center items-center text-center py-10">
-                  <CreditCard size={32} className="text-[var(--color-text-muted)] mb-2" />
-                  <h3 className="font-semibold text-[var(--color-text-primary)]">Manage Payment Methods</h3>
-                  <p className="text-sm text-[var(--color-text-secondary)]">Securely manage your saved cards via Stripe to speed up future bookings.</p>
+              <PaymentMethodsManager />
+              <div className="mt-6 pt-5 border-t border-[var(--color-border-light)]">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-sm text-[var(--color-text-primary)]">Stripe Billing Portal</p>
+                    <p className="text-xs text-[var(--color-text-muted)]">View invoices, receipts, and manage subscriptions</p>
+                  </div>
                   <button
                     onClick={handleOpenBillingPortal}
                     disabled={openingPortal}
-                    className="btn-outline mt-2 px-6 py-2 border-slate-300 flex items-center gap-2 cursor-pointer"
+                    className="btn-outline text-sm px-5 py-2 border-slate-300 flex items-center gap-2 cursor-pointer"
                   >
-                    {openingPortal ? <><Loader2 size={16} className="animate-spin" /> Transferring to Stripe...</> : 'Open Billing Portal'}
+                    {openingPortal ? <><Loader2 size={16} className="animate-spin" /> Opening...</> : <><ExternalLink size={14} /> Billing Portal</>}
                   </button>
                 </div>
               </div>

@@ -3,11 +3,13 @@
 import { useState, useEffect, useMemo, type Dispatch, type SetStateAction } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Search, Star, Clock, ArrowRight, ArrowLeft, Calendar, CheckCircle2, Sparkles, User, Scissors, SlidersHorizontal, Loader2, ChevronLeft, ChevronRight, AlertCircle } from 'lucide-react';
+import { Search, Star, Clock, ArrowRight, ArrowLeft, Calendar, CheckCircle2, Sparkles, User, Scissors, SlidersHorizontal, Loader2, ChevronLeft, ChevronRight, AlertCircle, CreditCard, Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import type { Tables } from '@/types/database';
+import type { SavedCard } from '@/components/PaymentMethodsManager';
+import { CardBrandBadge } from '@/components/PaymentMethodsManager';
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY as string);
 
@@ -51,9 +53,30 @@ function CheckoutForm({ user, profile, selectedService, selectedMaster, selected
   const stripe = useStripe();
   const elements = useElements();
   const supabase = createClient();
+  const [savedCards, setSavedCards] = useState<SavedCard[]>([]);
+  const [loadingCards, setLoadingCards] = useState(true);
+  const [selectedPm, setSelectedPm] = useState<string>('new');
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('list-payment-methods', { body: {} });
+        if (!error && data?.paymentMethods?.length) {
+          setSavedCards(data.paymentMethods);
+          const def = data.paymentMethods.find((c: SavedCard) => c.isDefault);
+          setSelectedPm(def ? def.id : data.paymentMethods[0].id);
+        }
+      } catch { /* ignore */ }
+      setLoadingCards(false);
+    };
+    load();
+  }, [supabase]);
+
+  const usingSavedCard = selectedPm !== 'new';
 
   const handleBook = async () => {
-    if (!stripe || !elements || !user || !selectedService || !selectedDate || !selectedTime) return;
+    if (!stripe || !user || !selectedService || !selectedDate || !selectedTime) return;
+    if (!usingSavedCard && !elements) return;
     const isPilates = selectedService.category === 'Pilates';
     if (isPilates && !selectedPilatesSession) return;
     if (!isPilates && !selectedMaster) return;
@@ -71,44 +94,57 @@ function CheckoutForm({ user, profile, selectedService, selectedMaster, selected
     }
     setSubmitting(true);
     try {
-      const requestBody = {
-        user_email: profile?.email,
-        customer_id: profile?.stripe_customer_id,
-      };
+      let paymentMethodId: string;
+      let setupIntentId: string | null = null;
+      let customerId: string | undefined = profile?.stripe_customer_id || undefined;
 
-      const { data: setupIntentData, error: setupError } = await supabase.functions.invoke('setup-intent', { body: requestBody });
-      if (setupError) throw setupError;
+      if (usingSavedCard) {
+        paymentMethodId = selectedPm;
+      } else {
+        const cardElement = elements!.getElement(CardElement);
+        if (!cardElement) throw new Error('Enter your card details');
 
-      const cardElement = elements.getElement(CardElement);
-      const { setupIntent, error: confirmSetupError } = await stripe.confirmCardSetup(
-        setupIntentData.clientSecret,
-        { payment_method: { card: cardElement! } }
-      );
+        const { data: setupIntentData, error: setupError } = await supabase.functions.invoke('setup-intent', {
+          body: { user_email: profile?.email, customer_id: customerId },
+        });
+        if (setupError) throw setupError;
 
-      if (confirmSetupError) throw confirmSetupError;
+        const { setupIntent, error: confirmSetupError } = await stripe.confirmCardSetup(
+          setupIntentData.clientSecret,
+          { payment_method: { card: cardElement } }
+        );
+        if (confirmSetupError) throw confirmSetupError;
+
+        paymentMethodId = setupIntent!.payment_method as string;
+        setupIntentId = setupIntentData.setupIntentId;
+        customerId = setupIntentData.customerId;
+      }
 
       const amountToPay = Math.round(selectedService.base_price * 100);
-      
+
       const { data: paymentIntentData, error: piError } = await supabase.functions.invoke('create-payment-intent', {
         body: {
-            amount: amountToPay,
-            currency: 'eur',
-            customer_id: setupIntentData.customerId,
-            payment_method_id: setupIntent.payment_method,
-            master_id: bookingMasterId,
-            description: `Booking with ${bookingHostName}`,
-            capture_method: 'automatic',
+          amount: amountToPay,
+          currency: 'eur',
+          customer_id: customerId,
+          payment_method_id: paymentMethodId,
+          master_id: bookingMasterId,
+          description: `Booking with ${bookingHostName}`,
+          capture_method: 'automatic',
         }
       });
       if (piError) throw piError;
 
-      const { error: confirmPaymentError } = await stripe.confirmCardPayment(paymentIntentData.clientSecret);
+      const { error: confirmPaymentError } = await stripe.confirmCardPayment(
+        paymentIntentData.clientSecret,
+        usingSavedCard ? { payment_method: paymentMethodId } : undefined
+      );
       if (confirmPaymentError) throw confirmPaymentError;
 
       const { error: bookError } = isPilates && selectedPilatesSession
         ? await supabase.rpc('book_pilates_session', {
           p_session_id: selectedPilatesSession.id,
-          p_stripe_setup_intent_id: setupIntentData.setupIntentId,
+          p_stripe_setup_intent_id: setupIntentId ?? undefined,
           p_stripe_payment_intent_id: paymentIntentData.paymentIntentId,
           p_deposit_amount: selectedService.base_price,
           p_deposit_payment_intent_id: paymentIntentData.paymentIntentId,
@@ -119,7 +155,7 @@ function CheckoutForm({ user, profile, selectedService, selectedMaster, selected
               p_master_id: bookingMasterId,
               p_service_id: selectedService.id,
               p_start_time: appointmentStartDate!.toISOString(),
-              p_stripe_setup_intent_id: setupIntentData.setupIntentId,
+              p_stripe_setup_intent_id: setupIntentId ?? undefined,
               p_stripe_payment_intent_id: paymentIntentData.paymentIntentId,
               p_deposit_amount: selectedService.base_price,
               p_deposit_payment_intent_id: paymentIntentData.paymentIntentId,
@@ -145,23 +181,79 @@ function CheckoutForm({ user, profile, selectedService, selectedMaster, selected
     <div className="w-full">
       <div className="p-4 bg-white/60 border border-white rounded-xl mb-6 shadow-sm">
          <h4 className="font-bold text-[var(--color-text-primary)] mb-4 flex items-center gap-2">
-            💳 Payment Details
+            <CreditCard size={18} /> Payment Details
          </h4>
-         <div className="p-4 bg-white rounded-lg border border-pink-100 shadow-inner">
-           <CardElement options={{
-             style: {
-               base: { fontSize: '16px', color: '#424770', '::placeholder': { color: '#aab7c4' } },
-               invalid: { color: '#9e2146' },
-             },
-           }} />
-         </div>
+
+         {loadingCards ? (
+           <div className="flex items-center gap-2 text-sm text-[var(--color-text-muted)] py-4">
+             <Loader2 size={16} className="animate-spin" /> Loading payment methods...
+           </div>
+         ) : savedCards.length > 0 ? (
+           <div className="space-y-2 mb-4">
+             {savedCards.map(card => (
+               <label
+                 key={card.id}
+                 className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
+                   selectedPm === card.id
+                     ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/5 ring-1 ring-[var(--color-primary)]/20'
+                     : 'border-[var(--color-border-light)] hover:border-[var(--color-primary)]/30'
+                 }`}
+               >
+                 <input
+                   type="radio"
+                   name="payment_method"
+                   value={card.id}
+                   checked={selectedPm === card.id}
+                   onChange={() => setSelectedPm(card.id)}
+                   className="accent-[var(--color-primary)]"
+                 />
+                 <CardBrandBadge brand={card.brand} />
+                 <span className="font-semibold text-sm text-[var(--color-text-primary)]">•••• {card.last4}</span>
+                 <span className="text-xs text-[var(--color-text-muted)]">{String(card.expMonth).padStart(2, '0')}/{card.expYear}</span>
+                 {card.isDefault && (
+                   <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 ml-auto">Default</span>
+                 )}
+               </label>
+             ))}
+             <label
+               className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
+                 selectedPm === 'new'
+                   ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/5 ring-1 ring-[var(--color-primary)]/20'
+                   : 'border-[var(--color-border-light)] hover:border-[var(--color-primary)]/30'
+               }`}
+             >
+               <input
+                 type="radio"
+                 name="payment_method"
+                 value="new"
+                 checked={selectedPm === 'new'}
+                 onChange={() => setSelectedPm('new')}
+                 className="accent-[var(--color-primary)]"
+               />
+               <Plus size={16} className="text-[var(--color-text-muted)]" />
+               <span className="text-sm font-medium text-[var(--color-text-secondary)]">Use a new card</span>
+             </label>
+           </div>
+         ) : null}
+
+         {(!usingSavedCard || savedCards.length === 0) && (
+           <div className="p-4 bg-white rounded-lg border border-pink-100 shadow-inner">
+             <CardElement options={{
+               style: {
+                 base: { fontSize: '16px', color: '#424770', '::placeholder': { color: '#aab7c4' } },
+                 invalid: { color: '#9e2146' },
+               },
+             }} />
+           </div>
+         )}
+
          <p className="text-xs text-[var(--color-text-secondary)] mt-3">
            You will be charged €{selectedService?.base_price ?? 0} today for your booking.
          </p>
       </div>
       <button
         onClick={handleBook}
-        disabled={submitting || !stripe || !elements}
+        disabled={submitting || !stripe || (!usingSavedCard && !elements)}
         className="w-full btn-primary py-4 text-lg font-bold shadow-xl shadow-pink-500/20 hover:shadow-2xl hover:shadow-pink-500/30 hover:-translate-y-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {submitting ? 'Confirming Appointment...' : 'Confirm & Book Appointment'}

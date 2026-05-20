@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth, UserRole } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
@@ -38,10 +38,17 @@ export default function RegisterPage() {
   const { signUp } = useAuth();
   const supabase = createClient();
 
-  const [selectedRole, setSelectedRole] = useState<UserRole>('client');
+  const searchParams = useSearchParams();
+  const invitedEmail = searchParams.get('email') || '';
+  const invitedRole = searchParams.get('role');
+  const isInvited = searchParams.get('invited') === 'true';
+
+  const [selectedRole, setSelectedRole] = useState<UserRole>(
+    invitedRole === 'master' ? 'master' : 'client'
+  );
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(invitedEmail);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -213,6 +220,23 @@ export default function RegisterPage() {
         onSubmit={handleRegister}
         style={{ display: 'flex', flexDirection: 'column', gap: '18px', width: '100%' }}
       >
+        {isInvited && (
+          <div
+            style={{
+              background: 'rgba(139,92,246,0.08)',
+              border: '1px solid rgba(139,92,246,0.25)',
+              color: '#7C3AED',
+              fontSize: '14px',
+              padding: '14px 16px',
+              borderRadius: 'var(--radius-lg)',
+              lineHeight: '1.5',
+            }}
+            className="animate-fade-in"
+          >
+            <strong>You&apos;ve been invited!</strong> Create your account to get started as a Merakí professional.
+          </div>
+        )}
+
         {topError && (
           <div
             style={{
@@ -236,7 +260,7 @@ export default function RegisterPage() {
             {/* Client */}
             <button
               type="button"
-              onClick={() => setSelectedRole('client')}
+              onClick={() => { if (!isInvited) setSelectedRole('client'); }}
               style={{
                 display: 'flex',
                 flexDirection: 'column',
@@ -285,7 +309,7 @@ export default function RegisterPage() {
             {/* Professional */}
             <button
               type="button"
-              onClick={() => setSelectedRole('master')}
+              onClick={() => { if (!isInvited) setSelectedRole('master'); }}
               style={{
                 display: 'flex',
                 flexDirection: 'column',
@@ -397,9 +421,12 @@ export default function RegisterPage() {
               type="email"
               value={email}
               onChange={(e) => {
-                setEmail(e.target.value);
-                clearError('email');
+                if (!isInvited) {
+                  setEmail(e.target.value);
+                  clearError('email');
+                }
               }}
+              readOnly={isInvited}
               placeholder="name@example.com"
               autoComplete="email"
               className="input-glass"
@@ -408,6 +435,7 @@ export default function RegisterPage() {
                 width: '100%',
                 boxSizing: 'border-box',
                 borderColor: errors.email ? '#FCA5A5' : undefined,
+                ...(isInvited ? { opacity: 0.7, cursor: 'default' } : {}),
               }}
             />
           </div>

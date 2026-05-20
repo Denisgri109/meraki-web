@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { BarChart3, TrendingUp, Users, Calendar, DollarSign, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { BarChart3, TrendingUp, Users, Calendar, DollarSign, ArrowUpRight, ArrowDownRight, UserCircle, Briefcase, UserCheck } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -31,6 +31,8 @@ export default function AnalyticsPage() {
     bookingsChangePct: 0,
     activeMasters: 0,
     newClients: 0,
+    totalClients: 0,
+    totalOwners: 0,
   });
   const [activity, setActivity] = useState<ActivityItem[]>([]);
 
@@ -91,6 +93,18 @@ export default function AnalyticsPage() {
           .select('*', { count: 'exact', head: true })
           .eq('role', 'client')
           .gte('created_at', monthStart.toISOString());
+          
+        // Total Clients
+        const { count: totalClients } = await supabase
+          .from('profiles')
+          .select('*', { count: 'exact', head: true })
+          .eq('role', 'client');
+          
+        // Total Owners
+        const { count: totalOwners } = await supabase
+          .from('profiles')
+          .select('*', { count: 'exact', head: true })
+          .eq('role', 'owner');
 
         // Recent activity: latest appointments + recent profile signups
         const { data: recentApts } = await supabase
@@ -119,6 +133,8 @@ export default function AnalyticsPage() {
           bookingsChangePct,
           activeMasters: activeMasters || 0,
           newClients: newClients || 0,
+          totalClients: totalClients || 0,
+          totalOwners: totalOwners || 0,
         });
         setActivity(acts.length ? acts : [{ type: 'info', message: 'No recent activity yet', time: '' }]);
       } catch (err) {
@@ -161,7 +177,7 @@ export default function AnalyticsPage() {
       value: loading ? '—' : `${data.activeMasters}`,
       change: '',
       up: true,
-      icon: Users,
+      icon: Briefcase,
       color: '#A78BFA',
     },
     {
@@ -175,15 +191,16 @@ export default function AnalyticsPage() {
   ];
 
   const recentActivity = activity;
+  const totalUsers = data.totalClients + data.activeMasters + data.totalOwners;
 
   return (
     <div className="max-w-6xl mx-auto animate-fade-in">
       <div className="mb-8">
         <div className="flex items-center gap-2 mb-1">
           <BarChart3 size={22} className="text-[var(--color-secondary)]" />
-          <h1 className="text-3xl font-semibold text-[var(--color-text-primary)]">Analytics</h1>
+          <h1 className="text-3xl font-semibold text-[var(--color-text-primary)]">Platform Analytics</h1>
         </div>
-        <p className="text-[var(--color-text-secondary)]">Track your platform performance</p>
+        <p className="text-[var(--color-text-secondary)]">Track your platform performance and user growth</p>
       </div>
 
       {/* Stats Grid */}
@@ -196,10 +213,12 @@ export default function AnalyticsPage() {
                 <div className="w-10 h-10 rounded-[var(--radius-lg)] flex items-center justify-center" style={{ backgroundColor: `${stat.color}15` }}>
                   <Icon size={20} style={{ color: stat.color }} />
                 </div>
-                <div className={`flex items-center gap-0.5 text-xs font-semibold ${stat.up ? 'text-emerald-600' : 'text-red-500'}`}>
-                  {stat.up ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
-                  {stat.change}
-                </div>
+                {stat.change && (
+                  <div className={`flex items-center gap-0.5 text-xs font-semibold ${stat.up ? 'text-emerald-600' : 'text-red-500'}`}>
+                    {stat.up ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
+                    {stat.change}
+                  </div>
+                )}
               </div>
               <p className="text-2xl font-bold text-[var(--color-text-primary)]">{stat.value}</p>
               <p className="text-xs text-[var(--color-text-muted)] mt-1">{stat.label}</p>
@@ -208,24 +227,72 @@ export default function AnalyticsPage() {
         })}
       </div>
 
-      {/* Chart Placeholders */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <div className="glass-card p-6">
-          <h3 className="font-semibold text-[var(--color-text-primary)] mb-4">Revenue Overview</h3>
-          <div className="h-48 flex items-center justify-center rounded-[var(--radius-lg)] bg-[var(--color-surface-light)]">
-            <div className="text-center">
-              <BarChart3 size={40} className="mx-auto text-[var(--color-text-muted)] mb-2" />
-              <p className="text-sm text-[var(--color-text-muted)]">Revenue data will appear here</p>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        {/* User Statistics */}
+        <div className="glass-card p-6 flex flex-col">
+          <h3 className="font-semibold text-[var(--color-text-primary)] mb-6">User Statistics</h3>
+          
+          <div className="flex-1 flex flex-col justify-center gap-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-500">
+                  <Users size={20} />
+                </div>
+                <div>
+                  <p className="font-medium text-[var(--color-text-primary)]">Clients</p>
+                  <p className="text-xs text-[var(--color-text-muted)]">Registered users</p>
+                </div>
+              </div>
+              <div className="text-xl font-bold">{loading ? '—' : data.totalClients}</div>
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-purple-50 flex items-center justify-center text-purple-500">
+                  <Briefcase size={20} />
+                </div>
+                <div>
+                  <p className="font-medium text-[var(--color-text-primary)]">Masters</p>
+                  <p className="text-xs text-[var(--color-text-muted)]">Active professionals</p>
+                </div>
+              </div>
+              <div className="text-xl font-bold">{loading ? '—' : data.activeMasters}</div>
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center text-amber-500">
+                  <UserCheck size={20} />
+                </div>
+                <div>
+                  <p className="font-medium text-[var(--color-text-primary)]">Owners</p>
+                  <p className="text-xs text-[var(--color-text-muted)]">Platform admins</p>
+                </div>
+              </div>
+              <div className="text-xl font-bold">{loading ? '—' : data.totalOwners}</div>
             </div>
           </div>
+          
+          <div className="mt-6 pt-4 border-t border-[var(--color-border-light)] flex justify-between items-center text-sm">
+            <span className="text-[var(--color-text-muted)]">Total Platform Users</span>
+            <span className="font-bold text-[var(--color-text-primary)]">{loading ? '—' : totalUsers}</span>
+          </div>
         </div>
-        <div className="glass-card p-6">
-          <h3 className="font-semibold text-[var(--color-text-primary)] mb-4">Bookings Trend</h3>
-          <div className="h-48 flex items-center justify-center rounded-[var(--radius-lg)] bg-[var(--color-surface-light)]">
-            <div className="text-center">
-              <TrendingUp size={40} className="mx-auto text-[var(--color-text-muted)] mb-2" />
-              <p className="text-sm text-[var(--color-text-muted)]">Booking trends will appear here</p>
-            </div>
+
+        {/* Revenue Overview */}
+        <div className="glass-card p-6 lg:col-span-2">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-[var(--color-text-primary)]">Revenue & Bookings Trend</h3>
+            <select className="input-glass py-1 text-sm bg-transparent">
+              <option>This Month</option>
+              <option>Last Month</option>
+              <option>This Year</option>
+            </select>
+          </div>
+          <div className="h-64 flex flex-col items-center justify-center rounded-[var(--radius-lg)] bg-[var(--color-surface-light)] border border-dashed border-[var(--color-border-light)]">
+            <TrendingUp size={40} className="text-[var(--color-text-muted)] mb-3 opacity-50" />
+            <p className="text-sm font-medium text-[var(--color-text-secondary)]">Detailed charting available soon</p>
+            <p className="text-xs text-[var(--color-text-muted)] mt-1 max-w-xs text-center">More comprehensive visualization tools are being added to the platform analytics suite.</p>
           </div>
         </div>
       </div>
@@ -235,10 +302,10 @@ export default function AnalyticsPage() {
         <h3 className="font-semibold text-[var(--color-text-primary)] mb-4">Recent Activity</h3>
         <div className="space-y-3">
           {recentActivity.map((item, i) => (
-            <div key={i} className="flex items-center gap-3 p-3 rounded-[var(--radius-lg)] bg-[var(--color-surface-light)]">
-              <div className="w-2 h-2 rounded-full bg-[var(--color-info)]" />
+            <div key={i} className="flex items-center gap-3 p-3 rounded-[var(--radius-lg)] bg-[var(--color-surface-light)] border border-[var(--color-border-light)] hover:bg-white transition-colors cursor-default">
+              <div className={`w-2 h-2 rounded-full ${item.type === 'completed' ? 'bg-emerald-500' : item.type === 'cancelled' ? 'bg-red-500' : 'bg-blue-500'}`} />
               <p className="text-sm text-[var(--color-text-primary)] flex-1">{item.message}</p>
-              <span className="text-xs text-[var(--color-text-muted)]">{item.time}</span>
+              <span className="text-xs font-medium text-[var(--color-text-muted)] bg-[var(--color-surface)] px-2 py-1 rounded-md">{item.time}</span>
             </div>
           ))}
         </div>

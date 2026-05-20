@@ -1,16 +1,18 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { CardElement, Elements, useElements, useStripe } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
-import { ArrowLeft, CheckCircle2, CreditCard, Loader2, MapPin, Package, ShoppingBag } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, CreditCard, Loader2, MapPin, Package, ShoppingBag, Plus } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
 import { useToast } from '@/components/Toast';
 import { createClient } from '@/lib/supabase/client';
 import { EUROPEAN_COUNTRIES_SORTED, getCountryName, getShippingCost } from '@/lib/shipping';
+import type { SavedCard } from '@/components/PaymentMethodsManager';
+import { CardBrandBadge } from '@/components/PaymentMethodsManager';
 
 const stripePublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
 const stripePromise = stripePublishableKey ? loadStripe(stripePublishableKey) : null;
@@ -43,6 +45,26 @@ function CheckoutForm() {
   const [shippingPostalCode, setShippingPostalCode] = useState('');
   const [shippingCountry, setShippingCountry] = useState('GB');
   const [notes, setNotes] = useState('');
+  const [savedCards, setSavedCards] = useState<SavedCard[]>([]);
+  const [loadingCards, setLoadingCards] = useState(true);
+  const [selectedPm, setSelectedPm] = useState<string>('new');
+
+  const usingSavedCard = selectedPm !== 'new';
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('list-payment-methods', { body: {} });
+        if (!error && data?.paymentMethods?.length) {
+          setSavedCards(data.paymentMethods);
+          const def = data.paymentMethods.find((c: SavedCard) => c.isDefault);
+          setSelectedPm(def ? def.id : data.paymentMethods[0].id);
+        }
+      } catch { /* ignore */ }
+      setLoadingCards(false);
+    };
+    load();
+  }, [supabase]);
 
   const subtotal = getTotal();
   const shippingCost = getShippingCost(shippingCountry);
@@ -67,7 +89,8 @@ function CheckoutForm() {
     if (!shippingAddress.trim()) return 'Enter street address.';
     if (!shippingCity.trim()) return 'Enter city.';
     if (!shippingPostalCode.trim()) return 'Enter postal code.';
-    if (!stripe || !elements) return 'Stripe is still loading. Try again in a moment.';
+    if (!stripe) return 'Stripe is still loading. Try again in a moment.';
+    if (!usingSavedCard && !elements) return 'Stripe is still loading. Try again in a moment.';
     return null;
   };
 
@@ -114,10 +137,12 @@ function CheckoutForm() {
       return;
     }
 
-    const cardElement = elements?.getElement(CardElement);
-    if (!cardElement) {
-      showToast('Enter card details to continue.', 'error');
-      return;
+    if (!usingSavedCard) {
+      const cardElement = elements?.getElement(CardElement);
+      if (!cardElement) {
+        showToast('Enter card details to continue.', 'error');
+        return;
+      }
     }
 
     setSubmitting(true);
@@ -129,6 +154,7 @@ function CheckoutForm() {
           amount: toCents(finalTotal),
           currency: 'gbp',
           customer_id: profile?.stripe_customer_id || undefined,
+          payment_method_id: usingSavedCard ? selectedPm : undefined,
           description: `Shop Order: ${items.length} item(s) + shipping to ${getCountryName(shippingCountry)}`,
           capture_method: 'automatic',
         },
@@ -139,22 +165,24 @@ function CheckoutForm() {
       const paymentIntentId = paymentIntentData?.paymentIntentId as string | undefined;
       if (!clientSecret || !paymentIntentId) throw new Error('Stripe payment setup failed.');
 
-      const paymentResult = await stripe!.confirmCardPayment(clientSecret, {
-        payment_method: {
-          card: cardElement,
-          billing_details: {
-            name: shippingName.trim(),
-            email: profile?.email || user?.email || undefined,
-            phone: shippingPhone.trim(),
-            address: {
-              line1: shippingAddress.trim(),
-              city: shippingCity.trim(),
-              postal_code: shippingPostalCode.trim(),
-              country: shippingCountry,
+      const paymentResult = usingSavedCard
+        ? await stripe!.confirmCardPayment(clientSecret, { payment_method: selectedPm })
+        : await stripe!.confirmCardPayment(clientSecret, {
+            payment_method: {
+              card: elements!.getElement(CardElement)!,
+              billing_details: {
+                name: shippingName.trim(),
+                email: profile?.email || user?.email || undefined,
+                phone: shippingPhone.trim(),
+                address: {
+                  line1: shippingAddress.trim(),
+                  city: shippingCity.trim(),
+                  postal_code: shippingPostalCode.trim(),
+                  country: shippingCountry,
+                },
+              },
             },
-          },
-        },
-      });
+          });
 
       if (paymentResult.error) throw new Error(paymentResult.error.message || 'Payment failed.');
       if (paymentResult.paymentIntent?.status !== 'succeeded') throw new Error('Payment was not completed.');
@@ -280,9 +308,47 @@ function CheckoutForm() {
             </div>
           )}
 
-          <div className="input-glass w-full py-4">
-            <CardElement options={cardOptions} />
-          </div>
+          {loadingCards ? (
+            <div className="flex items-center gap-2 text-sm text-[var(--color-text-muted)] py-4">
+              <Loader2 size={16} className="animate-spin" /> Loading payment methods...
+            </div>
+          ) : savedCards.length > 0 ? (
+            <div className="space-y-2 mb-4">
+              {savedCards.map(card => (
+                <label
+                  key={card.id}
+                  className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
+                    selectedPm === card.id
+                      ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/5 ring-1 ring-[var(--color-primary)]/20'
+                      : 'border-[var(--color-border-light)] hover:border-[var(--color-primary)]/30'
+                  }`}
+                >
+                  <input type="radio" name="checkout_pm" value={card.id} checked={selectedPm === card.id} onChange={() => setSelectedPm(card.id)} className="accent-[var(--color-primary)]" />
+                  <CardBrandBadge brand={card.brand} />
+                  <span className="font-semibold text-sm text-[var(--color-text-primary)]">•••• {card.last4}</span>
+                  <span className="text-xs text-[var(--color-text-muted)]">{String(card.expMonth).padStart(2, '0')}/{card.expYear}</span>
+                  {card.isDefault && <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 ml-auto">Default</span>}
+                </label>
+              ))}
+              <label
+                className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
+                  selectedPm === 'new'
+                    ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/5 ring-1 ring-[var(--color-primary)]/20'
+                    : 'border-[var(--color-border-light)] hover:border-[var(--color-primary)]/30'
+                }`}
+              >
+                <input type="radio" name="checkout_pm" value="new" checked={selectedPm === 'new'} onChange={() => setSelectedPm('new')} className="accent-[var(--color-primary)]" />
+                <Plus size={16} className="text-[var(--color-text-muted)]" />
+                <span className="text-sm font-medium text-[var(--color-text-secondary)]">Use a new card</span>
+              </label>
+            </div>
+          ) : null}
+
+          {(!usingSavedCard || savedCards.length === 0) && (
+            <div className="input-glass w-full py-4">
+              <CardElement options={cardOptions} />
+            </div>
+          )}
         </section>
       </div>
 
@@ -327,7 +393,7 @@ function CheckoutForm() {
           </div>
         </div>
 
-        <button onClick={handlePlaceOrder} disabled={submitting || !stripe || items.length === 0} className="btn-primary w-full py-3 text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+        <button onClick={handlePlaceOrder} disabled={submitting || !stripe || items.length === 0 || (!usingSavedCard && !elements)} className="btn-primary w-full py-3 text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
           {submitting ? <><Loader2 size={16} className="animate-spin" /> Processing...</> : 'Pay & Place Order'}
         </button>
         <Link href="/dashboard/cart" className="btn-outline w-full py-3 text-sm flex items-center justify-center gap-2 mt-3">

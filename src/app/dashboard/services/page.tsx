@@ -39,6 +39,7 @@ export default function ServicesPage() {
   const [deleting, setDeleting] = useState(false);
   const [showPilatesHub, setShowPilatesHub] = useState(false);
   const [creatingDefaultPilates, setCreatingDefaultPilates] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState<string>('All');
 
   // Expanded config panel per service
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -53,6 +54,9 @@ export default function ServicesPage() {
   }>({ custom_price: '', custom_duration: '', deposit_override_type: 'none', deposit_override_value: '' });
 
   const pilatesServices = services.filter((s) => s.category === 'Pilates');
+
+  const activeCategories = ['All', ...Array.from(new Set(services.map((s) => s.category || 'Other').filter(Boolean))).sort()];
+  const filteredServices = categoryFilter === 'All' ? services : services.filter((s) => (s.category || 'Other') === categoryFilter);
 
   const fetchAll = useCallback(async () => {
     if (!user) return;
@@ -362,6 +366,28 @@ export default function ServicesPage() {
         </div>
       </div>
 
+      {/* Category filter chips */}
+      {services.length > 0 && (
+        <div className="flex items-center gap-2 mb-6 flex-wrap">
+          {activeCategories.map((cat) => {
+            const count = cat === 'All' ? services.length : services.filter((s) => (s.category || 'Other') === cat).length;
+            return (
+              <button
+                key={cat}
+                onClick={() => setCategoryFilter(cat)}
+                className={`px-4 py-1.5 rounded-full text-xs font-semibold cursor-pointer transition-all border ${
+                  categoryFilter === cat
+                    ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)] shadow-sm'
+                    : 'bg-[var(--color-surface-light)] text-[var(--color-text-secondary)] border-[var(--color-border-light)] hover:border-[var(--color-primary)]/30'
+                }`}
+              >
+                {cat} ({count})
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* Stats row */}
       <div className="grid grid-cols-4 gap-4 mb-8">
         <div className="glass-card p-4 text-center">
@@ -405,7 +431,7 @@ export default function ServicesPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {services.map((service) => {
+          {filteredServices.map((service) => {
             const isAvailable = service.config?.is_available ?? false;
             const hasCustomPrice = service.config?.custom_price != null;
             const hasCustomDuration = service.config?.custom_duration != null;

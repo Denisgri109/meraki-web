@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CalendarDays, Clock, Cog, Info, Loader2, MapPin, Plus, Save, Scissors, Sparkles, UserPlus, Users, X } from 'lucide-react';
+import { CalendarDays, Clock, Cog, Info, Loader2, MapPin, Plus, Save, Scissors, ShieldAlert, Sparkles, UserPlus, Users, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/Toast';
@@ -345,13 +345,30 @@ export function PilatesTimetableManager({ service, onServiceUpdate }: PilatesTim
 
   const saveSession = async () => {
     if (!editingSession) return;
+    const booked = bookedCount(editingSession);
+    const newCapacity = Number(sessionForm.capacity);
+
+    // Booked session protection: prevent capacity below booked count
+    if (newCapacity < booked) {
+      showToast(`Cannot reduce capacity below ${booked} (${booked} booking${booked === 1 ? '' : 's'} exist)`, 'error');
+      return;
+    }
+
+    // Booked session protection: confirm before cancelling with active bookings
+    if (sessionForm.status === 'cancelled' && editingSession.status !== 'cancelled' && booked > 0) {
+      const confirmed = window.confirm(
+        `This session has ${booked} active booking${booked === 1 ? '' : 's'}. Cancelling will affect ${booked === 1 ? 'this client' : 'these clients'}. Are you sure?`
+      );
+      if (!confirmed) return;
+    }
+
     setSaving(true);
     try {
       const { error } = await supabase
         .from('pilates_class_sessions')
         .update({
           host_id: sessionForm.host_id || null,
-          capacity: Number(sessionForm.capacity),
+          capacity: newCapacity,
           level: sessionForm.level,
           status: sessionForm.status,
           notes: sessionForm.notes.trim() || null,
@@ -850,6 +867,15 @@ export function PilatesTimetableManager({ service, onServiceUpdate }: PilatesTim
             <p className="-mt-2 mb-3 text-xs text-[var(--color-text-muted)]">
               Override the defaults for this single class. Changes only affect this date and time.
             </p>
+            {bookedCount(editingSession) > 0 && (
+              <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-3">
+                <ShieldAlert size={16} className="mt-0.5 shrink-0 text-amber-600" />
+                <div>
+                  <p className="text-xs font-bold text-amber-800">Protected session — {bookedCount(editingSession)} active booking{bookedCount(editingSession) === 1 ? '' : 's'}</p>
+                  <p className="mt-0.5 text-[11px] text-amber-700/80">Capacity cannot be reduced below {bookedCount(editingSession)}. Cancelling will notify affected clients.</p>
+                </div>
+              </div>
+            )}
             <div className="space-y-4">
               <div>
                 <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-[var(--color-text-muted)]">Instructor</label>
@@ -861,8 +887,11 @@ export function PilatesTimetableManager({ service, onServiceUpdate }: PilatesTim
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-[var(--color-text-muted)]">Spaces</label>
-                  <input type="number" min="1" max="50" value={sessionForm.capacity} onChange={(e) => setSessionForm({ ...sessionForm, capacity: e.target.value })} className="input-glass" placeholder="e.g. 6" />
-                  <p className="mt-1 text-[10px] text-[var(--color-text-muted)]">Max clients for this class only</p>
+                  <input type="number" min={Math.max(1, bookedCount(editingSession))} max="50" value={sessionForm.capacity} onChange={(e) => setSessionForm({ ...sessionForm, capacity: e.target.value })} className="input-glass" placeholder="e.g. 6" />
+                  <p className="mt-1 text-[10px] text-[var(--color-text-muted)]">
+                    Max clients for this class only
+                    {bookedCount(editingSession) > 0 && <span className="ml-1 font-semibold text-amber-600">(min {bookedCount(editingSession)} — booked)</span>}
+                  </p>
                 </div>
                 <div>
                   <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-[var(--color-text-muted)]">Level</label>

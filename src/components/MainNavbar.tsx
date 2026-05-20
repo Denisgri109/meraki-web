@@ -9,8 +9,8 @@ import { useNotifications, type NotificationItem } from '@/contexts/Notification
 import {
   Home, Calendar, Search, ShoppingBag, GraduationCap, Gift,
   MessageSquare, Settings, LogOut, Menu, X, ChevronDown,
-  Scissors, Clock, Package, BarChart3, Boxes,
-  Bell, ShoppingCart, CalendarCheck, Inbox, ClipboardList
+  Scissors, Clock, Package, BarChart3, Boxes, DollarSign, Wallet,
+  Bell, ShoppingCart, CalendarCheck, Inbox, ClipboardList, HelpCircle, Megaphone
 } from 'lucide-react';
 
 // ─── Navigation items ─────────────────────────────────────────────
@@ -19,6 +19,7 @@ const clientNav = [
   { href: '/dashboard/booking', label: 'Book', icon: Calendar },
   { href: '/dashboard/discover', label: 'Discover', icon: Search },
   { href: '/dashboard/shop', label: 'Shop', icon: ShoppingBag },
+  { href: '/dashboard/orders', label: 'Orders', icon: Package },
   { href: '/dashboard/academy', label: 'Academy', icon: GraduationCap },
   { href: '/dashboard/loyalty', label: 'Rewards', icon: Gift },
   { href: '/dashboard/consultations', label: 'Consults', icon: ClipboardList },
@@ -27,17 +28,21 @@ const clientNav = [
 const ownerNav = [
   { href: '/dashboard', label: 'Home', icon: Home },
   { href: '/dashboard/appointments', label: 'Bookings', icon: CalendarCheck },
-  { href: '/dashboard/analytics', label: 'Analytics', icon: BarChart3 },
+  { href: '/dashboard/finance', label: 'Finance', icon: DollarSign },
+  { href: '/dashboard/orders', label: 'Orders', icon: ShoppingBag },
   { href: '/dashboard/inventory', label: 'Inventory', icon: Package },
   { href: '/dashboard/supplies', label: 'Supplies', icon: Boxes },
+  { href: '/dashboard/academy', label: 'Academy', icon: GraduationCap },
   { href: '/dashboard/loyalty', label: 'Rewards', icon: Gift },
   { href: '/dashboard/consultations', label: 'Consults', icon: ClipboardList },
+  { href: '/dashboard/notifications', label: 'Notifications', icon: Megaphone },
   { href: '/dashboard/discover', label: 'Discover', icon: Search },
 ];
 
 const masterNav = [
   { href: '/dashboard', label: 'Home', icon: Home },
   { href: '/dashboard/appointments', label: 'Bookings', icon: CalendarCheck },
+  { href: '/dashboard/earnings', label: 'Earnings', icon: Wallet },
   { href: '/dashboard/availability', label: 'Schedule', icon: Clock },
   { href: '/dashboard/services', label: 'Services', icon: Scissors },
   { href: '/dashboard/supplies', label: 'Supplies', icon: Boxes },
@@ -306,6 +311,9 @@ export function MainNavbar({ transparent = false }: MainNavbarProps) {
                     </Link>
                     <Link href="/dashboard/settings" onClick={() => setProfileOpen(false)} className="flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-light)] hover:text-[var(--color-text-primary)] transition-colors">
                       <Settings size={16} /> Settings
+                    </Link>
+                    <Link href="/dashboard/support" onClick={() => setProfileOpen(false)} className="flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-light)] hover:text-[var(--color-text-primary)] transition-colors">
+                      <HelpCircle size={16} /> Support
                     </Link>
                   </div>
                   <div className="border-t border-[var(--color-border-light)] pt-1">

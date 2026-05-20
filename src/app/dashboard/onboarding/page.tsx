@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/components/Toast';
@@ -13,9 +12,9 @@ import {
   CalendarDays,
   Image as ImageIcon,
   Building2,
-  ArrowRight,
   Loader2,
   Check,
+  ArrowRight,
 } from 'lucide-react';
 
 type StepId =
@@ -31,8 +30,6 @@ interface OnboardingStep {
   title: string;
   description: string;
   Icon: React.ComponentType<{ size?: number; className?: string }>;
-  actionLabel?: string;
-  actionHref?: string;
 }
 
 const STEPS: OnboardingStep[] = [
@@ -40,52 +37,43 @@ const STEPS: OnboardingStep[] = [
     id: 'welcome',
     title: 'Welcome to Merakí!',
     description:
-      "You're all set up as a Professional. Let's get you ready to start accepting bookings.",
+      "You're all set up as a Professional. Here's a quick overview of everything you can do on the platform.",
     Icon: Sparkles,
   },
   {
     id: 'profile',
-    title: 'Complete Your Profile',
+    title: 'Your Profile',
     description:
-      'Add your bio, experience, and a profile photo to help clients find you.',
+      'Your profile is where clients discover you. You can add your bio, experience, and a profile photo from Settings at any time.',
     Icon: UserCircle,
-    actionLabel: 'Edit Profile Now',
-    actionHref: '/dashboard/settings',
   },
   {
     id: 'services',
-    title: 'Add Your Services',
+    title: 'Your Services',
     description:
-      'Create the services you offer with your own pricing and duration.',
+      'Create and manage the services you offer — set your own pricing, duration, and categories. Head to Services whenever you\'re ready.',
     Icon: Scissors,
-    actionLabel: 'Add Services Now',
-    actionHref: '/dashboard/services',
   },
   {
     id: 'availability',
-    title: 'Set Your Availability',
+    title: 'Your Availability',
     description:
-      "Choose when you're available for bookings and block off time as needed.",
+      'Control when you\'re available for bookings. Set your working hours and block off time as needed from the Availability page.',
     Icon: CalendarDays,
-    actionLabel: 'Set Availability Now',
-    actionHref: '/dashboard/availability',
   },
   {
     id: 'portfolio',
-    title: 'Build Your Portfolio',
-    description: 'Upload photos of your best work to attract more clients.',
+    title: 'Your Portfolio',
+    description:
+      'Showcase your best work with a photo portfolio. Clients can browse your gallery before booking — add photos from Settings whenever you like.',
     Icon: ImageIcon,
-    actionLabel: 'Add Portfolio Photos',
-    actionHref: '/dashboard/settings?tab=portfolio',
   },
   {
     id: 'business_settings',
     title: 'Business Settings',
     description:
-      'Configure your business details, cancellation policy, and payment methods.',
+      'Manage your business details, cancellation policy, and payment settings all in one place from Settings.',
     Icon: Building2,
-    actionLabel: 'Configure Business Settings',
-    actionHref: '/dashboard/settings',
   },
 ];
 
@@ -192,19 +180,6 @@ export default function MasterOnboardingPage() {
         <p className="text-sm sm:text-base text-[var(--color-text-secondary)] leading-relaxed mb-8 max-w-md mx-auto">
           {step.description}
         </p>
-
-        {/* Action card for non-welcome steps */}
-        {step.actionLabel && step.actionHref && (
-          <Link
-            href={step.actionHref}
-            className="flex items-center gap-3 mx-auto max-w-sm p-4 rounded-[var(--radius-lg)] bg-[var(--color-surface-light)] border border-[var(--color-border-light)] hover:border-[var(--color-primary)] transition-colors mb-8 cursor-pointer"
-          >
-            <span className="text-sm font-medium text-[var(--color-text-primary)] flex-1 text-left">
-              {step.actionLabel}
-            </span>
-            <ArrowRight size={18} className="text-[var(--color-primary)]" />
-          </Link>
-        )}
 
         {/* Buttons */}
         <div className="flex flex-col gap-3">

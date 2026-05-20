@@ -14,7 +14,13 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  Edit3,
+  Save,
+  Mail,
+  Phone,
+  Percent,
 } from 'lucide-react';
+import { useToast } from '@/components/Toast';
 import type { Portfolio } from '@/types/database';
 
 interface MasterProfile {
@@ -26,6 +32,11 @@ interface MasterProfile {
   country: string | null;
   years_of_experience: number | null;
   specialties: string[] | null;
+  commission_rate: number | null;
+  is_master: boolean;
+  master_status: string | null;
+  email: string | null;
+  phone: string | null;
 }
 
 interface MasterServiceRow {
@@ -55,7 +66,8 @@ export default function MasterPublicProfilePage() {
   const params = useParams();
   const router = useRouter();
   const supabase = createClient();
-  const { profile: currentProfile } = useAuth();
+  const { profile: currentProfile, role } = useAuth();
+  const { showToast } = useToast();
   const masterId = params.id as string;
 
   const [master, setMaster] = useState<MasterProfile | null>(null);
@@ -65,7 +77,13 @@ export default function MasterPublicProfilePage() {
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerIndex, setViewerIndex] = useState(0);
 
+  // Owner edit state
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editForm, setEditForm] = useState({ bio: '', commission_rate: '', specialties: '', city: '', country: '' });
+  const [editSaving, setEditSaving] = useState(false);
+
   const isOwnProfile = currentProfile?.id === masterId;
+  const isOwner = role === 'owner';
 
   useEffect(() => {
     if (!masterId) return;
@@ -77,7 +95,7 @@ export default function MasterPublicProfilePage() {
         // Fetch master profile
         const { data: masterData } = await supabase
           .from('profiles')
-          .select('id, full_name, bio, avatar_url, city, country, years_of_experience, specialties')
+          .select('id, full_name, bio, avatar_url, city, country, years_of_experience, specialties, commission_rate, is_master, master_status, email, phone')
           .eq('id', masterId)
           .single();
 
@@ -130,6 +148,62 @@ export default function MasterPublicProfilePage() {
     return () => { cancelled = true; };
   }, [masterId, supabase]);
 
+  const openEdit = () => {
+    if (!master) return;
+    setEditForm({
+      bio: master.bio || '',
+      commission_rate: master.commission_rate != null ? String(master.commission_rate) : '',
+      specialties: (master.specialties || []).join(', '),
+      city: master.city || '',
+      country: master.country || '',
+    });
+    setShowEditModal(true);
+  };
+
+  const saveEdit = async () => {
+    if (!master) return;
+    setEditSaving(true);
+    try {
+      const commRate = editForm.commission_rate.trim() ? Number(editForm.commission_rate) : null;
+      if (commRate !== null && (isNaN(commRate) || commRate < 0 || commRate > 100)) {
+        showToast('Commission rate must be 0–100', 'error');
+        setEditSaving(false);
+        return;
+      }
+      const specs = editForm.specialties
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          bio: editForm.bio.trim() || null,
+          commission_rate: commRate,
+          specialties: specs.length > 0 ? specs : null,
+          city: editForm.city.trim() || null,
+          country: editForm.country.trim() || null,
+        })
+        .eq('id', master.id);
+      if (error) throw error;
+
+      setMaster({
+        ...master,
+        bio: editForm.bio.trim() || null,
+        commission_rate: commRate,
+        specialties: specs.length > 0 ? specs : null,
+        city: editForm.city.trim() || null,
+        country: editForm.country.trim() || null,
+      });
+      showToast('Master profile updated', 'success');
+      setShowEditModal(false);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to update', 'error');
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
   const openViewer = (index: number) => {
     setViewerIndex(index);
     setViewerOpen(true);
@@ -180,7 +254,17 @@ export default function MasterPublicProfilePage() {
       )}
 
       {/* Hero card */}
-      <div className="glass-card p-8 text-center mb-6">
+      <div className="glass-card p-8 text-center mb-6 relative">
+        {/* Owner edit button */}
+        {isOwner && !isOwnProfile && (
+          <button
+            onClick={openEdit}
+            className="absolute top-4 right-4 w-9 h-9 rounded-full bg-[var(--color-surface-light)] hover:bg-[var(--color-brand-pink-light)] flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-brand-pink-dark)] transition-colors cursor-pointer"
+            title="Edit master profile"
+          >
+            <Edit3 size={16} />
+          </button>
+        )}
         {/* Avatar */}
         <div className="mx-auto mb-4">
           {master.avatar_url ? (
@@ -250,6 +334,40 @@ export default function MasterPublicProfilePage() {
           </div>
         )}
       </div>
+
+      {/* Owner-only: Contact & Commission */}
+      {isOwner && !isOwnProfile && (
+        <div className="glass-card p-6 mb-6">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)] mb-4">Owner Details</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {master.email && (
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-[var(--color-surface-light)]">
+                <Mail size={16} className="text-[var(--color-text-muted)] shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-[11px] text-[var(--color-text-muted)]">Email</p>
+                  <p className="text-sm font-medium text-[var(--color-text-primary)] truncate">{master.email}</p>
+                </div>
+              </div>
+            )}
+            {master.phone && (
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-[var(--color-surface-light)]">
+                <Phone size={16} className="text-[var(--color-text-muted)] shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-[11px] text-[var(--color-text-muted)]">Phone</p>
+                  <p className="text-sm font-medium text-[var(--color-text-primary)] truncate">{master.phone}</p>
+                </div>
+              </div>
+            )}
+            <div className="flex items-center gap-3 p-3 rounded-xl bg-[var(--color-surface-light)]">
+              <Percent size={16} className="text-[var(--color-text-muted)] shrink-0" />
+              <div>
+                <p className="text-[11px] text-[var(--color-text-muted)]">Commission</p>
+                <p className="text-sm font-bold text-[var(--color-text-primary)]">{master.commission_rate != null ? `${master.commission_rate}%` : 'Not set'}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Services */}
       <div className="glass-card p-6 mb-6">
@@ -370,6 +488,80 @@ export default function MasterPublicProfilePage() {
               </p>
             </div>
           )}
+        </div>
+      )}
+      {/* Owner Edit Modal */}
+      {showEditModal && isOwner && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="bg-white rounded-[var(--radius-xl)] shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-[var(--color-text-primary)]">Edit Master Profile</h3>
+              <button onClick={() => setShowEditModal(false)} className="text-gray-400 hover:text-gray-600 cursor-pointer">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Bio</label>
+                <textarea
+                  value={editForm.bio}
+                  onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })}
+                  className="input-glass w-full resize-none"
+                  rows={3}
+                  placeholder="Short bio"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">City</label>
+                  <input
+                    value={editForm.city}
+                    onChange={(e) => setEditForm({ ...editForm, city: e.target.value })}
+                    className="input-glass w-full"
+                    placeholder="City"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Country</label>
+                  <input
+                    value={editForm.country}
+                    onChange={(e) => setEditForm({ ...editForm, country: e.target.value })}
+                    className="input-glass w-full"
+                    placeholder="Country"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Commission Rate (%)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="1"
+                  value={editForm.commission_rate}
+                  onChange={(e) => setEditForm({ ...editForm, commission_rate: e.target.value })}
+                  className="input-glass w-full"
+                  placeholder="e.g. 30"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Specialties (comma-separated)</label>
+                <input
+                  value={editForm.specialties}
+                  onChange={(e) => setEditForm({ ...editForm, specialties: e.target.value })}
+                  className="input-glass w-full"
+                  placeholder="Nails, Lashes, Brows"
+                />
+              </div>
+            </div>
+            <div className="px-6 py-4 bg-gray-50 flex justify-end gap-3 border-t border-gray-100">
+              <button onClick={() => setShowEditModal(false)} className="btn-secondary cursor-pointer">Cancel</button>
+              <button onClick={saveEdit} disabled={editSaving} className="btn-pink flex items-center gap-2 cursor-pointer disabled:opacity-50">
+                {editSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                {editSaving ? 'Saving…' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -2,14 +2,16 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { Package, Search, Plus, AlertTriangle, TrendingDown, Box, X } from 'lucide-react';
+import { Package, Search, Plus, AlertTriangle, TrendingDown, Box, X, Trash2, History, Truck } from 'lucide-react';
 import { useToast } from '@/components/Toast';
 
 interface Product {
   id: string;
   name: string;
   retail_price: number | string | null;
+  wholesale_price: number | string | null;
   stock_count: number | null;
+  low_stock_threshold: number | null;
   category: string | null;
   is_active: boolean | null;
   image_url: string | null;
@@ -20,8 +22,11 @@ type EditDraft = {
   name: string;
   category: string;
   retail_price: string;
+  wholesale_price: string;
   stock_count: string;
+  low_stock_threshold: string;
   is_active: boolean;
+  supplier_name?: string;
 };
 
 const formatMoney = (value: number | string | null | undefined) => {
@@ -47,8 +52,11 @@ export default function InventoryPage() {
       name: p.name || '',
       category: p.category || '',
       retail_price: p.retail_price == null ? '' : String(p.retail_price),
+      wholesale_price: p.wholesale_price == null ? '' : String(p.wholesale_price),
       stock_count: p.stock_count == null ? '' : String(p.stock_count),
+      low_stock_threshold: p.low_stock_threshold == null ? '5' : String(p.low_stock_threshold),
       is_active: !!p.is_active,
+      supplier_name: 'Meraki Distribution', // Mock for now
     });
   };
 
@@ -65,8 +73,18 @@ export default function InventoryPage() {
       showToast('Name is required', 'error');
       return;
     }
+    const wholesaleNum = Number(draft.wholesale_price);
+    const thresholdNum = draft.low_stock_threshold.trim() ? Number(draft.low_stock_threshold) : null;
     if (!Number.isFinite(priceNum) || priceNum < 0) {
-      showToast('Invalid price', 'error');
+      showToast('Invalid retail price', 'error');
+      return;
+    }
+    if (!Number.isFinite(wholesaleNum) || wholesaleNum < 0) {
+      showToast('Invalid wholesale price', 'error');
+      return;
+    }
+    if (thresholdNum !== null && (!Number.isFinite(thresholdNum) || thresholdNum < 0)) {
+      showToast('Invalid low stock threshold', 'error');
       return;
     }
     if (!Number.isFinite(stockNum) || stockNum < 0 || !Number.isInteger(stockNum)) {
@@ -81,7 +99,9 @@ export default function InventoryPage() {
           name: draft.name.trim(),
           category: draft.category.trim() || null,
           retail_price: priceNum,
+          wholesale_price: wholesaleNum,
           stock_count: stockNum,
+          low_stock_threshold: thresholdNum,
           is_active: draft.is_active,
         })
         .eq('id', editing.id);
@@ -91,13 +111,32 @@ export default function InventoryPage() {
         name: draft.name.trim(),
         category: draft.category.trim() || null,
         retail_price: priceNum,
+        wholesale_price: wholesaleNum,
         stock_count: stockNum,
+        low_stock_threshold: thresholdNum,
         is_active: draft.is_active,
       } : p));
       showToast('Product updated', 'success');
       closeEdit();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to update product';
+      showToast(msg, 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deleteProduct = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this product?')) return;
+    setSaving(true);
+    try {
+      const { error } = await supabase.from('products').delete().eq('id', id);
+      if (error) throw error;
+      setProducts(prev => prev.filter(p => p.id !== id));
+      showToast('Product deleted', 'success');
+      closeEdit();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to delete product';
       showToast(msg, 'error');
     } finally {
       setSaving(false);
@@ -130,7 +169,11 @@ export default function InventoryPage() {
     !search || p.name.toLowerCase().includes(search.toLowerCase())
   );
 
-  const lowStock = products.filter((p) => getStockCount(p) <= 5 && getStockCount(p) > 0);
+  const lowStock = products.filter((p) => {
+    const count = getStockCount(p);
+    const threshold = p.low_stock_threshold ?? 5;
+    return count > 0 && count <= threshold;
+  });
   const outOfStock = products.filter((p) => getStockCount(p) === 0);
 
   return (
@@ -235,7 +278,7 @@ export default function InventoryPage() {
                 <div className="col-span-2 text-sm text-[var(--color-text-muted)]">{product.category || '—'}</div>
                 <div className="col-span-2 text-right text-sm font-medium text-[var(--color-text-primary)]">£{formatMoney(product.retail_price)}</div>
                 <div className="col-span-2 text-right">
-                  <span className={`text-sm font-bold ${stockCount === 0 ? 'text-red-500' : stockCount <= 5 ? 'text-amber-500' : 'text-[var(--color-text-primary)]'}`}>
+                  <span className={`text-sm font-bold ${stockCount === 0 ? 'text-red-500' : stockCount <= (product.low_stock_threshold ?? 5) ? 'text-amber-500' : 'text-[var(--color-text-primary)]'}`}>
                     {stockCount}
                   </span>
                 </div>
@@ -274,12 +317,22 @@ export default function InventoryPage() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Price</label>
+                  <label className="block text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Retail Price</label>
                   <input type="number" min="0" step="0.01" className="input-glass" value={draft.retail_price} onChange={(e) => setDraft({ ...draft, retail_price: e.target.value })} />
                 </div>
                 <div>
+                  <label className="block text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Wholesale Price</label>
+                  <input type="number" min="0" step="0.01" className="input-glass" value={draft.wholesale_price} onChange={(e) => setDraft({ ...draft, wholesale_price: e.target.value })} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
                   <label className="block text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Stock</label>
                   <input type="number" min="0" step="1" className="input-glass" value={draft.stock_count} onChange={(e) => setDraft({ ...draft, stock_count: e.target.value })} />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Low Stock Alert</label>
+                  <input type="number" min="0" step="1" className="input-glass" value={draft.low_stock_threshold} onChange={(e) => setDraft({ ...draft, low_stock_threshold: e.target.value })} placeholder="5" />
                 </div>
               </div>
               <label className="flex items-center justify-between p-3 rounded-xl bg-[var(--color-surface-light)] cursor-pointer">
@@ -295,12 +348,29 @@ export default function InventoryPage() {
                   <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${draft.is_active ? 'translate-x-5' : 'translate-x-0.5'}`} />
                 </button>
               </label>
+              <div>
+                <label className="block text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Supplier (Mock)</label>
+                <div className="relative">
+                  <Truck size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
+                  <input className="input-glass pl-9" value={draft.supplier_name} onChange={(e) => setDraft({ ...draft, supplier_name: e.target.value })} />
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => showToast('Stock history logging will be implemented in v2', 'info')} className="flex-1 flex justify-center items-center gap-2 p-3 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors text-sm font-semibold">
+                  <History size={16} /> View History
+                </button>
+              </div>
             </div>
-            <div className="flex items-center justify-end gap-2 mt-6">
-              <button onClick={closeEdit} className="px-4 py-2 rounded-full text-sm font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-light)] cursor-pointer">Cancel</button>
-              <button onClick={saveEdit} disabled={saving} className="btn-primary px-5 py-2 text-sm cursor-pointer disabled:opacity-50">
-                {saving ? 'Saving…' : 'Save Changes'}
+            <div className="flex items-center justify-between mt-6">
+              <button onClick={() => deleteProduct(editing.id)} disabled={saving} className="w-10 h-10 flex items-center justify-center rounded-full bg-red-50 text-red-500 hover:bg-red-100 transition-colors cursor-pointer disabled:opacity-50">
+                <Trash2 size={16} />
               </button>
+              <div className="flex items-center gap-2">
+                <button onClick={closeEdit} className="px-4 py-2 rounded-full text-sm font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-light)] cursor-pointer">Cancel</button>
+                <button onClick={saveEdit} disabled={saving} className="btn-primary px-5 py-2 text-sm cursor-pointer disabled:opacity-50">
+                  {saving ? 'Saving…' : 'Save Changes'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -238,6 +238,7 @@ export default function StaffDashboard() {
   const businessActions = isOwner
     ? [
         { href: '/dashboard/masters', icon: Users, label: 'Masters', color: '#EE2B5B' },
+        { href: '/dashboard/orders', icon: Package, label: 'Orders', color: '#F472B6' },
         { href: '/dashboard/services', icon: Calendar, label: 'Services', color: '#60A5FA' },
         { href: '/dashboard/availability', icon: Clock, label: 'Availability', color: '#F472B6' },
         { href: '/dashboard/inventory', icon: Package, label: 'Inventory', color: '#F19A3E' },
