@@ -126,7 +126,7 @@ export default function OrdersPage() {
     try {
       const { error } = await supabase
         .from('orders')
-        .update({ [field]: value, updated_at: new Date().toISOString() })
+        .update({ [field]: value, updated_at: new Date().toISOString() } as never)
         .eq('id', orderId);
       if (error) throw error;
       setOrders(prev => prev.map(o => o.id === orderId ? { ...o, [field]: value } : o));
