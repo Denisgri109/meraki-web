@@ -11,7 +11,7 @@ import {
   ShieldCheck, CalendarClock, CalendarOff, UserX, Clock, TimerReset,
   Scissors, Package, Star, QrCode, Award, Megaphone, Heart,
   CalendarRange, Ban, FileText, Users, Eye, MessageCircle,
-  Navigation, ExternalLink, Search,
+  Navigation, ExternalLink, Search, MapPinOff,
 } from 'lucide-react';
 import {
   TEST_ACCOUNTS, TEST_EMAILS, emailToId,
@@ -46,6 +46,7 @@ const CAT_THEME: Record<string, { ring: string; iconBg: string; iconText: string
   'Loyalty':              { ring: 'ring-yellow-200', iconBg: 'bg-yellow-100', iconText: 'text-yellow-600', headerBg: 'bg-yellow-50', headerText: 'text-yellow-800', badge: 'bg-yellow-100 text-yellow-700' },
   'Inventory & Supplies': { ring: 'ring-orange-200', iconBg: 'bg-orange-100', iconText: 'text-orange-600', headerBg: 'bg-orange-50', headerText: 'text-orange-800', badge: 'bg-orange-100 text-orange-700' },
   'Shop':                 { ring: 'ring-emerald-200',iconBg: 'bg-emerald-100',iconText: 'text-emerald-600',headerBg: 'bg-emerald-50',headerText: 'text-emerald-800',badge: 'bg-emerald-100 text-emerald-700' },
+  'Location':             { ring: 'ring-teal-200',   iconBg: 'bg-teal-100',   iconText: 'text-teal-600',   headerBg: 'bg-teal-50',   headerText: 'text-teal-800',   badge: 'bg-teal-100 text-teal-700' },
   'Cleanup':              { ring: 'ring-red-200',    iconBg: 'bg-red-100',    iconText: 'text-red-600',    headerBg: 'bg-red-50',    headerText: 'text-red-800',    badge: 'bg-red-100 text-red-700' },
 };
 const defaultTheme = { ring: 'ring-gray-200', iconBg: 'bg-gray-100', iconText: 'text-gray-600', headerBg: 'bg-gray-50', headerText: 'text-gray-800', badge: 'bg-gray-100 text-gray-700' };
@@ -126,6 +127,12 @@ const SEED_ACTIONS: SeedAction[] = [
   // ── Shop ───────────────────────────────────────────────────────────
   { id: 'order-pending',           label: 'Create Shop Order — Pending',    description: '1× first active product as a pending order',                                                     icon: ShoppingBag,   category: 'Shop', action: 'create_order', params: { status: 'pending', quantity: 1 },  navigateTo: '/dashboard/shop' },
   { id: 'order-paid',              label: 'Create Shop Order — Paid',       description: '2× first active product as a paid order',                                                        icon: ShoppingBag,   category: 'Shop', action: 'create_order', params: { status: 'paid', quantity: 2 },     navigateTo: '/dashboard/shop' },
+
+  // ── Location ─────────────────────────────────────────────────────
+  { id: 'reset-location-self',   label: 'Reset My Location',              description: 'Clear country, state, city, and location_setup_completed for the currently signed-in account. Re-triggers the location gate modal.',  icon: MapPinOff, category: 'Location', action: 'reset_location', params: {},                                                              navigateTo: '/dashboard/settings' },
+  { id: 'reset-location-client', label: 'Reset Client Location',          description: 'Clear location fields for test client account (testclient@gmail.com).',                                                                icon: MapPinOff, category: 'Location', action: 'reset_location', params: { target_id: '3f19e0f2-7e0b-4dc2-8a8e-3ac1939d9f1f' },                navigateTo: '/dashboard/settings' },
+  { id: 'reset-location-owner',  label: 'Reset Owner Location',           description: 'Clear location fields for test owner account (test@gmail.com).',                                                                       icon: MapPinOff, category: 'Location', action: 'reset_location', params: { target_id: '744b77f1-e94f-4918-9c04-3b9f47288377' },                navigateTo: '/dashboard/settings' },
+  { id: 'reset-location-master', label: 'Reset Master Location',          description: 'Clear location fields for daxyburn master account (daxyburn@gmail.com).',                                                              icon: MapPinOff, category: 'Location', action: 'reset_location', params: { target_id: 'aab4ab46-76d5-4a98-8487-2a6f1b8a2a1b' },                navigateTo: '/dashboard/settings' },
 
   // ── Cleanup ────────────────────────────────────────────────────────
   { id: 'clear-all', label: 'Clear ALL Test Data', description: 'Delete appointments, consultations, chats, orders, schedule blocks, loyalty, supplies for 3 test accounts.', icon: Trash2, category: 'Cleanup', action: 'clear_test_data', destructive: true },

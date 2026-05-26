@@ -9,11 +9,16 @@ import { MainNavbar } from '@/components/MainNavbar';
 import { NotificationsProvider } from '@/contexts/NotificationsContext';
 import { TestPanel } from '@/components/TestPanel';
 import { TestHighlighter } from '@/components/TestHighlighter';
+import { useAutoLocation } from '@/hooks/useAutoLocation';
+import LocationGateModal from '@/components/LocationGateModal';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { loading, session, profile } = useAuth();
+  // Detect GPS coords + country once per signed-in profile, used by the
+  // radius-based master / service filter on booking, discover, etc.
+  const { isLocationMissing, onLocationSaved } = useAutoLocation();
 
   useEffect(() => {
     if (!loading && !session) {
@@ -74,6 +79,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <TestPanel />
         <TestHighlighter />
       </NotificationsProvider>
+
+      {/* Location gate — blocks dashboard until country/city is set */}
+      {isLocationMissing && <LocationGateModal onSaved={onLocationSaved} />}
     </div>
   );
 }

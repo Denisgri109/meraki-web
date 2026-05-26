@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { Search, MapPin, TrendingUp, Heart, Sparkles, ArrowRight, Users } from 'lucide-react';
 import { useToast } from '@/components/Toast';
 import { useRouter } from 'next/navigation';
+import { isMasterWithinRange } from '@/lib/location';
 
 interface Master {
   id: string;
@@ -12,6 +14,11 @@ interface Master {
   avatar_url: string | null;
   specialties: string | null;
   city: string | null;
+  country: string | null;
+  state: string | null;
+  state_code: string | null;
+  latitude: number | null;
+  longitude: number | null;
   bio: string | null;
 }
 
@@ -32,22 +39,45 @@ export default function DiscoverPage() {
   const supabase = createClient();
   const router = useRouter();
   const { showToast } = useToast();
+  const { profile, user } = useAuth();
   const [search, setSearch] = useState('');
   const [masters, setMasters] = useState<Master[]>([]);
   const [loading, setLoading] = useState(true);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
+
+  // User location from profile — mirrors mobile DiscoverMastersScreen.
+  // Radius is now defined by country + state/region, not km.
+  const userCountry = ((profile as Record<string, unknown> | null)?.country as string | null | undefined) ?? null;
+  const userState = ((profile as Record<string, unknown> | null)?.state as string | null | undefined) ?? null;
+  const userStateCode = ((profile as Record<string, unknown> | null)?.state_code as string | null | undefined) ?? null;
 
   useEffect(() => {
     const fetchMasters = async () => {
       try {
         const { data, error } = await supabase
           .from('profiles')
-          .select('id, full_name, avatar_url, specialties, city, bio')
+          .select('id, full_name, avatar_url, specialties, city, country, state, state_code, latitude, longitude, bio')
           .eq('is_master', true)
-          .limit(24);
+          .limit(60);
 
         if (error) console.error('[Discover] masters error:', error);
-        setMasters((data as unknown as Master[]) || []);
+
+        const userLoc = {
+          country: userCountry,
+          state: userState,
+          state_code: userStateCode,
+        };
+
+        // Filter masters by country + state/region, and exclude the current user.
+        // Mirrors mobile DiscoverMastersScreen.filteredMasters logic.
+        const rawMasters = ((data as unknown as Master[]) || [])
+          .filter((m) => m.id !== user?.id)
+          .filter((m) => {
+            if (!userCountry) return false; // must have a known user country
+            return isMasterWithinRange(userLoc, m);
+          });
+
+        setMasters(rawMasters);
       } catch (err) {
         console.error('[Discover] unexpected error:', err);
       } finally {
@@ -56,7 +86,7 @@ export default function DiscoverPage() {
     };
     fetchMasters();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [userCountry, userState, userStateCode]);
 
   const filtered = masters.filter((m) =>
     !search || m.full_name?.toLowerCase().includes(search.toLowerCase()) || m.specialties?.toLowerCase().includes(search.toLowerCase())
@@ -74,9 +104,19 @@ export default function DiscoverPage() {
             <span style={{ fontSize: '12px', letterSpacing: '3px', textTransform: 'uppercase', color: '#C4B5FD', fontWeight: 700 }}>Discover</span>
           </div>
           <h1 style={{ fontSize: '36px', fontWeight: 700, textShadow: '0 2px 10px rgba(0,0,0,0.3)', margin: 0 }}>Explore & Connect</h1>
-          <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: '14px', marginTop: '8px', maxWidth: '400px' }}>Find the perfect beauty professional for you</p>
+          <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: '14px', marginTop: '8px', maxWidth: '400px' }}>Find the perfect beauty professional near you</p>
         </div>
       </div>
+
+      {/* Location badge — mirrors mobile */}
+      {userCountry && (
+        <div className="flex items-center gap-2 mb-6 px-1">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-pink-50 border border-pink-100 text-xs font-semibold text-[var(--color-text-secondary)]">
+            <MapPin size={12} className="text-pink-400" />
+            Showing results in {[userState, userCountry].filter(Boolean).join(' · ')}
+          </div>
+        </div>
+      )}
 
       {/* Search */}
       <div style={{ position: 'relative', marginBottom: '32px', width: '100%' }}>
@@ -146,7 +186,13 @@ export default function DiscoverPage() {
             <Search size={32} className="text-violet-400" />
           </div>
           <p className="text-lg font-bold text-[var(--color-text-primary)]">No professionals found</p>
-          <p className="text-sm text-[var(--color-text-muted)] mt-2">Try adjusting your search</p>
+          <p className="text-sm text-[var(--color-text-muted)] mt-2">
+            {search
+              ? 'Try adjusting your search query'
+              : !userCountry
+                ? 'Set your country in Settings → Profile to discover nearby professionals'
+                : 'No professionals are available in your area yet. Try increasing your search radius in Settings.'}
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -198,8 +244,13 @@ export default function DiscoverPage() {
                   {master.city && (
                     <div className="flex items-center gap-1">
                       <MapPin size={12} className="text-violet-400" />
-                      <span>{master.city}</span>
+                      <span>{master.city}{master.country ? `, ${master.country}` : ''}</span>
                     </div>
+                  )}
+                  {master.state && (
+                    <span className="px-2 py-0.5 rounded-full bg-pink-50 text-pink-600 font-semibold text-[10px]">
+                      {master.state}
+                    </span>
                   )}
                 </div>
                 <span className="text-xs font-bold text-violet-500 opacity-0 group-hover:opacity-100 translate-x-2 group-hover:translate-x-0 transition-all flex items-center gap-1">

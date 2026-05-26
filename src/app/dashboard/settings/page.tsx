@@ -5,9 +5,10 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/components/Toast';
-import { Settings, User, Shield, Save, Loader2, Camera, CreditCard, Mail, Dumbbell, AlertTriangle, X, Briefcase, Image as ImageIcon, Trash2, Plus, ExternalLink } from 'lucide-react';
+import { Settings, User, Shield, Save, Loader2, Camera, CreditCard, Mail, Dumbbell, AlertTriangle, X, Briefcase, Image as ImageIcon, Trash2, Plus, ExternalLink, MapPin, Crosshair } from 'lucide-react';
 import BusinessSettingsPanel from '@/components/BusinessSettingsPanel';
 import PaymentMethodsManager from '@/components/PaymentMethodsManager';
+import LocationPicker from '@/components/LocationPicker';
 import type { Tables, Portfolio } from '@/types/database';
 
 const DELETE_PHRASE = 'DELETE MY ACCOUNT';
@@ -77,6 +78,35 @@ export default function SettingsPage() {
   const [pilatesService, setPilatesService] = useState<Tables<'services'> | null>(null);
   const [loadingPilates, setLoadingPilates] = useState(false);
   const [savingPilates, setSavingPilates] = useState(false);
+  // Location & search radius (controlled — used both by the form and the
+  // "Detect my location" button so the displayed values stay in sync).
+  const profileCountry = (profile as Record<string, unknown> | null)?.country as string | null | undefined;
+  const profileCountryCode = (profile as Record<string, unknown> | null)?.country_code as string | null | undefined;
+  const profileState = (profile as Record<string, unknown> | null)?.state as string | null | undefined;
+  const profileStateCode = (profile as Record<string, unknown> | null)?.state_code as string | null | undefined;
+  const profileCity = (profile as Record<string, unknown> | null)?.city as string | null | undefined;
+  const profileRadius = (profile as Record<string, unknown> | null)?.search_radius_km as number | null | undefined;
+  const [country, setCountry] = useState<string>(profileCountry || '');
+  const [countryCode, setCountryCode] = useState<string>(profileCountryCode || '');
+  const [stateName, setStateName] = useState<string>(profileState || '');
+  const [stateCode, setStateCode] = useState<string>(profileStateCode || '');
+  const [city, setCity] = useState<string>(profileCity || '');
+  const [cityLatitude, setCityLatitude] = useState<string | null>(null);
+  const [cityLongitude, setCityLongitude] = useState<string | null>(null);
+  const [searchRadiusKm, setSearchRadiusKm] = useState<number>(
+    typeof profileRadius === 'number' ? profileRadius : 100
+  );
+  // Re-sync local state when the profile loads / refreshes (e.g. after
+  // useAutoLocation persisted the detected country).
+  useEffect(() => {
+    setCountry(profileCountry || '');
+    setCountryCode(profileCountryCode || '');
+    setStateName(profileState || '');
+    setStateCode(profileStateCode || '');
+    setCity(profileCity || '');
+    setSearchRadiusKm(typeof profileRadius === 'number' ? profileRadius : 100);
+  }, [profileCountry, profileCountryCode, profileState, profileStateCode, profileCity, profileRadius]);
+
   // Portfolio state
   const [portfolioImages, setPortfolioImages] = useState<Portfolio[]>([]);
   const [loadingPortfolio, setLoadingPortfolio] = useState(false);
@@ -260,12 +290,23 @@ export default function SettingsPage() {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     setSaving(true);
-    await updateProfile({
+    const updates: Record<string, unknown> = {
       full_name: String(formData.get('fullName') || ''),
       phone: String(formData.get('phone') || ''),
       bio: String(formData.get('bio') || ''),
-      city: String(formData.get('city') || ''),
-    });
+      city: city.trim() || null,
+      country: country.trim() || null,
+      country_code: countryCode.trim() || null,
+      state: stateName.trim() || null,
+      state_code: stateCode.trim() || null,
+      search_radius_km: searchRadiusKm,
+    };
+    // If the user picked a city from the dropdown with lat/lng, persist coords
+    if (cityLatitude && cityLongitude) {
+      updates.latitude = parseFloat(cityLatitude);
+      updates.longitude = parseFloat(cityLongitude);
+    }
+    await updateProfile(updates as Parameters<typeof updateProfile>[0]);
     showToast('Profile saved successfully!', 'success');
     setSaving(false);
   };
@@ -567,10 +608,64 @@ export default function SettingsPage() {
                   <label className="label-upper">Phone</label>
                   <input type="tel" name="phone" defaultValue={profile?.phone || ''} className="input-glass" placeholder="+44..." />
                 </div>
-                <div>
-                  <label className="label-upper">City</label>
-                  <input type="text" name="city" defaultValue={profile?.city || ''} className="input-glass" placeholder="London" />
-                </div>
+                <LocationPicker
+                  country={country}
+                  state={stateName}
+                  city={city}
+                  onCountryChange={(newCountry, newCode) => {
+                    setCountry(newCountry);
+                    setCountryCode(newCode);
+                    setStateName('');
+                    setStateCode('');
+                  }}
+                  onStateChange={(newState, newCode) => {
+                    setStateName(newState);
+                    setStateCode(newCode);
+                  }}
+                  onCityChange={(newCity, lat, lng) => {
+                    setCity(newCity);
+                    setCityLatitude(lat);
+                    setCityLongitude(lng);
+                  }}
+                />
+
+                {profile?.role === 'client' && (
+                  <div className="p-4 rounded-[var(--radius-lg)] bg-gradient-to-br from-pink-50/60 to-violet-50/60 border border-pink-100">
+                    <div className="flex items-start gap-3 mb-4">
+                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-400 to-violet-500 flex items-center justify-center shadow-sm flex-shrink-0">
+                        <MapPin size={18} className="text-white" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-semibold text-sm text-[var(--color-text-primary)]">Search Area</p>
+                        <p className="text-xs text-[var(--color-text-muted)]">
+                          Only professionals in your country and within this radius will appear when you discover or book.
+                        </p>
+                      </div>
+
+                    </div>
+                    <div className="flex items-center justify-between text-xs font-semibold text-[var(--color-text-secondary)] mb-2">
+                      <span>Search radius</span>
+                      <span className="text-[var(--color-brand-pink-dark)]">{searchRadiusKm} km</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={5}
+                      max={200}
+                      step={5}
+                      value={searchRadiusKm}
+                      onChange={(e) => setSearchRadiusKm(Number(e.target.value))}
+                      className="w-full accent-[var(--color-primary)] cursor-pointer"
+                      aria-label="Search radius in kilometres"
+                    />
+                    <div className="flex justify-between text-[10px] text-[var(--color-text-muted)] mt-1">
+                      <span>5 km</span>
+                      <span>50 km</span>
+                      <span>100 km</span>
+                      <span>200 km</span>
+                    </div>
+                  </div>
+                )}
+
                 <div>
                   <label className="label-upper">Bio</label>
                   <textarea name="bio" defaultValue={profile?.bio || ''} rows={3} className="input-glass resize-none" placeholder="Tell us about yourself..." />

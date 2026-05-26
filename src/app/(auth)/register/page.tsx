@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth, UserRole } from '@/contexts/AuthContext';
@@ -23,7 +23,9 @@ import {
   Phone,
   ShieldCheck,
   Check,
+  MapPin,
 } from 'lucide-react';
+import { getAllCountries, getCitiesOfCountry, type Country, type City } from '@/lib/locationApi';
 
 type FieldErrors = {
   fullName?: string;
@@ -31,6 +33,8 @@ type FieldErrors = {
   email?: string;
   password?: string;
   confirmPassword?: string;
+  country?: string;
+  city?: string;
 };
 
 export default function RegisterPage() {
@@ -56,6 +60,37 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [topError, setTopError] = useState<string | null>(null);
+
+  // Location fields
+  const [selectedCountry, setSelectedCountry] = useState('');
+  const [selectedCountryCode, setSelectedCountryCode] = useState('');
+  const [selectedCity, setSelectedCity] = useState('');
+  const [countries, setCountries] = useState<Country[]>([]);
+  const [cities, setCities] = useState<City[]>([]);
+  const [loadingCountries, setLoadingCountries] = useState(true);
+  const [loadingCities, setLoadingCities] = useState(false);
+  const [countrySearch, setCountrySearch] = useState('');
+  const [citySearch, setCitySearch] = useState('');
+  const [showCountryDropdown, setShowCountryDropdown] = useState(false);
+  const [showCityDropdown, setShowCityDropdown] = useState(false);
+
+  // Load countries on mount
+  useState(() => {
+    getAllCountries().then((data) => {
+      setCountries(data);
+      setLoadingCountries(false);
+    }).catch(() => setLoadingCountries(false));
+  });
+
+  // Close dropdowns on click outside
+  useEffect(() => {
+    const handler = () => {
+      setShowCountryDropdown(false);
+      setShowCityDropdown(false);
+    };
+    document.addEventListener('click', handler);
+    return () => document.removeEventListener('click', handler);
+  }, []);
 
   // Password strength meter (matches mobile)
   const strength = useMemo(() => {
@@ -83,6 +118,9 @@ export default function RegisterPage() {
       const phoneRes = validateIrishPhone(phone);
       if (!phoneRes.valid) next.phone = phoneRes.error;
     }
+
+    if (!selectedCountry.trim()) next.country = 'Please select your country';
+    if (!selectedCity.trim()) next.city = 'Please enter your city';
 
     const emailRes = validateEmail(email);
     if (!emailRes.valid) next.email = emailRes.error;
@@ -141,6 +179,19 @@ export default function RegisterPage() {
       }
       setTopError(msg);
       return;
+    }
+
+    // Save location to profile (the signUp function creates the profile row)
+    const { data: { user: newUser } } = await supabase.auth.getUser();
+    if (newUser) {
+      await supabase
+        .from('profiles')
+        .update({
+          country: selectedCountry,
+          country_code: selectedCountryCode,
+          city: selectedCity,
+        })
+        .eq('id', newUser.id);
     }
 
     // Mirror mobile: explicitly resend the signup OTP to ensure delivery
@@ -410,6 +461,150 @@ export default function RegisterPage() {
             />
           </div>
           {errors.phone && <p style={fieldErrorStyle}>{errors.phone}</p>}
+        </div>
+
+        {/* Country */}
+        <div style={{ width: '100%' }} onClick={(e) => e.stopPropagation()}>
+          <label style={labelStyle}>Country</label>
+          <div style={{ position: 'relative', width: '100%' }}>
+            <MapPin size={18} style={iconStyle} />
+            <input
+              type="text"
+              value={countrySearch || selectedCountry}
+              onChange={(e) => {
+                setCountrySearch(e.target.value);
+                setShowCountryDropdown(true);
+                clearError('country');
+              }}
+              onFocus={() => setShowCountryDropdown(true)}
+              placeholder={loadingCountries ? 'Loading...' : 'Select your country'}
+              className="input-glass"
+              style={{
+                paddingLeft: '44px',
+                width: '100%',
+                boxSizing: 'border-box',
+                borderColor: errors.country ? '#FCA5A5' : undefined,
+              }}
+            />
+            {showCountryDropdown && (
+              <div style={{
+                position: 'absolute',
+                top: '100%',
+                left: 0,
+                right: 0,
+                maxHeight: '180px',
+                overflow: 'auto',
+                background: 'white',
+                border: '1px solid rgba(0,0,0,0.1)',
+                borderRadius: '12px',
+                marginTop: '4px',
+                zIndex: 50,
+                boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+              }}>
+                {countries
+                  .filter(c => !countrySearch || c.name.toLowerCase().includes(countrySearch.toLowerCase()))
+                  .slice(0, 30)
+                  .map(c => (
+                    <div
+                      key={c.id}
+                      onClick={() => {
+                        setSelectedCountry(c.name);
+                        setSelectedCountryCode(c.iso2);
+                        setCountrySearch('');
+                        setShowCountryDropdown(false);
+                        setSelectedCity('');
+                        setCitySearch('');
+                        clearError('country');
+                        setLoadingCities(true);
+                        getCitiesOfCountry(c.iso2).then(data => {
+                          setCities(data);
+                          setLoadingCities(false);
+                        }).catch(() => setLoadingCities(false));
+                      }}
+                      style={{
+                        padding: '10px 16px',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        borderBottom: '1px solid rgba(0,0,0,0.04)',
+                        background: selectedCountry === c.name ? 'rgba(139,92,246,0.06)' : undefined,
+                      }}
+                    >
+                      {c.name}
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
+          {errors.country && <p style={fieldErrorStyle}>{errors.country}</p>}
+        </div>
+
+        {/* City */}
+        <div style={{ width: '100%' }} onClick={(e) => e.stopPropagation()}>
+          <label style={labelStyle}>City</label>
+          <div style={{ position: 'relative', width: '100%' }}>
+            <MapPin size={18} style={iconStyle} />
+            <input
+              type="text"
+              value={citySearch || selectedCity}
+              onChange={(e) => {
+                setCitySearch(e.target.value);
+                setShowCityDropdown(true);
+                clearError('city');
+              }}
+              onFocus={() => { if (cities.length > 0) setShowCityDropdown(true); }}
+              placeholder={!selectedCountry ? 'Select country first' : loadingCities ? 'Loading cities...' : 'Select your city'}
+              disabled={!selectedCountry}
+              className="input-glass"
+              style={{
+                paddingLeft: '44px',
+                width: '100%',
+                boxSizing: 'border-box',
+                borderColor: errors.city ? '#FCA5A5' : undefined,
+                opacity: selectedCountry ? 1 : 0.6,
+              }}
+            />
+            {showCityDropdown && cities.length > 0 && (
+              <div style={{
+                position: 'absolute',
+                top: '100%',
+                left: 0,
+                right: 0,
+                maxHeight: '180px',
+                overflow: 'auto',
+                background: 'white',
+                border: '1px solid rgba(0,0,0,0.1)',
+                borderRadius: '12px',
+                marginTop: '4px',
+                zIndex: 50,
+                boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+              }}>
+                {cities
+                  .filter(c => !citySearch || c.name.toLowerCase().includes(citySearch.toLowerCase()))
+                  .slice(0, 30)
+                  .map(c => (
+                    <div
+                      key={c.id}
+                      onClick={() => {
+                        setSelectedCity(c.name);
+                        setCitySearch('');
+                        setShowCityDropdown(false);
+                        clearError('city');
+                      }}
+                      style={{
+                        padding: '10px 16px',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        borderBottom: '1px solid rgba(0,0,0,0.04)',
+                        background: selectedCity === c.name ? 'rgba(139,92,246,0.06)' : undefined,
+                      }}
+                    >
+                      {c.name}
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
+          {errors.city && <p style={fieldErrorStyle}>{errors.city}</p>}
         </div>
 
         {/* Email */}

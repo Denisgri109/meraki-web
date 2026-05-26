@@ -10,6 +10,7 @@ import { Elements, CardElement, useStripe, useElements } from '@stripe/react-str
 import type { Tables } from '@/types/database';
 import type { SavedCard } from '@/components/PaymentMethodsManager';
 import { CardBrandBadge } from '@/components/PaymentMethodsManager';
+import { isMasterWithinRange } from '@/lib/location';
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY as string);
 
@@ -279,6 +280,11 @@ interface Master {
   avatar_url: string | null;
   specialties: string | null;
   city: string | null;
+  country: string | null;
+  state: string | null;
+  state_code: string | null;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 type PilatesSettings = Tables<'pilates_settings'>;
@@ -494,26 +500,91 @@ export default function BookingPage() {
     sessionStorage.setItem(draftStorageKey, JSON.stringify(draft));
   }, [calendarMonth, draftStorageKey, isMasterPreselected, searchQuery, selectedCategory, selectedDate, selectedMasterId, selectedPilatesSessionId, selectedServiceId, selectedTime, step]);
 
+  // User location used for the country + radius filter on masters & services.
+  // Mirrors the mobile implementation (BookingScreen / HomeScreen / DiscoverMastersScreen).
+  const userCountry = ((profile as Record<string, unknown> | null)?.country as string | null | undefined) ?? null;
+  const userState = ((profile as Record<string, unknown> | null)?.state as string | null | undefined) ?? null;
+  const userStateCode = ((profile as Record<string, unknown> | null)?.state_code as string | null | undefined) ?? null;
+
   // Fetch initial data
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
         const [servicesRes, mastersRes] = await Promise.all([
-          supabase.from('services').select('*').eq('is_active', true).limit(30),
-          supabase.from('profiles').select('id, full_name, avatar_url, specialties, city').eq('is_master', true).limit(20),
+          // Pull each service together with its master_services rows so we can
+          // verify at least one offering master is inside the user's country
+          // and search radius before showing the service.
+          supabase
+            .from('services')
+            .select(
+              '*, master_services!inner(is_available, master_id, master:profiles!master_services_master_id_fkey(country, state, state_code, latitude, longitude))'
+            )
+            .eq('is_active', true)
+            .eq('master_services.is_available', true)
+            .limit(60),
+          supabase
+            .from('profiles')
+            .select('id, full_name, avatar_url, specialties, city, country, state, state_code, latitude, longitude')
+            .eq('is_master', true)
+            .limit(60),
         ]);
-        const loadedServices = ((servicesRes.data as unknown as Service[]) || []);
-        setServices(loadedServices);
-        const loadedMasters = ((mastersRes.data as unknown as Master[]) || []).filter((master) => master.id !== user?.id);
-        setMasters(loadedMasters);
+
+        const userLoc = {
+          country: userCountry,
+          state: userState,
+          state_code: userStateCode,
+        };
+
+        // ── Services: keep only those offered by at least one in-range master
+        // that is not the current user. Mirrors mobile BookingScreen.fetchServices.
+        type ServiceRow = Service & {
+          master_services?: Array<{
+            is_available: boolean | null;
+            master_id: string;
+            master: {
+              country: string | null;
+              state: string | null;
+              state_code: string | null;
+              latitude: number | null;
+              longitude: number | null;
+            } | null;
+          }>;
+        };
+        const rawServices = ((servicesRes.data as unknown as ServiceRow[]) || []);
+        const filteredServices: Service[] = rawServices
+          .filter((service) => {
+            const links = service.master_services || [];
+            if (!userCountry) {
+              // Without a known country, keep nothing — matches mobile behaviour
+              // ("Must have a known user country to view local booking options").
+              return false;
+            }
+            return links.some((link) => {
+              if (!user?.id) return false;
+              if (link.master_id === user.id) return false; // never show own services
+              if (!link.master) return false;
+              return isMasterWithinRange(userLoc, link.master);
+            });
+          })
+          .map(({ master_services: _ms, ...rest }) => rest as Service);
+        setServices(filteredServices);
+
+        // ── Masters: filter the same way so step 2 only shows nearby pros.
+        const rawMasters = ((mastersRes.data as unknown as Master[]) || [])
+          .filter((master) => master.id !== user?.id)
+          .filter((master) => {
+            if (!userCountry) return false;
+            return isMasterWithinRange(userLoc, master);
+          });
+        setMasters(rawMasters);
 
         // Check for masterId parameter in the URL
         if (typeof window !== 'undefined') {
           const params = new URLSearchParams(window.location.search);
           const masterIdUrl = params.get('masterId');
           if (masterIdUrl && masterIdUrl !== user?.id) {
-            const preSelected = loadedMasters.find(m => m.id === masterIdUrl);
+            const preSelected = rawMasters.find(m => m.id === masterIdUrl);
             if (preSelected) {
               setSelectedMasterId(preSelected.id);
               setIsMasterPreselected(true);
@@ -527,7 +598,7 @@ export default function BookingPage() {
       }
     };
     fetchData();
-  }, [supabase, user?.id]);
+  }, [supabase, user?.id, userCountry, userState, userStateCode]);
 
   useEffect(() => {
     const fetchPilatesSettings = async () => {
@@ -958,6 +1029,11 @@ export default function BookingPage() {
                 <div className="flex-1">
                   <h3 className="text-lg font-bold text-[var(--color-text-primary)] group-hover:text-violet-600 transition-colors">{master.full_name}</h3>
                   <p className="text-sm text-[var(--color-text-secondary)]">{master.specialties || 'Beauty Professional'}</p>
+                  {(master.state || master.city) && (
+                    <span className="inline-block mt-1 px-2 py-0.5 rounded-full bg-pink-50 text-pink-600 font-semibold text-[10px]">
+                      {[master.city, master.state].filter(Boolean).join(', ')}
+                    </span>
+                  )}
                 </div>
                 <div className="w-8 h-8 rounded-full bg-[var(--color-surface-light)] flex items-center justify-center group-hover:bg-violet-100 group-hover:text-violet-600 transition-colors">
                   <ArrowRight size={16} />
