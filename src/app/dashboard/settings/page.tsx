@@ -93,6 +93,8 @@ export default function SettingsPage() {
   const [city, setCity] = useState<string>(profileCity || '');
   const [cityLatitude, setCityLatitude] = useState<string | null>(null);
   const [cityLongitude, setCityLongitude] = useState<string | null>(null);
+  const [stateLatitude, setStateLatitude] = useState<string | null>(null);
+  const [stateLongitude, setStateLongitude] = useState<string | null>(null);
   const [searchRadiusKm, setSearchRadiusKm] = useState<number>(
     typeof profileRadius === 'number' ? profileRadius : 100
   );
@@ -301,10 +303,12 @@ export default function SettingsPage() {
       state_code: stateCode.trim() || null,
       search_radius_km: searchRadiusKm,
     };
-    // If the user picked a city from the dropdown with lat/lng, persist coords
-    if (cityLatitude && cityLongitude) {
-      updates.latitude = parseFloat(cityLatitude);
-      updates.longitude = parseFloat(cityLongitude);
+    // Persist lat/lng: city coords take priority, else use state center coords
+    const lat = cityLatitude || stateLatitude;
+    const lng = cityLongitude || stateLongitude;
+    if (lat && lng) {
+      updates.latitude = parseFloat(lat);
+      updates.longitude = parseFloat(lng);
     }
     await updateProfile(updates as Parameters<typeof updateProfile>[0]);
     showToast('Profile saved successfully!', 'success');
@@ -618,9 +622,11 @@ export default function SettingsPage() {
                     setStateName('');
                     setStateCode('');
                   }}
-                  onStateChange={(newState, newCode) => {
+                  onStateChange={(newState, newCode, lat, lng) => {
                     setStateName(newState);
                     setStateCode(newCode);
+                    setStateLatitude(lat);
+                    setStateLongitude(lng);
                   }}
                   onCityChange={(newCity, lat, lng) => {
                     setCity(newCity);

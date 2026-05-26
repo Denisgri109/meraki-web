@@ -34,17 +34,15 @@ export function haversineDistanceKm(
 
 /**
  * Returns true if the master is within the user's allowed search area:
- * - same country (case-insensitive, trimmed) — strict requirement
- * - same state / region if the user has one set — strict requirement
- *   (matches mobile behaviour: radius is now defined by state, not km)
  *
- * City and lat/lng are intentionally NOT used for filtering — city is
- * optional on the profile and the radius is region-based.
+ * 1. Same country (case-insensitive) — **required**.
+ * 2. Same state / region → **always visible**.
+ * 3. Different state, same country → visible if **both have lat/lng** and
+ *    the haversine distance is within `radiusKm` (defaults to 100 km).
  *
- * If the user has no country set, returns false (we never show unfiltered,
- * global results to a client).
- *
- * The third argument is kept for API compatibility but unused.
+ * This hybrid approach ensures nearby professionals in adjacent regions
+ * (e.g. Dublin vs Louth) are shown when the distance is within the
+ * user's search radius, while still scoping results to the same country.
  */
 export function isMasterWithinRange(
   user: {
@@ -61,34 +59,47 @@ export function isMasterWithinRange(
     latitude?: number | null;
     longitude?: number | null;
   },
-  _radiusKm?: number
+  radiusKm: number = 100
 ): boolean {
+  // ── Must share the same country ──────────────────────────────
   if (!user.country) return false;
   const userCountry = user.country.toLowerCase().trim();
   if (!master.country) return false;
   if (master.country.toLowerCase().trim() !== userCountry) return false;
 
-  // State / region scope — only enforced when the user has one set.
-  // Compare by state_code when available (more reliable across naming),
-  // falling back to the human-readable name.
+  // ── State match check ────────────────────────────────────────
   const userStateCode = user.state_code?.toLowerCase().trim() || '';
   const userStateName = user.state?.toLowerCase().trim() || '';
-  if (userStateCode || userStateName) {
-    const masterStateCode = master.state_code?.toLowerCase().trim() || '';
-    const masterStateName = master.state?.toLowerCase().trim() || '';
-    if (!masterStateCode && !masterStateName) return false;
-    if (userStateCode && masterStateCode) {
-      if (userStateCode !== masterStateCode) return false;
-    } else if (userStateName && masterStateName) {
-      if (userStateName !== masterStateName) return false;
-    } else {
-      // mixed (one side has only code, the other only name) — best-effort name compare
-      if (userStateName && masterStateName && userStateName !== masterStateName) return false;
-      if (userStateCode && masterStateCode && userStateCode !== masterStateCode) return false;
-    }
+  const masterStateCode = master.state_code?.toLowerCase().trim() || '';
+  const masterStateName = master.state?.toLowerCase().trim() || '';
+
+  // If user has no state set → country match is enough
+  if (!userStateCode && !userStateName) return true;
+
+  // Check if states match
+  let sameState = false;
+  if (userStateCode && masterStateCode) {
+    sameState = userStateCode === masterStateCode;
+  } else if (userStateName && masterStateName) {
+    sameState = userStateName === masterStateName;
+  }
+  if (sameState) return true;
+
+  // ── Different state → fall back to haversine distance ────────
+  const uLat = user.latitude;
+  const uLng = user.longitude;
+  const mLat = master.latitude;
+  const mLng = master.longitude;
+  if (
+    uLat != null && uLng != null &&
+    mLat != null && mLng != null
+  ) {
+    const dist = haversineDistanceKm(uLat, uLng, mLat, mLng);
+    return dist <= radiusKm;
   }
 
-  return true;
+  // No lat/lng on one or both sides — can't calculate distance, reject
+  return false;
 }
 
 /**

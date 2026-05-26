@@ -196,7 +196,7 @@ interface LocationPickerProps {
   /** Called when the user picks a country. */
   onCountryChange: (country: string, countryCode: string) => void;
   /** Called when the user picks a state/region. */
-  onStateChange?: (state: string, stateCode: string) => void;
+  onStateChange?: (state: string, stateCode: string, latitude: string | null, longitude: string | null) => void;
   /** Called when the user picks a city. */
   onCityChange: (city: string, latitude: string | null, longitude: string | null) => void;
 }
@@ -325,7 +325,7 @@ export default function LocationPicker({
         setSelectedState(null);
         setCities([]);
         onCityChange('', null, null);
-        onStateChange?.('', '');
+        onStateChange?.('', '', null, null);
       }
     },
     [countries, onCountryChange, onCityChange]
@@ -338,7 +338,7 @@ export default function LocationPicker({
         setSelectedState(found);
         setCities([]);
         onCityChange('', null, null);
-        onStateChange?.(found.name, found.iso2);
+        onStateChange?.(found.name, found.iso2, found.latitude, found.longitude);
       }
     },
     [states, onCityChange, onStateChange]

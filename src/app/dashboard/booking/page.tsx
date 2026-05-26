@@ -500,11 +500,13 @@ export default function BookingPage() {
     sessionStorage.setItem(draftStorageKey, JSON.stringify(draft));
   }, [calendarMonth, draftStorageKey, isMasterPreselected, searchQuery, selectedCategory, selectedDate, selectedMasterId, selectedPilatesSessionId, selectedServiceId, selectedTime, step]);
 
-  // User location used for the country + radius filter on masters & services.
-  // Mirrors the mobile implementation (BookingScreen / HomeScreen / DiscoverMastersScreen).
+  // User location used for the country + state match AND haversine fallback.
   const userCountry = ((profile as Record<string, unknown> | null)?.country as string | null | undefined) ?? null;
   const userState = ((profile as Record<string, unknown> | null)?.state as string | null | undefined) ?? null;
   const userStateCode = ((profile as Record<string, unknown> | null)?.state_code as string | null | undefined) ?? null;
+  const userLat = ((profile as Record<string, unknown> | null)?.latitude as number | null | undefined) ?? null;
+  const userLng = ((profile as Record<string, unknown> | null)?.longitude as number | null | undefined) ?? null;
+  const searchRadiusKm = ((profile as Record<string, unknown> | null)?.search_radius_km as number | null | undefined) ?? 100;
 
   // Fetch initial data
   useEffect(() => {
@@ -534,6 +536,8 @@ export default function BookingPage() {
           country: userCountry,
           state: userState,
           state_code: userStateCode,
+          latitude: userLat,
+          longitude: userLng,
         };
 
         // ── Services: keep only those offered by at least one in-range master
@@ -564,7 +568,7 @@ export default function BookingPage() {
               if (!user?.id) return false;
               if (link.master_id === user.id) return false; // never show own services
               if (!link.master) return false;
-              return isMasterWithinRange(userLoc, link.master);
+              return isMasterWithinRange(userLoc, link.master, searchRadiusKm);
             });
           })
           .map(({ master_services: _ms, ...rest }) => rest as Service);
@@ -575,7 +579,7 @@ export default function BookingPage() {
           .filter((master) => master.id !== user?.id)
           .filter((master) => {
             if (!userCountry) return false;
-            return isMasterWithinRange(userLoc, master);
+            return isMasterWithinRange(userLoc, master, searchRadiusKm);
           });
         setMasters(rawMasters);
 

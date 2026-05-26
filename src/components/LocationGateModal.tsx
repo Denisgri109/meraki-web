@@ -36,6 +36,8 @@ export default function LocationGateModal({ onSaved }: LocationGateModalProps) {
   const [selectedCountryCode, setSelectedCountryCode] = useState('');
   const [selectedState, setSelectedState] = useState('');
   const [selectedStateCode, setSelectedStateCode] = useState('');
+  const [selectedStateLat, setSelectedStateLat] = useState<string | null>(null);
+  const [selectedStateLng, setSelectedStateLng] = useState<string | null>(null);
   const [selectedCity, setSelectedCity] = useState('');
 
   const [countryPickerOpen, setCountryPickerOpen] = useState(false);
@@ -115,6 +117,8 @@ export default function LocationGateModal({ onSaved }: LocationGateModalProps) {
           state: selectedState || null,
           state_code: selectedStateCode || null,
           city: selectedCity.trim() || null,
+          latitude: selectedStateLat ? parseFloat(selectedStateLat) : null,
+          longitude: selectedStateLng ? parseFloat(selectedStateLng) : null,
           location_setup_completed: true,
           updated_at: new Date().toISOString(),
         })
@@ -294,6 +298,8 @@ export default function LocationGateModal({ onSaved }: LocationGateModalProps) {
                   setSelectedCountryCode(c.iso2);
                   setSelectedState('');
                   setSelectedStateCode('');
+                  setSelectedStateLat(null);
+                  setSelectedStateLng(null);
                   setCountryPickerOpen(false);
                   setCountrySearch('');
                 }}
@@ -343,6 +349,8 @@ export default function LocationGateModal({ onSaved }: LocationGateModalProps) {
                 onClick={() => {
                   setSelectedState(s.name);
                   setSelectedStateCode(s.iso2);
+                  setSelectedStateLat(s.latitude);
+                  setSelectedStateLng(s.longitude);
                   setStatePickerOpen(false);
                   setStateSearch('');
                 }}

@@ -45,11 +45,13 @@ export default function DiscoverPage() {
   const [loading, setLoading] = useState(true);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
 
-  // User location from profile — mirrors mobile DiscoverMastersScreen.
-  // Radius is now defined by country + state/region, not km.
+  // User location from profile — used for country + state match AND haversine fallback.
   const userCountry = ((profile as Record<string, unknown> | null)?.country as string | null | undefined) ?? null;
   const userState = ((profile as Record<string, unknown> | null)?.state as string | null | undefined) ?? null;
   const userStateCode = ((profile as Record<string, unknown> | null)?.state_code as string | null | undefined) ?? null;
+  const userLat = ((profile as Record<string, unknown> | null)?.latitude as number | null | undefined) ?? null;
+  const userLng = ((profile as Record<string, unknown> | null)?.longitude as number | null | undefined) ?? null;
+  const searchRadiusKm = ((profile as Record<string, unknown> | null)?.search_radius_km as number | null | undefined) ?? 100;
 
   useEffect(() => {
     const fetchMasters = async () => {
@@ -66,15 +68,16 @@ export default function DiscoverPage() {
           country: userCountry,
           state: userState,
           state_code: userStateCode,
+          latitude: userLat,
+          longitude: userLng,
         };
 
-        // Filter masters by country + state/region, and exclude the current user.
-        // Mirrors mobile DiscoverMastersScreen.filteredMasters logic.
+        // Filter masters: same state = pass, different state = haversine check.
         const rawMasters = ((data as unknown as Master[]) || [])
           .filter((m) => m.id !== user?.id)
           .filter((m) => {
-            if (!userCountry) return false; // must have a known user country
-            return isMasterWithinRange(userLoc, m);
+            if (!userCountry) return false;
+            return isMasterWithinRange(userLoc, m, searchRadiusKm);
           });
 
         setMasters(rawMasters);
