@@ -3,8 +3,7 @@
 import Link from 'next/link';
 import { ArrowRight, Minus, Package, Plus, ShoppingBag, Trash2 } from 'lucide-react';
 import { useCart } from '@/contexts/CartContext';
-
-const fallbackImage = 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=400&q=80&auto=format&fit=crop';
+import { DEFAULT_PRODUCT_IMAGE } from '@/lib/constants/images';
 
 export default function CartPage() {
   const { items, removeFromCart, updateQuantity, clearCart, getItemCount, getTotal } = useCart();
@@ -46,7 +45,7 @@ export default function CartPage() {
           {items.map((item) => (
             <div key={item.id} className="glass-card p-4 flex gap-4 items-center">
               <div className="w-24 h-24 rounded-2xl overflow-hidden bg-[var(--color-surface-light)] shrink-0">
-                <img src={item.image_url || fallbackImage} alt={item.name} className="w-full h-full object-cover" />
+                <img src={item.image_url || DEFAULT_PRODUCT_IMAGE} alt={item.name} className="w-full h-full object-cover" />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-start justify-between gap-3">

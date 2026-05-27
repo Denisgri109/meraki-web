@@ -8,6 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
 import { useToast } from '@/components/Toast';
 import { createClient } from '@/lib/supabase/client';
+import { FALLBACK_PRODUCT_IMAGES_LARGE } from '@/lib/constants/images';
 
 interface Product {
   id: string;
@@ -23,13 +24,6 @@ interface Product {
   is_digital?: boolean | null;
   shipping_weight_kg?: number | null;
 }
-
-const fallbackImages = [
-  'https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=900&q=80&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1571781926291-c477ebfd024b?w=900&q=80&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=900&q=80&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?w=900&q=80&auto=format&fit=crop',
-];
 
 function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
@@ -60,7 +54,7 @@ export default function ShopProductPage() {
     if (!product) return 0;
     return isMasterOrOwner ? product.wholesale_price : product.retail_price;
   }, [isMasterOrOwner, product]);
-  const imageUrl = product?.image_url || fallbackImages[Math.max(0, product?.name.length || 0) % fallbackImages.length];
+  const imageUrl = product?.image_url || FALLBACK_PRODUCT_IMAGES_LARGE[Math.max(0, product?.name.length || 0) % FALLBACK_PRODUCT_IMAGES_LARGE.length];
 
   useEffect(() => {
     let mounted = true;

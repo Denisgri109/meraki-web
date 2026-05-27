@@ -13,10 +13,10 @@ import { createClient } from '@/lib/supabase/client';
 import { EUROPEAN_COUNTRIES_SORTED, getCountryName, getShippingCost } from '@/lib/shipping';
 import type { SavedCard } from '@/components/PaymentMethodsManager';
 import { CardBrandBadge } from '@/components/PaymentMethodsManager';
+import { DEFAULT_PRODUCT_IMAGE } from '@/lib/constants/images';
 
 const stripePublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
 const stripePromise = stripePublishableKey ? loadStripe(stripePublishableKey) : null;
-const fallbackImage = 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=400&q=80&auto=format&fit=crop';
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error) return error.message;
@@ -367,7 +367,7 @@ function CheckoutForm() {
           {items.map((item) => (
             <div key={item.id} className="flex gap-3">
               <div className="w-14 h-14 rounded-xl overflow-hidden bg-[var(--color-surface-light)] shrink-0">
-                <img src={item.image_url || fallbackImage} alt={item.name} className="w-full h-full object-cover" />
+                    <img src={item.image_url || DEFAULT_PRODUCT_IMAGE} alt={item.name} className="w-full h-full object-cover" />
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold text-[var(--color-text-primary)] line-clamp-1">{item.name}</p>

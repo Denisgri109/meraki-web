@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import { Footer } from '@/components/Footer';
 import { MainNavbar } from '@/components/MainNavbar';
+import { DEFAULT_PRODUCT_IMAGE_HERO } from '@/lib/constants/images';
 
 export default async function LandingPage() {
   const supabase = await createClient();
@@ -99,7 +100,7 @@ export default async function LandingPage() {
                 step: '03',
                 title: 'Glow',
                 desc: 'Enjoy your beauty experience and earn loyalty rewards with every visit',
-                img: 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=600&q=80&auto=format&fit=crop',
+                img: DEFAULT_PRODUCT_IMAGE_HERO,
               },
             ].map((item) => (
               <div key={item.step} className="group cursor-pointer">
