@@ -199,49 +199,55 @@ export default function ConsultationsPage() {
     if (!user) return;
     setLoading(true);
     try {
-      const { data: svcData } = await supabase
+      const svcPromise = supabase
         .from('services')
         .select('id, name, category, requires_consultation, consultation_questions')
         .eq('is_active', true);
-      if (svcData) setServices(svcData as ServiceOption[]);
 
       if (isMasterOrOwner) {
-        const { data: pcData } = await supabase
+        const pcPromise = supabase
           .from('photo_consultations')
           .select('*, client_profile:client_id(full_name, avatar_url)')
           .order('created_at', { ascending: false })
           .limit(50);
-        if (pcData) setPhotoConsultations(pcData as unknown as PhotoConsultation[]);
 
-        const { data: bcData } = await supabase
+        const bcPromise = supabase
           .from('booking_consultations')
           .select('*, client_profile:client_id(full_name, avatar_url), service:service_id(name, category)')
           .order('created_at', { ascending: false })
           .limit(50);
-        if (bcData) setBookingConsultations(bcData as unknown as BookingConsultation[]);
 
-        const { data: crData } = await supabase
+        const crPromise = supabase
           .from('consultation_responses')
           .select('*, client_profile:client_id(full_name, avatar_url), service:service_id(name, category), appointment:appointment_id(service_name, start_time, status)')
           .order('created_at', { ascending: false })
           .limit(50);
+
+        const [
+          { data: svcData },
+          { data: pcData },
+          { data: bcData },
+          { data: crData }
+        ] = await Promise.all([svcPromise, pcPromise, bcPromise, crPromise]);
+
+        if (svcData) setServices(svcData as ServiceOption[]);
+        if (pcData) setPhotoConsultations(pcData as unknown as PhotoConsultation[]);
+        if (bcData) setBookingConsultations(bcData as unknown as BookingConsultation[]);
         if (crData) setConsultationResponses(crData as unknown as ConsultationResponse[]);
       } else {
-        const { data: pcData } = await supabase
+        const pcPromise = supabase
           .from('photo_consultations')
           .select('*')
           .eq('client_id', user.id)
           .order('created_at', { ascending: false });
-        if (pcData) setPhotoConsultations(pcData as unknown as PhotoConsultation[]);
 
-        const { data: bcData } = await supabase
+        const bcPromise = supabase
           .from('booking_consultations')
           .select('*, service:service_id(name, category)')
           .eq('client_id', user.id)
           .order('created_at', { ascending: false });
-        if (bcData) setBookingConsultations(bcData as unknown as BookingConsultation[]);
 
-        const { data: apptData } = await supabase
+        const apptPromise = supabase
           .from('appointments')
           .select('id, service_id, service_name, master_id, start_time')
           .eq('client_id', user.id)
@@ -249,6 +255,17 @@ export default function ConsultationsPage() {
           .gte('start_time', new Date().toISOString())
           .order('start_time', { ascending: true })
           .limit(20);
+
+        const [
+          { data: svcData },
+          { data: pcData },
+          { data: bcData },
+          { data: apptData }
+        ] = await Promise.all([svcPromise, pcPromise, bcPromise, apptPromise]);
+
+        if (svcData) setServices(svcData as ServiceOption[]);
+        if (pcData) setPhotoConsultations(pcData as unknown as PhotoConsultation[]);
+        if (bcData) setBookingConsultations(bcData as unknown as BookingConsultation[]);
 
         if (apptData && apptData.length > 0) {
           const { data: existingResponses } = await supabase
@@ -274,6 +291,8 @@ export default function ConsultationsPage() {
                 has_response: answeredIds.has(a.id),
               }))
           );
+        } else {
+          setUpcomingAppointments([]);
         }
       }
     } catch (err) {
