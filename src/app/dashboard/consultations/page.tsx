@@ -206,49 +206,59 @@ export default function ConsultationsPage() {
       if (svcData) setServices(svcData as ServiceOption[]);
 
       if (isMasterOrOwner) {
-        const { data: pcData } = await supabase
-          .from('photo_consultations')
-          .select('*, client_profile:client_id(full_name, avatar_url)')
-          .order('created_at', { ascending: false })
-          .limit(50);
+        const [
+          { data: pcData },
+          { data: bcData },
+          { data: crData }
+        ] = await Promise.all([
+          supabase
+            .from('photo_consultations')
+            .select('*, client_profile:client_id(full_name, avatar_url)')
+            .order('created_at', { ascending: false })
+            .limit(50),
+          supabase
+            .from('booking_consultations')
+            .select('*, client_profile:client_id(full_name, avatar_url), service:service_id(name, category)')
+            .order('created_at', { ascending: false })
+            .limit(50),
+          supabase
+            .from('consultation_responses')
+            .select('*, client_profile:client_id(full_name, avatar_url), service:service_id(name, category), appointment:appointment_id(service_name, start_time, status)')
+            .order('created_at', { ascending: false })
+            .limit(50)
+        ]);
+
         if (pcData) setPhotoConsultations(pcData as unknown as PhotoConsultation[]);
-
-        const { data: bcData } = await supabase
-          .from('booking_consultations')
-          .select('*, client_profile:client_id(full_name, avatar_url), service:service_id(name, category)')
-          .order('created_at', { ascending: false })
-          .limit(50);
         if (bcData) setBookingConsultations(bcData as unknown as BookingConsultation[]);
-
-        const { data: crData } = await supabase
-          .from('consultation_responses')
-          .select('*, client_profile:client_id(full_name, avatar_url), service:service_id(name, category), appointment:appointment_id(service_name, start_time, status)')
-          .order('created_at', { ascending: false })
-          .limit(50);
         if (crData) setConsultationResponses(crData as unknown as ConsultationResponse[]);
       } else {
-        const { data: pcData } = await supabase
-          .from('photo_consultations')
-          .select('*')
-          .eq('client_id', user.id)
-          .order('created_at', { ascending: false });
+        const [
+          { data: pcData },
+          { data: bcData },
+          { data: apptData }
+        ] = await Promise.all([
+          supabase
+            .from('photo_consultations')
+            .select('*')
+            .eq('client_id', user.id)
+            .order('created_at', { ascending: false }),
+          supabase
+            .from('booking_consultations')
+            .select('*, service:service_id(name, category)')
+            .eq('client_id', user.id)
+            .order('created_at', { ascending: false }),
+          supabase
+            .from('appointments')
+            .select('id, service_id, service_name, master_id, start_time')
+            .eq('client_id', user.id)
+            .in('status', ['confirmed', 'pending'])
+            .gte('start_time', new Date().toISOString())
+            .order('start_time', { ascending: true })
+            .limit(20)
+        ]);
+
         if (pcData) setPhotoConsultations(pcData as unknown as PhotoConsultation[]);
-
-        const { data: bcData } = await supabase
-          .from('booking_consultations')
-          .select('*, service:service_id(name, category)')
-          .eq('client_id', user.id)
-          .order('created_at', { ascending: false });
         if (bcData) setBookingConsultations(bcData as unknown as BookingConsultation[]);
-
-        const { data: apptData } = await supabase
-          .from('appointments')
-          .select('id, service_id, service_name, master_id, start_time')
-          .eq('client_id', user.id)
-          .in('status', ['confirmed', 'pending'])
-          .gte('start_time', new Date().toISOString())
-          .order('start_time', { ascending: true })
-          .limit(20);
 
         if (apptData && apptData.length > 0) {
           const { data: existingResponses } = await supabase
