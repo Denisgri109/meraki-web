@@ -19,7 +19,9 @@ export async function GET(request: NextRequest) {
   const next = searchParams.get('next') ?? '/dashboard';
 
   // Build a safe `next` URL — only allow same-origin paths
-  const safeNext = next.startsWith('/') ? next : '/dashboard';
+  // Prevent open redirects via protocol-relative URLs (e.g., //evil.com or /\evil.com)
+  const isSafeRedirect = next.startsWith('/') && !next.startsWith('//') && !next.startsWith('/\\');
+  const safeNext = isSafeRedirect ? next : '/dashboard';
   const redirectTo = new URL(safeNext, origin);
 
   const supabase = await createClient();
