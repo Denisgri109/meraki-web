@@ -1,0 +1,23 @@
+--- src/app/dashboard/test-panel/page.tsx
++++ src/app/dashboard/test-panel/page.tsx
+@@ -137,8 +137,6 @@
+   { id: 'nuclear-wipe', label: 'NUCLEAR WIPE — Clean Slate', description: 'Wipe EVERY row from ALL content tables (appointments, services, products, orders, chats, loyalty, supplies, schedule, etc). User accounts are preserved. This is irreversible.', icon: Trash2, category: 'Cleanup', action: 'nuclear_wipe', destructive: true },
+ ];
+
+-const CATEGORIES = [...new Set(SEED_ACTIONS.map((s) => s.category))];
+-
+ // ═══════════════════════════════════════════════════════════════════════════
+ // PAGE COMPONENT
+ // ═══════════════════════════════════════════════════════════════════════════
+@@ -162,7 +160,10 @@
+
+   // Load navigate toggle from localStorage on mount
+   useEffect(() => {
+-    setNavigateEnabled(readNavigateEnabled());
++    const init = async () => {
++      setNavigateEnabled(readNavigateEnabled());
++    };
++    init();
+   }, []);
+
+   const userEmail = user?.email?.toLowerCase();
