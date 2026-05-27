@@ -3,6 +3,11 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
+
+import { PointsAndTierCard } from './components/client-view/PointsAndTierCard';
+import { StampCardsList } from './components/client-view/StampCardsList';
+import { UserRewards } from './components/client-view/UserRewards';
+import { AvailableRewards } from './components/client-view/AvailableRewards';
 import {
   Gift, Star, Trophy, Sparkles, QrCode, Crown, Zap, Award, X, Loader2,
   History, Clock, Ticket, Settings, Plus, Camera, Layers,
@@ -10,7 +15,7 @@ import {
 import { useToast } from '@/components/Toast';
 import Link from 'next/link';
 
-interface LoyaltyReward {
+export interface LoyaltyReward {
   id: string;
   name: string;
   description: string | null;
@@ -21,7 +26,7 @@ interface LoyaltyReward {
   master_id?: string | null;
 }
 
-interface LoyaltyTransaction {
+export interface LoyaltyTransaction {
   id: string;
   description: string | null;
   type: string;
@@ -29,7 +34,7 @@ interface LoyaltyTransaction {
   created_at: string | null;
 }
 
-interface StampCard {
+export interface StampCard {
   stamp_id: string;
   card_id: string;
   card_name: string;
@@ -46,7 +51,7 @@ interface StampCard {
   last_stamp_at: string | null;
 }
 
-interface UserCredit {
+export interface UserCredit {
   id: string;
   credit_type: string;
   amount: number;
@@ -56,7 +61,7 @@ interface UserCredit {
   created_at: string | null;
 }
 
-const TIERS = [
+export const TIERS = [
   { name: 'Bronze', min: 0, gradient: 'from-amber-600 to-amber-400', icon: Star, emoji: '🥉' },
   { name: 'Silver', min: 500, gradient: 'from-gray-400 to-gray-300', icon: Crown, emoji: '🥈' },
   { name: 'Gold', min: 1500, gradient: 'from-yellow-500 to-amber-300', icon: Sparkles, emoji: '🥇' },
@@ -466,315 +471,34 @@ function ClientView({
 
   return (
     <>
-      {/* Points + Tier Card */}
-      <div className="rounded-[var(--radius-2xl)] p-8 mb-8 relative overflow-hidden bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white shadow-2xl">
-        <div className="absolute right-0 top-0 w-48 h-48 bg-gradient-to-bl from-pink-500/20 to-transparent rounded-full -mr-16 -mt-16" />
-        <div className="absolute left-1/2 bottom-0 w-32 h-32 bg-gradient-to-t from-purple-500/15 to-transparent rounded-full -mb-12" />
-        <div className="relative z-10">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <p className="text-white/60 text-sm font-medium uppercase tracking-widest mb-1">Your Points</p>
-              <p className="text-6xl font-bold">{points.toLocaleString()}</p>
-              <div className="flex items-center gap-2 mt-2">
-                <span className="text-lg">{currentTier.emoji}</span>
-                <span className="text-sm font-semibold text-amber-300">{currentTier.name} Member</span>
-              </div>
-            </div>
-            <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-amber-400 to-pink-400 flex items-center justify-center shadow-lg animate-float">
-              <Trophy size={36} className="text-white" />
-            </div>
-          </div>
+      <PointsAndTierCard
+        points={points}
+        currentTier={currentTier}
+        nextTier={nextTier}
+        progressToNext={progressToNext}
+        onShowHistory={onShowHistory}
+      />
 
-          {nextTier && (
-            <div className="mb-6">
-              <div className="flex justify-between text-xs text-white/50 mb-2">
-                <span>{currentTier.name}</span>
-                <span>{nextTier.name} — {nextTier.min - points} pts to go</span>
-              </div>
-              <div className="h-2 rounded-full bg-white/10 overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-amber-400 to-pink-400 transition-all duration-1000 ease-out"
-                  style={{ width: `${progressToNext}%` }}
-                />
-              </div>
-            </div>
-          )}
+      <StampCardsList
+        stampCards={stampCards}
+        onRedeemStampCard={onRedeemStampCard}
+        stampCardRewardText={stampCardRewardText}
+      />
 
-          <div className="flex flex-wrap items-center gap-3">
-            <Link
-              href="/dashboard/loyalty/scan"
-              className="flex items-center gap-2 px-6 py-3 rounded-full bg-white text-gray-900 text-sm font-bold hover:bg-gray-100 hover:scale-105 transition-all cursor-pointer shadow-lg"
-            >
-              <Camera size={14} /> Scan to earn
-            </Link>
-            <button
-              onClick={onShowHistory}
-              className="flex items-center gap-2 px-6 py-3 rounded-full bg-white/10 text-white text-sm font-medium hover:bg-white/20 transition-all cursor-pointer backdrop-blur-sm"
-            >
-              <History size={14} /> History
-            </button>
-          </div>
-        </div>
-      </div>
+      <UserRewards
+        activeCreditsTab={activeCreditsTab}
+        setActiveCreditsTab={setActiveCreditsTab}
+        displayedCredits={displayedCredits}
+        formatRewardValue={formatRewardValue}
+      />
 
-      {/* Tier cards */}
-      <div className="grid grid-cols-3 gap-4 mb-10">
-        {TIERS.map((tier, idx) => {
-          const isActive = points >= tier.min;
-          const Icon = tier.icon;
-          return (
-            <div
-              key={tier.name}
-              className={`glass-card p-5 text-center transition-all duration-300 hover:-translate-y-1 ${
-                isActive ? 'shadow-lg' : 'opacity-60'
-              }`}
-            >
-              <div
-                className={`w-14 h-14 mx-auto mb-3 rounded-2xl bg-gradient-to-br ${tier.gradient} flex items-center justify-center shadow-md ${
-                  isActive ? 'animate-float' : ''
-                }`}
-                style={{ animationDelay: `${idx * 0.3}s` }}
-              >
-                <Icon size={24} className="text-white" />
-              </div>
-              <p className="font-bold text-sm text-[var(--color-text-primary)]">{tier.name}</p>
-              <p className="text-xs text-[var(--color-text-muted)] mt-1">{tier.min}+ pts</p>
-              {isActive && (
-                <span className="inline-block mt-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-600">
-                  ✓ Unlocked
-                </span>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Stamp Cards Section */}
-      <div className="flex items-center gap-2 mb-4">
-        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-400 to-pink-400 flex items-center justify-center">
-          <Ticket size={14} className="text-white" />
-        </div>
-        <h2 className="text-lg font-bold text-[var(--color-text-primary)]">Stamp Cards</h2>
-      </div>
-      <p className="text-sm text-[var(--color-text-muted)] mb-4">
-        Collect stamps at every visit on the mobile app and unlock rewards from your favourite masters.
-      </p>
-
-      {stampCards.length === 0 ? (
-        <div className="glass-card p-8 text-center mb-10 border border-dashed border-[var(--color-border-light)]">
-          <div className="w-16 h-16 rounded-2xl bg-[var(--color-surface-light)] flex items-center justify-center mx-auto mb-3">
-            <Ticket size={24} className="text-[var(--color-text-muted)]" />
-          </div>
-          <p className="text-sm font-semibold text-[var(--color-text-primary)]">No active stamp cards</p>
-          <p className="text-xs text-[var(--color-text-muted)] mt-1">
-            Use the mobile app to scan a master&apos;s QR code at the salon to start your first card.
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-4 mb-10">
-          {stampCards.map((card) => (
-            <div key={card.stamp_id} className="glass-card p-5">
-              <div className="flex items-center gap-4 mb-4">
-                <div className="w-12 h-12 rounded-full overflow-hidden bg-gradient-to-br from-violet-300 to-pink-300 flex items-center justify-center text-white font-bold shrink-0">
-                  {card.master_avatar ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={card.master_avatar} alt={card.master_name} className="w-full h-full object-cover" />
-                  ) : (
-                    card.master_name?.charAt(0) || '?'
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-bold text-[var(--color-text-primary)] truncate">{card.master_name}</p>
-                  <p className="text-xs text-[var(--color-text-secondary)] truncate">{card.card_name}</p>
-                </div>
-                <div
-                  className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
-                    card.reward_available
-                      ? 'bg-gradient-to-br from-amber-400 to-pink-400'
-                      : 'bg-[var(--color-surface-light)]'
-                  }`}
-                >
-                  <Gift size={16} className={card.reward_available ? 'text-white' : 'text-[var(--color-text-muted)]'} />
-                </div>
-              </div>
-
-              {/* Slots */}
-              <div className="bg-[var(--color-surface-light)] rounded-2xl p-3 mb-4">
-                <div className="flex flex-wrap gap-2">
-                  {Array.from({ length: card.stamps_required }).map((_, i) => {
-                    const collected = i < card.stamps_collected;
-                    return (
-                      <div
-                        key={i}
-                        className={`w-8 h-8 rounded-lg flex items-center justify-center border ${
-                          collected
-                            ? 'bg-gradient-to-br from-amber-400 to-pink-400 border-transparent shadow-sm'
-                            : 'bg-white/40 border-black/5'
-                        }`}
-                      >
-                        <Star size={14} className={collected ? 'text-white' : 'text-black/10'} />
-                      </div>
-                    );
-                  })}
-                </div>
-                <div className="flex items-center justify-between mt-3 text-xs">
-                  <span className="text-[var(--color-text-secondary)] font-semibold">
-                    {card.stamps_collected} of {card.stamps_required} collected
-                  </span>
-                  {card.stamps_redeemed > 0 && (
-                    <span className="px-2 py-0.5 rounded-full bg-[var(--color-brand-pink-light)] text-[var(--color-brand-pink-dark)] font-bold">
-                      {card.stamps_redeemed} redeemed
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Footer */}
-              <div className="flex items-center justify-between pt-3 border-t border-[var(--color-border-light)]/60">
-                <div>
-                  <p className="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)] font-bold">Reward</p>
-                  <p className="font-bold text-[var(--color-text-primary)]">{stampCardRewardText(card)}</p>
-                </div>
-                {card.reward_available ? (
-                  <button
-                    onClick={() => onRedeemStampCard(card)}
-                    className="btn-pink px-5 py-2 rounded-full text-sm font-bold cursor-pointer hover:scale-105 transition-transform"
-                  >
-                    Redeem Now
-                  </button>
-                ) : (
-                  <span className="text-xs text-[var(--color-text-muted)] bg-[var(--color-surface-light)] px-3 py-1.5 rounded-lg">
-                    {card.last_stamp_at
-                      ? `Last: ${new Date(card.last_stamp_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
-                      : 'No stamps yet'}
-                  </span>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* My Rewards (user credits) with tabs */}
-      <div className="flex items-center gap-2 mb-4">
-        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-400 to-teal-400 flex items-center justify-center">
-          <Award size={14} className="text-white" />
-        </div>
-        <h2 className="text-lg font-bold text-[var(--color-text-primary)]">My Rewards</h2>
-      </div>
-
-      <div className="flex p-1 mb-4 rounded-xl bg-[var(--color-surface-light)]">
-        {(['active', 'expired'] as const).map((t) => (
-          <button
-            key={t}
-            onClick={() => setActiveCreditsTab(t)}
-            className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all cursor-pointer ${
-              activeCreditsTab === t
-                ? 'bg-white shadow-sm text-[var(--color-text-primary)]'
-                : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]'
-            }`}
-          >
-            {t === 'active' ? 'Active' : 'History'}
-          </button>
-        ))}
-      </div>
-
-      {displayedCredits.length === 0 ? (
-        <p className="text-sm text-[var(--color-text-muted)] italic mb-10">
-          {activeCreditsTab === 'active'
-            ? 'No active rewards yet. Redeem points or complete stamp cards to earn rewards!'
-            : 'No expired or used rewards.'}
-        </p>
-      ) : (
-        <div className="space-y-3 mb-10">
-          {displayedCredits.map((credit) => {
-            const isExpired = activeCreditsTab === 'expired';
-            return (
-              <div
-                key={credit.id}
-                className={`glass-card p-5 ${isExpired ? 'opacity-60' : ''}`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <Gift size={20} className={isExpired ? 'text-[var(--color-text-muted)]' : 'text-[var(--color-brand-pink-dark)]'} />
-                  <span
-                    className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
-                      isExpired
-                        ? 'bg-[var(--color-surface-light)] text-[var(--color-text-muted)]'
-                        : 'bg-emerald-100 text-emerald-600'
-                    }`}
-                  >
-                    {isExpired ? (credit.is_used ? 'Used' : 'Expired') : 'Active'}
-                  </span>
-                </div>
-                <p className="text-lg font-bold text-[var(--color-brand-pink-dark)] mb-1">{formatRewardValue(credit)}</p>
-                {credit.description && (
-                  <p className="text-sm text-[var(--color-text-secondary)] mb-2">{credit.description}</p>
-                )}
-                {credit.expires_at && (
-                  <p className="text-xs text-[var(--color-text-muted)]">
-                    {isExpired ? (credit.is_used ? 'Used' : 'Expired') : 'Expires'}{' '}
-                    {new Date(credit.expires_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-                  </p>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Available Rewards catalog */}
-      <div className="flex items-center gap-2 mb-4">
-        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-400 to-orange-400 flex items-center justify-center">
-          <Zap size={14} className="text-white" />
-        </div>
-        <h2 className="text-lg font-bold text-[var(--color-text-primary)]">Available Rewards</h2>
-      </div>
-
-      {rewards.length === 0 ? (
-        <div className="glass-card p-10 text-center">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-200 to-orange-200 flex items-center justify-center mx-auto mb-3">
-            <Zap size={28} className="text-amber-500" />
-          </div>
-          <p className="text-sm font-bold text-[var(--color-text-primary)]">No rewards available yet</p>
-          <p className="text-xs text-[var(--color-text-muted)] mt-1">Keep visiting to unlock exclusive rewards!</p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {rewards.map((reward) => {
-            const canRedeem = points >= reward.points_cost;
-            return (
-              <div key={reward.id} className="glass-card p-5 flex items-center gap-4">
-                <div
-                  className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-md shrink-0 ${
-                    canRedeem ? 'bg-gradient-to-br from-amber-400 to-pink-400' : 'bg-gray-100'
-                  }`}
-                >
-                  <Gift size={24} className={canRedeem ? 'text-white' : 'text-gray-400'} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-bold text-[var(--color-text-primary)] truncate">{reward.name}</h3>
-                  {rewardTypeLabel(reward) && (
-                    <p className="text-xs text-[var(--color-brand-pink-dark)] font-semibold">{rewardTypeLabel(reward)}</p>
-                  )}
-                  {reward.description && (
-                    <p className="text-sm text-[var(--color-text-secondary)] line-clamp-1 mt-0.5">{reward.description}</p>
-                  )}
-                  <p className="text-xs text-amber-500 font-bold mt-1">{reward.points_cost} points</p>
-                </div>
-                <button
-                  onClick={() => onRedeem(reward)}
-                  disabled={!canRedeem || redeeming === reward.id}
-                  className={`px-5 py-2.5 rounded-full text-sm font-bold transition-all shrink-0 cursor-pointer ${
-                    canRedeem ? 'btn-pink hover:scale-105' : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                  }`}
-                >
-                  {redeeming === reward.id ? <Loader2 size={14} className="animate-spin" /> : canRedeem ? 'Redeem' : 'Locked'}
-                </button>
-              </div>
-            );
-          })}
-        </div>
-      )}
+      <AvailableRewards
+        rewards={rewards}
+        points={points}
+        redeeming={redeeming}
+        onRedeem={onRedeem}
+        rewardTypeLabel={rewardTypeLabel}
+      />
     </>
   );
 }
