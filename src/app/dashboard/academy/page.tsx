@@ -492,23 +492,58 @@ function ClientAcademyView() {
         .eq('student_id', user.id)
         .order('enrolled_at', { ascending: false });
 
-      const enriched: (Enrollment & { course: Course })[] = [];
-      for (const row of (data || []) as any[]) {
-        if (!row.course) continue;
-        // Get lesson + progress counts for this course
-        const { count: lessonCount } = await supabase
+      const enrollments = (data || []) as any[];
+      const courseIds = enrollments.map((r) => r.course?.id).filter(Boolean);
+
+      // Pre-fetch all lessons for these courses
+      let lessonsData: any[] = [];
+      if (courseIds.length > 0) {
+        const { data: lessonsRes } = await supabase
           .from('lessons')
-          .select('*', { count: 'exact', head: true })
-          .eq('course_id', row.course.id);
-        const { count: completedCount } = await supabase
+          .select('id, course_id')
+          .in('course_id', courseIds);
+        lessonsData = lessonsRes || [];
+      }
+
+      const lessonsByCourse = lessonsData.reduce((acc, lesson) => {
+        acc[lesson.course_id] = (acc[lesson.course_id] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
+      // Map lesson IDs back to course IDs for progress matching
+      const lessonToCourseMap = lessonsData.reduce((acc, lesson) => {
+        acc[lesson.id] = lesson.course_id;
+        return acc;
+      }, {} as Record<string, string>);
+
+      const lessonIds = Object.keys(lessonToCourseMap);
+
+      // Pre-fetch all completed progress for these lessons
+      let progressData: any[] = [];
+      if (lessonIds.length > 0) {
+        const { data: progressRes } = await supabase
           .from('lesson_progress')
-          .select('*', { count: 'exact', head: true })
+          .select('lesson_id')
           .eq('user_id', user.id)
           .not('completed_at', 'is', null)
-          .in('lesson_id', (await supabase.from('lessons').select('id').eq('course_id', row.course.id)).data?.map((l: any) => l.id) || []);
+          .in('lesson_id', lessonIds);
+        progressData = progressRes || [];
+      }
 
-        const totalLessons = lessonCount || 0;
-        const completed = completedCount || 0;
+      const completedByCourse = progressData.reduce((acc, progress) => {
+        const courseId = lessonToCourseMap[progress.lesson_id];
+        if (courseId) {
+          acc[courseId] = (acc[courseId] || 0) + 1;
+        }
+        return acc;
+      }, {} as Record<string, number>);
+
+      const enriched: (Enrollment & { course: Course })[] = [];
+      for (const row of enrollments) {
+        if (!row.course) continue;
+
+        const totalLessons = lessonsByCourse[row.course.id] || 0;
+        const completed = completedByCourse[row.course.id] || 0;
         const progress = totalLessons > 0 ? Math.round((completed / totalLessons) * 100) : 0;
 
         enriched.push({
