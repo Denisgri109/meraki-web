@@ -493,29 +493,51 @@ function ClientAcademyView() {
         .order('enrolled_at', { ascending: false });
 
       const enriched: (Enrollment & { course: Course })[] = [];
-      for (const row of (data || []) as any[]) {
-        if (!row.course) continue;
-        // Get lesson + progress counts for this course
-        const { count: lessonCount } = await supabase
-          .from('lessons')
-          .select('*', { count: 'exact', head: true })
-          .eq('course_id', row.course.id);
-        const { count: completedCount } = await supabase
-          .from('lesson_progress')
-          .select('*', { count: 'exact', head: true })
-          .eq('user_id', user.id)
-          .not('completed_at', 'is', null)
-          .in('lesson_id', (await supabase.from('lessons').select('id').eq('course_id', row.course.id)).data?.map((l: any) => l.id) || []);
+      const enrollmentsData = (data || []) as Record<string, unknown>[];
+      const courseIds = enrollmentsData.map(r => r.course?.id).filter(Boolean);
 
-        const totalLessons = lessonCount || 0;
-        const completed = completedCount || 0;
-        const progress = totalLessons > 0 ? Math.round((completed / totalLessons) * 100) : 0;
+      if (courseIds.length > 0) {
+        const [lessonsRes, progressRes] = await Promise.all([
+          supabase
+            .from('lessons')
+            .select('id, course_id')
+            .in('course_id', courseIds),
+          supabase
+            .from('lesson_progress')
+            .select('lesson_id')
+            .eq('user_id', user.id)
+            .not('completed_at', 'is', null)
+        ]);
 
-        enriched.push({
-          ...row,
-          progress,
-          course: { ...row.course, lesson_count: totalLessons },
-        });
+        const lessonsData = lessonsRes.data || [];
+        const completedLessonsData = progressRes.data || [];
+
+        const validLessonIds = new Set(lessonsData.map(l => l.id));
+        const completedSet = new Set(completedLessonsData.map(p => p.lesson_id).filter(id => validLessonIds.has(id)));
+
+        const courseLessonCount: Record<string, number> = {};
+        const courseCompletedCount: Record<string, number> = {};
+
+        for (const lesson of lessonsData) {
+          const cid = lesson.course_id;
+          courseLessonCount[cid] = (courseLessonCount[cid] || 0) + 1;
+          if (completedSet.has(lesson.id)) {
+            courseCompletedCount[cid] = (courseCompletedCount[cid] || 0) + 1;
+          }
+        }
+
+        for (const row of enrollmentsData) {
+          if (!row.course) continue;
+          const totalLessons = courseLessonCount[row.course.id] || 0;
+          const completed = courseCompletedCount[row.course.id] || 0;
+          const progress = totalLessons > 0 ? Math.round((completed / totalLessons) * 100) : 0;
+
+          enriched.push({
+            ...row,
+            progress,
+            course: { ...row.course, lesson_count: totalLessons },
+          });
+        }
       }
       setMyEnrollments(enriched);
     } catch (err) {
@@ -526,8 +548,17 @@ function ClientAcademyView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
-  useEffect(() => { fetchBrowse(); }, [fetchBrowse]);
-  useEffect(() => { if (tab === 'my-courses') fetchMyCourses(); }, [tab, fetchMyCourses]);
+  useEffect(() => {
+    (async () => {
+      await fetchBrowse();
+    })();
+  }, [fetchBrowse]);
+
+  useEffect(() => {
+    (async () => {
+      if (tab === 'my-courses') await fetchMyCourses();
+    })();
+  }, [tab, fetchMyCourses]);
 
   const filtered = courses.filter((c) => !search || c.title.toLowerCase().includes(search.toLowerCase()));
 
