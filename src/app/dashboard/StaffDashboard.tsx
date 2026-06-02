@@ -92,97 +92,113 @@ export default function StaffDashboard() {
       const masterFilter = <T extends { eq: (col: string, val: string) => T }>(q: T): T =>
         isOwner ? q : q.eq('master_id', user.id);
 
-      // Today's appointments (for stats)
-      const todayQ = masterFilter(
-        supabase
-          .from('appointments')
-          .select('id, start_time, status, price, service_name, service:services(name), client:profiles!appointments_client_id_fkey(full_name)')
-          .gte('start_time', todayStart.toISOString())
-          .lt('start_time', todayEnd.toISOString())
-          .in('status', ['confirmed', 'pending', 'completed'])
-          .order('start_time'),
-      );
-      const { data: todayData, error: tErr } = await todayQ;
-      if (tErr) {
-        console.error('[StaffDashboard] today appts:', tErr);
-        nextErr = tErr.message;
-      }
-      const todayList = (todayData as ApptRow[]) || [];
+      const fetchAppointments = async () => {
+        const todayQ = masterFilter(
+          supabase
+            .from('appointments')
+            .select('id, start_time, status, price, service_name, service:services(name), client:profiles!appointments_client_id_fkey(full_name)')
+            .gte('start_time', todayStart.toISOString())
+            .lt('start_time', todayEnd.toISOString())
+            .in('status', ['confirmed', 'pending', 'completed'])
+            .order('start_time'),
+        );
+        const upcomingQ = masterFilter(
+          supabase
+            .from('appointments')
+            .select('id, start_time, status, price, service_name, service:services(name), client:profiles!appointments_client_id_fkey(full_name)')
+            .eq('status', 'confirmed')
+            .gte('start_time', new Date().toISOString())
+            .order('start_time', { ascending: true })
+            .limit(5),
+        );
 
-      // Upcoming confirmed appointments (next 5)
-      const upcomingQ = masterFilter(
-        supabase
-          .from('appointments')
-          .select('id, start_time, status, price, service_name, service:services(name), client:profiles!appointments_client_id_fkey(full_name)')
-          .eq('status', 'confirmed')
-          .gte('start_time', new Date().toISOString())
-          .order('start_time', { ascending: true })
-          .limit(5),
-      );
-      const { data: upcomingData, error: uErr } = await upcomingQ;
-      if (uErr) console.error('[StaffDashboard] upcoming appts:', uErr);
+        const [todayRes, upcomingRes] = await Promise.all([todayQ, upcomingQ]);
 
-      // Pending count
-      const pendingQ = masterFilter(
-        supabase.from('appointments').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
-      );
-      const { count: pendingCount, error: pErr } = await pendingQ;
-      if (pErr) console.error('[StaffDashboard] pending:', pErr);
+        if (todayRes.error) {
+          console.error('[StaffDashboard] today appts:', todayRes.error);
+          nextErr = todayRes.error.message;
+        }
+        if (upcomingRes.error) {
+          console.error('[StaffDashboard] upcoming appts:', upcomingRes.error);
+        }
 
-      // Active services (owner: all platform; master: own)
-      let activeServicesCount = 0;
-      if (isOwner) {
-        const { count } = await supabase
-          .from('services')
-          .select('*', { count: 'exact', head: true })
-          .eq('is_active', true);
-        activeServicesCount = count || 0;
-      } else {
-        const { count } = await supabase
-          .from('services')
-          .select('*', { count: 'exact', head: true })
-          .eq('created_by', user.id)
-          .eq('is_active', true);
-        activeServicesCount = count || 0;
-      }
+        const todayList = (todayRes.data as ApptRow[]) || [];
+        const upcomingData = (upcomingRes.data as ApptRow[]) || [];
 
-      // Total unique clients
-      const clientsQ = masterFilter(
-        supabase.from('appointments').select('client_id').not('client_id', 'is', null),
-      );
-      const { data: clientsRows } = await clientsQ;
-      const totalClients = new Set(((clientsRows as { client_id: string }[]) || []).map((r) => r.client_id)).size;
+        return { todayList, upcomingData };
+      };
 
-      // Today earnings (completed only)
-      const todayEarnings = todayList
-        .filter((a) => a.status === 'completed')
-        .reduce((sum, a) => sum + (a.price || 0), 0);
+      const fetchEarnings = (todayList: ApptRow[]) => {
+        return todayList
+          .filter((a) => a.status === 'completed')
+          .reduce((sum, a) => sum + (a.price || 0), 0);
+      };
 
-      // Low-stock products (owner only)
-      let lowStockCount = 0;
-      if (isOwner) {
+      const fetchPendingAppointments = async () => {
+        const { count, error } = await masterFilter(
+          supabase.from('appointments').select('*', { count: 'exact', head: true }).eq('status', 'pending')
+        );
+        if (error) console.error('[StaffDashboard] pending:', error);
+        return count || 0;
+      };
+
+      const fetchActiveServices = async () => {
+        let q = supabase.from('services').select('*', { count: 'exact', head: true }).eq('is_active', true);
+        if (!isOwner) {
+          q = q.eq('created_by', user.id);
+        }
+        const { count } = await q;
+        return count || 0;
+      };
+
+      const fetchTotalClients = async () => {
+        const { data } = await masterFilter(
+          supabase.from('appointments').select('client_id').not('client_id', 'is', null)
+        );
+        return new Set(((data as { client_id: string }[]) || []).map((r) => r.client_id)).size;
+      };
+
+      const fetchLowStock = async () => {
+        if (!isOwner) return 0;
         try {
-          const { data: lowStock } = await supabase
+          const { data } = await supabase
             .from('products')
             .select('id, stock_count, low_stock_threshold')
             .eq('is_active', true);
-          lowStockCount = ((lowStock as { stock_count: number | null; low_stock_threshold: number | null }[]) || [])
+          return ((data as { stock_count: number | null; low_stock_threshold: number | null }[]) || [])
             .filter((p) => (p.stock_count ?? 0) <= (p.low_stock_threshold ?? 5))
             .length;
         } catch {
-          /* products table may not have those cols */
+          return 0;
         }
-      }
+      };
+
+      const [
+        { todayList, upcomingData },
+        pendingAppointments,
+        activeServices,
+        totalClients,
+        lowStockCount
+      ] = await Promise.all([
+        fetchAppointments(),
+        fetchPendingAppointments(),
+        fetchActiveServices(),
+        fetchTotalClients(),
+        fetchLowStock()
+      ]);
+
+      const todayEarnings = fetchEarnings(todayList);
+      const todayAppointments = todayList.filter((a) => a.status !== 'completed').length;
 
       setStats({
-        todayAppointments: todayList.filter((a) => a.status !== 'completed').length,
+        todayAppointments,
         todayEarnings,
-        pendingAppointments: pendingCount || 0,
-        activeServices: activeServicesCount,
+        pendingAppointments,
+        activeServices,
         totalClients,
         lowStockCount,
       });
-      setAppointments((upcomingData as ApptRow[]) || []);
+      setAppointments(upcomingData);
       setDbError(nextErr);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Unknown error';
