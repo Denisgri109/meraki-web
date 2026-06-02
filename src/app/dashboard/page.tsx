@@ -4,8 +4,12 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotifications } from '@/contexts/NotificationsContext';
 import { createClient } from '@/lib/supabase/client';
-import { Calendar, ShoppingBag, GraduationCap, Gift, Search, ArrowRight, Sparkles, Star, TrendingUp, Heart, MessageSquare, ChevronRight } from 'lucide-react';
+import { Calendar, ShoppingBag, GraduationCap, Gift, Search, Heart, MessageSquare, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
+import { HeroBanner } from './components/HeroBanner';
+import { QuickActions } from './components/QuickActions';
+import { StatsCards } from './components/StatsCards';
+
 import StaffDashboard from './StaffDashboard';
 
 const quickActions = [
@@ -125,35 +129,7 @@ function ClientHome() {
 
   return (
     <div className="animate-fade-in">
-      {/* ── Hero Welcome Banner ───────────── */}
-      <div style={{ position: 'relative', borderRadius: 'var(--radius-2xl)', overflow: 'hidden', marginBottom: '40px', height: '300px' }}>
-        <img src="https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?w=1600&q=80&auto=format&fit=crop" alt="Beauty salon atmosphere" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.7), rgba(0,0,0,0.4), rgba(0,0,0,0.1))' }} />
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', color: 'white', padding: '24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-            <Sparkles size={18} style={{ color: 'var(--color-brand-pink)' }} />
-            <span style={{ fontSize: '12px', letterSpacing: '3px', textTransform: 'uppercase', color: 'var(--color-brand-pink)', fontWeight: 700 }}>Welcome Back</span>
-            <Sparkles size={18} style={{ color: 'var(--color-brand-pink)' }} />
-          </div>
-          <h1 style={{ fontSize: '48px', fontWeight: 700, marginBottom: '12px', textShadow: '0 2px 10px rgba(0,0,0,0.3)', margin: '0 0 12px 0' }}>
-            Hello, {firstName}
-          </h1>
-          <p style={{ color: 'rgba(255,255,255,0.9)', fontSize: '15px', maxWidth: '500px', fontWeight: 500 }}>
-            {role === 'master'
-              ? "Here's your schedule overview for today."
-              : role === 'owner'
-                ? "Here's your platform performance today."
-                : 'Ready to book your next beauty experience?'}
-          </p>
-          <Link
-            href="/dashboard/booking"
-            className="btn-pink"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginTop: '24px', padding: '12px 32px', fontSize: '14px', boxShadow: '0 4px 20px rgba(0,0,0,0.3)' }}
-          >
-            Book Now <ArrowRight size={16} />
-          </Link>
-        </div>
-      </div>
+      <HeroBanner firstName={firstName} role={role} />
 
       {/* DB Error banner (debug) */}
       {dbError && (
@@ -185,120 +161,13 @@ function ClientHome() {
         </div>
       )}
 
-      {/* ── Quick Actions ────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-10">
-        {quickActions.map((action, idx) => {
-          const Icon = action.icon;
-          return (
-            <Link
-              key={action.href}
-              href={action.href}
-              className={`group relative rounded-[var(--radius-xl)] overflow-hidden h-40 hover:-translate-y-2 hover:shadow-xl transition-all duration-300 animate-slide-up stagger-${idx + 1}`}
-              style={{ animationFillMode: 'both' }}
-            >
-              <img src={action.img} alt={action.label} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
-              <div className={`absolute inset-0 bg-gradient-to-t ${action.gradient} opacity-30 group-hover:opacity-40 transition-opacity`} />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
-              <div className="absolute bottom-0 left-0 right-0 p-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                    <Icon size={16} className="text-white" />
-                  </div>
-                  <span className="text-sm font-bold text-white drop-shadow-md">{action.label}</span>
-                </div>
-              </div>
-            </Link>
-          );
-        })}
-      </div>
+      <QuickActions actions={quickActions} />
 
-      {/* ── Stats + Upcoming Grid ────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
-        {/* Stats Cards */}
-        <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="glass-card-pink p-6 flex flex-col gap-3 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-pink-400 to-rose-300 flex items-center justify-center shadow-md animate-float">
-              <Star size={20} className="text-white" />
-            </div>
-            <div>
-              <p className="text-3xl font-bold text-[var(--color-text-primary)]">{loading ? '—' : ((profile as Record<string, unknown>)?.loyalty_points as number || 0)}</p>
-              <p className="text-sm font-medium text-[var(--color-text-secondary)] mt-1">Loyalty Points</p>
-            </div>
-          </div>
-          <div className="glass-card-purple p-6 flex flex-col gap-3 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-400 to-purple-300 flex items-center justify-center shadow-md animate-float" style={{ animationDelay: '0.5s' }}>
-              <Calendar size={20} className="text-white" />
-            </div>
-            <div>
-              <p className="text-3xl font-bold text-[var(--color-text-primary)]">{loading ? '—' : stats.bookings}</p>
-              <p className="text-sm font-medium text-[var(--color-text-secondary)] mt-1">Completed</p>
-            </div>
-          </div>
-          <div className="glass-card p-6 flex flex-col gap-3 hover:shadow-lg hover:-translate-y-1 transition-all duration-300" style={{ background: 'linear-gradient(135deg, rgba(59,130,246,0.06), rgba(34,197,94,0.04))' }}>
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-400 to-cyan-300 flex items-center justify-center shadow-md animate-float" style={{ animationDelay: '1s' }}>
-              <TrendingUp size={20} className="text-white" />
-            </div>
-            <div>
-              <p className="text-3xl font-bold text-[var(--color-text-primary)]">{loading ? '—' : stats.services}</p>
-              <p className="text-sm font-medium text-[var(--color-text-secondary)] mt-1">Services</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Upcoming Appointments */}
-        <div className="glass-card p-6">
-          <div className="flex items-center justify-between mb-5">
-            <h2 className="text-lg font-bold text-[var(--color-text-primary)]">Upcoming</h2>
-            <Link href="/dashboard/appointments" className="text-sm font-semibold text-[var(--color-brand-pink-dark)] hover:opacity-80 transition-opacity">
-              View All →
-            </Link>
-          </div>
-          {loading ? (
-            <div className="space-y-3">
-              {[...Array(2)].map((_, i) => (
-                <div key={i} className="shimmer h-16 rounded-xl" />
-              ))}
-            </div>
-          ) : stats.appointments.length > 0 ? (
-            <div className="space-y-3">
-              {stats.appointments.map((apt) => {
-                const dateObj = new Date(apt.start_time);
-                return (
-                  <div key={apt.id} className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-pink-50 to-purple-50 border border-pink-100/50 hover:shadow-md transition-all">
-                    <div className="w-12 h-12 rounded-xl bg-white border border-pink-100 flex flex-col items-center justify-center shrink-0 shadow-sm">
-                      <span className="text-[10px] font-bold text-pink-400 uppercase">
-                        {dateObj.toLocaleDateString('en-GB', { month: 'short' })}
-                      </span>
-                      <span className="text-sm font-bold text-[var(--color-primary)]">
-                        {dateObj.getDate()}
-                      </span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-[var(--color-text-primary)] truncate">
-                        {apt.service?.name || apt.service_name || 'Appointment'}
-                      </p>
-                      <p className="text-xs text-[var(--color-text-muted)]">
-                        {dateObj.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
-                      </p>
-                    </div>
-                    <ArrowRight size={14} className="text-pink-300" />
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-8 text-center">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-pink-100 to-purple-100 flex items-center justify-center mb-4 animate-float">
-                <Calendar size={28} className="text-pink-300" />
-              </div>
-              <p className="text-sm text-[var(--color-text-secondary)] mb-4">No upcoming appointments</p>
-              <Link href="/dashboard/booking" className="btn-pink px-6 py-2.5 text-xs">
-                Book Now
-              </Link>
-            </div>
-          )}
-        </div>
-      </div>
+      <StatsCards
+        loading={loading}
+        loyaltyPoints={(profile as Record<string, unknown>)?.loyalty_points as number || 0}
+        stats={stats}
+      />
 
       {/* ── Featured Section ─────────────────────────────── */}
       <div className="glass-card gradient-border-glow p-8 mb-6 relative overflow-hidden">
