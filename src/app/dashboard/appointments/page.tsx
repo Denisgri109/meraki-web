@@ -376,37 +376,30 @@ export default function AppointmentsPage() {
   const handleRescheduleResponse = async (approve: boolean) => {
     if (!selectedAppointment) return;
     try {
+      const updatePayload: any = {
+        status: 'confirmed',
+        proposed_start_time: null,
+        proposed_end_time: null,
+        reschedule_initiated_by: null,
+        status_updated_at: new Date().toISOString()
+      };
+
+      let isApproved = false;
       if (approve && selectedAppointment.proposed_start_time && selectedAppointment.proposed_end_time) {
         // Approve: commit proposed times
-        const { error } = await supabase
-          .from('appointments')
-          .update({
-            start_time: selectedAppointment.proposed_start_time,
-            end_time: selectedAppointment.proposed_end_time,
-            status: 'confirmed',
-            proposed_start_time: null,
-            proposed_end_time: null,
-            reschedule_initiated_by: null,
-            status_updated_at: new Date().toISOString()
-          })
-          .eq('id', selectedAppointment.id);
-        if (error) throw error;
-        showToast('Reschedule request approved.', 'success');
-      } else {
-        // Decline: clear proposed fields
-        const { error } = await supabase
-          .from('appointments')
-          .update({
-            status: 'confirmed',
-            proposed_start_time: null,
-            proposed_end_time: null,
-            reschedule_initiated_by: null,
-            status_updated_at: new Date().toISOString()
-          })
-          .eq('id', selectedAppointment.id);
-        if (error) throw error;
-        showToast('Reschedule request declined.', 'success');
+        updatePayload.start_time = selectedAppointment.proposed_start_time;
+        updatePayload.end_time = selectedAppointment.proposed_end_time;
+        isApproved = true;
       }
+
+      const { error } = await supabase
+        .from('appointments')
+        .update(updatePayload)
+        .eq('id', selectedAppointment.id);
+
+      if (error) throw error;
+      showToast(isApproved ? 'Reschedule request approved.' : 'Reschedule request declined.', 'success');
+
       setSelectedAppointment(null);
       fetchAppointments();
     } catch (err: any) {
