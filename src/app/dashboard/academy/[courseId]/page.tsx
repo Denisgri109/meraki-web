@@ -129,24 +129,33 @@ export default function CourseEditorPage() {
         .order('enrolled_at', { ascending: false });
 
       const lessonIds = lessons.map((l) => l.id);
-      const enriched: StudentRow[] = [];
-      for (const row of (data || []) as any[]) {
-        let completedLessons = 0;
-        if (lessonIds.length > 0 && row.student_id) {
-          const { count } = await supabase
-            .from('lesson_progress')
-            .select('*', { count: 'exact', head: true })
-            .eq('user_id', row.student_id)
-            .not('completed_at', 'is', null)
-            .in('lesson_id', lessonIds);
-          completedLessons = count || 0;
+
+      const studentIds = (data || [])
+        .map((row: Record<string, unknown>) => row.student_id as string)
+        .filter((id): id is string => Boolean(id));
+
+      const progressMap = new Map<string, number>();
+
+      if (lessonIds.length > 0 && studentIds.length > 0) {
+        const { data: progressData } = await supabase
+          .from('lesson_progress')
+          .select('user_id')
+          .in('user_id', studentIds)
+          .in('lesson_id', lessonIds)
+          .not('completed_at', 'is', null);
+
+        for (const row of (progressData || [])) {
+          if (row.user_id) {
+            progressMap.set(row.user_id, (progressMap.get(row.user_id) || 0) + 1);
+          }
         }
-        enriched.push({
-          ...row,
-          completed_lessons: completedLessons,
-          total_lessons: lessonIds.length,
-        });
       }
+
+      const enriched: StudentRow[] = (data || []).map((row: Record<string, unknown>) => ({
+        ...(row as unknown as StudentRow),
+        completed_lessons: row.student_id ? (progressMap.get(row.student_id as string) || 0) : 0,
+        total_lessons: lessonIds.length,
+      }));
       setStudents(enriched);
     } catch (err) { console.error('[Academy] students:', err); }
     finally { setStudentsLoading(false); }
@@ -162,7 +171,13 @@ export default function CourseEditorPage() {
     load();
   }, [fetchCourse, fetchCurriculum]);
 
-  useEffect(() => { if (tab === 'students') fetchStudents(); }, [tab, fetchStudents]);
+  useEffect(() => {
+    if (tab === 'students') {
+      (async () => {
+        await fetchStudents();
+      })();
+    }
+  }, [tab, fetchStudents]);
 
   // ── Chapter handlers ──
   const openAddChapter = () => { setEditingChapter(null); setChapterTitle(''); setChapterModal(true); };
@@ -186,7 +201,7 @@ export default function CourseEditorPage() {
       }
       setChapterModal(false);
       fetchCurriculum();
-    } catch (err: any) { showToast(err.message || 'Failed', 'error'); }
+    } catch (err: unknown) { showToast((err instanceof Error ? err.message : '') || 'Failed', 'error'); }
     finally { setChapterSaving(false); }
   };
 
@@ -237,7 +252,7 @@ export default function CourseEditorPage() {
       }
       setLessonModal(false);
       fetchCurriculum();
-    } catch (err: any) { showToast(err.message || 'Failed', 'error'); }
+    } catch (err: unknown) { showToast((err instanceof Error ? err.message : '') || 'Failed', 'error'); }
     finally { setLessonSaving(false); }
   };
 
@@ -252,7 +267,7 @@ export default function CourseEditorPage() {
       showToast(`${deleteItem.type === 'chapter' ? 'Chapter' : 'Lesson'} deleted`, 'success');
       setDeleteItem(null);
       fetchCurriculum();
-    } catch (err: any) { showToast(err.message || 'Failed', 'error'); }
+    } catch (err: unknown) { showToast((err instanceof Error ? err.message : '') || 'Failed', 'error'); }
     finally { setDeleteLoading(false); }
   };
 
@@ -287,7 +302,7 @@ export default function CourseEditorPage() {
       showToast('Course updated', 'success');
       setEditCourse(false);
       fetchCourse();
-    } catch (err: any) { showToast(err.message || 'Failed', 'error'); }
+    } catch (err: unknown) { showToast((err instanceof Error ? err.message : '') || 'Failed', 'error'); }
     finally { setCourseSaving(false); }
   };
 
@@ -299,7 +314,7 @@ export default function CourseEditorPage() {
       .from('lesson_progress')
       .select('lesson_id, completed_at')
       .eq('user_id', s.student_id);
-    const completedMap = new Map((progressData || []).map((p: any) => [p.lesson_id, !!p.completed_at]));
+    const completedMap = new Map((progressData || []).map((p: Record<string, unknown>) => [p.lesson_id, !!p.completed_at]));
     setStudentLessons(allLessons.map((l) => ({
       lesson_id: l.id, title: l.title, completed: completedMap.get(l.id) || false,
     })));
