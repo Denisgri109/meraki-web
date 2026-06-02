@@ -219,22 +219,28 @@ export default function SettingsPage() {
     setUploadingPortfolio(true);
     let successCount = 0;
     try {
-      for (const file of validFiles) {
+      const uploadPromises = validFiles.map(async (file) => {
         const fileExt = file.name.split('.').pop()?.toLowerCase() || 'jpg';
-        const fileName = `${profile.id}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${fileExt}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('portfolios')
-          .upload(fileName, file, { upsert: false });
-        if (uploadError) { console.error('Upload error:', uploadError); continue; }
-
+        const fileName = `${profile.id}/${Date.now()}_${crypto.randomUUID()}.${fileExt}`;
+        const { error: uploadError } = await supabase.storage.from('portfolios').upload(fileName, file, { upsert: false });
+        if (uploadError) {
+          console.error('Upload error:', uploadError);
+          return null;
+        }
         const { data: urlData } = supabase.storage.from('portfolios').getPublicUrl(fileName);
+        return { master_id: profile.id, image_url: urlData.publicUrl, description: '' };
+      });
 
-        const { error: dbError } = await supabase
-          .from('portfolios')
-          .insert({ master_id: profile.id, image_url: urlData.publicUrl, description: '' });
-        if (dbError) { console.error('DB error:', dbError); continue; }
-        successCount++;
+      const uploadResults = await Promise.all(uploadPromises);
+      const validInserts = uploadResults.filter((result): result is { master_id: string; image_url: string; description: string } => result !== null);
+
+      if (validInserts.length > 0) {
+        const { error: dbError } = await supabase.from('portfolios').insert(validInserts);
+        if (dbError) {
+          console.error('DB error:', dbError);
+        } else {
+          successCount = validInserts.length;
+        }
       }
       if (successCount > 0) {
         showToast(`${successCount} photo${successCount > 1 ? 's' : ''} uploaded`, 'success');
