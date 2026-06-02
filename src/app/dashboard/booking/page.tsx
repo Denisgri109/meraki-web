@@ -11,6 +11,8 @@ import type { Tables } from '@/types/database';
 import type { SavedCard } from '@/components/PaymentMethodsManager';
 import { CardBrandBadge } from '@/components/PaymentMethodsManager';
 import { isMasterWithinRange } from '@/lib/location';
+import { createSetupIntent, createAndConfirmPaymentIntent } from '@/lib/payment/stripe';
+
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY as string);
 
@@ -105,42 +107,33 @@ function CheckoutForm({ user, profile, selectedService, selectedMaster, selected
         const cardElement = elements!.getElement(CardElement);
         if (!cardElement) throw new Error('Enter your card details');
 
-        const { data: setupIntentData, error: setupError } = await supabase.functions.invoke('setup-intent', {
-          body: { user_email: profile?.email, customer_id: customerId },
-        });
-        if (setupError) throw setupError;
-
-        const { setupIntent, error: confirmSetupError } = await stripe.confirmCardSetup(
-          setupIntentData.clientSecret,
-          { payment_method: { card: cardElement } }
+        const setupResult = await createSetupIntent(
+          supabase,
+          stripe,
+          cardElement,
+          profile?.email ?? undefined,
+          customerId
         );
-        if (confirmSetupError) throw confirmSetupError;
-
-        paymentMethodId = setupIntent!.payment_method as string;
-        setupIntentId = setupIntentData.setupIntentId;
-        customerId = setupIntentData.customerId;
+        paymentMethodId = setupResult.paymentMethodId;
+        setupIntentId = setupResult.setupIntentId;
+        customerId = setupResult.customerId;
       }
 
       const amountToPay = Math.round(selectedService.base_price * 100);
 
-      const { data: paymentIntentData, error: piError } = await supabase.functions.invoke('create-payment-intent', {
-        body: {
+      const paymentIntentData = await createAndConfirmPaymentIntent(
+        supabase,
+        stripe,
+        {
           amount: amountToPay,
           currency: 'eur',
-          customer_id: customerId,
-          payment_method_id: paymentMethodId,
-          master_id: bookingMasterId,
+          customerId,
+          paymentMethodId,
+          masterId: bookingMasterId,
           description: `Booking with ${bookingHostName}`,
-          capture_method: 'automatic',
-        }
-      });
-      if (piError) throw piError;
-
-      const { error: confirmPaymentError } = await stripe.confirmCardPayment(
-        paymentIntentData.clientSecret,
-        usingSavedCard ? { payment_method: paymentMethodId } : undefined
+        },
+        usingSavedCard
       );
-      if (confirmPaymentError) throw confirmPaymentError;
 
       const { error: bookError } = isPilates && selectedPilatesSession
         ? await supabase.rpc('book_pilates_session', {
