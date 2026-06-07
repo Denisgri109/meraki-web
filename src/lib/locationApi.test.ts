@@ -189,7 +189,7 @@ describe('API functions', () => {
 
       const result = await getAllCountries();
       expect(result).toEqual([]);
-      expect(console.error).toHaveBeenCalledWith(expect.stringContaining('getAllCountries error'), expect.any(Error));
+      expect(console.error).toHaveBeenCalledWith(expect.stringContaining('countries error'), expect.any(Error));
     });
   });
 

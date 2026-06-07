@@ -135,7 +135,10 @@ describe('PilatesTimetableManager error handling', () => {
       expect(mockSupabase.rpc).toHaveBeenCalled();
     });
 
-    const saveButton = screen.getByText('Save details');
+    // Switch to Settings tab
+    fireEvent.click(screen.getByText('Settings'));
+
+    const saveButton = screen.getByText('Save default settings');
     fireEvent.click(saveButton);
 
     await waitFor(() => {
@@ -159,10 +162,13 @@ describe('PilatesTimetableManager error handling', () => {
       expect(mockSupabase.rpc).toHaveBeenCalled();
     });
 
-    const nameInput = screen.getByPlaceholderText('External host name');
+    // Switch to Instructors tab
+    fireEvent.click(screen.getByRole('button', { name: /instructors/i }));
+
+    const nameInput = screen.getByPlaceholderText('e.g. Sarah Thompson');
     fireEvent.change(nameInput, { target: { value: 'New Host' } });
 
-    const addButton = screen.getByText('Add host');
+    const addButton = screen.getByText('Add instructor');
     fireEvent.click(addButton);
 
     await waitFor(() => {
@@ -196,13 +202,16 @@ describe('PilatesTimetableManager error handling', () => {
     });
 
     const selects = screen.getAllByRole('combobox');
-    const templateHostSelect = selects.find(select => select.querySelector('option[value=""]')?.textContent === 'Choose host');
+    const templateHostSelect = selects.find(select => {
+        const firstOpt = select.querySelector('option[value=""]');
+        return firstOpt && (firstOpt.textContent?.includes('Choose host') || firstOpt.textContent?.includes('Choose instructor'));
+    });
 
     if (templateHostSelect) {
         fireEvent.change(templateHostSelect, { target: { value: 'host-1' } });
     }
 
-    const addToTimetableButton = screen.getByText('Add to timetable');
+    const addToTimetableButton = screen.getByText('Add to weekly timetable');
     fireEvent.click(addToTimetableButton);
 
     await waitFor(() => {
@@ -289,6 +298,9 @@ describe('PilatesTimetableManager error handling', () => {
       expect(mockSupabase.rpc).toHaveBeenCalled();
     });
 
+    // Switch to Sessions tab
+    fireEvent.click(screen.getByText('Sessions'));
+
     const timeOrHostElements = await screen.findAllByText('Test Host');
 
     // Find the button containing the host
@@ -297,7 +309,7 @@ describe('PilatesTimetableManager error handling', () => {
         fireEvent.click(sessionButton);
     }
 
-    const saveClassButton = await screen.findByText('Save class');
+    const saveClassButton = await screen.findByText('Save changes');
     fireEvent.click(saveClassButton);
 
     await waitFor(() => {
