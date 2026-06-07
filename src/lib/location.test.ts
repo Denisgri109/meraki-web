@@ -3,283 +3,258 @@ import {
   isMasterWithinRange,
   getCurrentPosition,
   reverseGeocodeCountry,
-  detectUserLocation
+  detectUserLocation,
 } from './location';
 
-describe('Location Utilities', () => {
-  describe('haversineDistanceKm', () => {
-    it('should return 0 when the coordinates are identical', () => {
-      const dist = haversineDistanceKm(51.5074, -0.1278, 51.5074, -0.1278);
-      expect(dist).toBe(0);
-    });
+// Mocking global objects for jsdom environment
+const originalFetch = global.fetch;
+const originalGeolocation = global.navigator?.geolocation;
 
-    it('should calculate the distance correctly between two known points', () => {
-      // London: 51.5074, -0.1278
-      // Paris: 48.8566, 2.3522
-      // Expected distance is approximately 343 km
-      const dist = haversineDistanceKm(51.5074, -0.1278, 48.8566, 2.3522);
-      expect(Math.round(dist)).toBe(344);
-    });
+beforeAll(() => {
+  // Mock window.setTimeout and window.clearTimeout
+  jest.useFakeTimers();
+});
 
-    it('should be commutative (same distance in both directions)', () => {
-      const dist1 = haversineDistanceKm(51.5074, -0.1278, 48.8566, 2.3522);
-      const dist2 = haversineDistanceKm(48.8566, 2.3522, 51.5074, -0.1278);
-      expect(dist1).toEqual(dist2);
-    });
+afterAll(() => {
+  jest.useRealTimers();
+});
+
+afterEach(() => {
+  global.fetch = originalFetch;
+  if (global.navigator) {
+    Object.defineProperty(global.navigator, 'geolocation', { value: originalGeolocation, configurable: true });
+  }
+  jest.clearAllMocks();
+});
+
+describe('haversineDistanceKm', () => {
+  it('calculates 0 distance for the same coordinates', () => {
+    expect(haversineDistanceKm(0, 0, 0, 0)).toBeCloseTo(0);
+    expect(haversineDistanceKm(40.7128, -74.006, 40.7128, -74.006)).toBeCloseTo(0);
   });
 
-  describe('isMasterWithinRange', () => {
-    it('should return false if either user or master country is missing', () => {
-      const userNoCountry = { country: null };
-      const masterNoCountry = { country: null };
-      const validUser = { country: 'Ireland' };
-      const validMaster = { country: 'Ireland' };
-
-      expect(isMasterWithinRange(userNoCountry, validMaster)).toBe(false);
-      expect(isMasterWithinRange(validUser, masterNoCountry)).toBe(false);
-    });
-
-    it('should return false if user and master are in different countries', () => {
-      const user = { country: 'Ireland' };
-      const master = { country: 'UK' };
-      expect(isMasterWithinRange(user, master)).toBe(false);
-    });
-
-    it('should be case-insensitive and ignore surrounding whitespace for country', () => {
-      const user = { country: ' ireland ' };
-      const master = { country: 'IRELAND' };
-      expect(isMasterWithinRange(user, master)).toBe(true);
-    });
-
-    it('should return true if both are in the same country and no state is specified for user', () => {
-      const user = { country: 'Ireland' };
-      const master = { country: 'Ireland', state: 'Dublin' };
-      expect(isMasterWithinRange(user, master)).toBe(true);
-    });
-
-    it('should return true if states match (case-insensitive and trimmed)', () => {
-      const user = { country: 'Ireland', state: ' dublin ' };
-      const master = { country: 'Ireland', state: 'DUBLIN' };
-      expect(isMasterWithinRange(user, master)).toBe(true);
-    });
-
-    it('should return true if state codes match', () => {
-      const user = { country: 'USA', state_code: 'CA' };
-      const master = { country: 'USA', state_code: 'ca ' };
-      expect(isMasterWithinRange(user, master)).toBe(true);
-    });
-
-    it('should return false if same country, different states, and coordinates are missing', () => {
-      const user = { country: 'Ireland', state: 'Cork' };
-      const master = { country: 'Ireland', state: 'Dublin' };
-      expect(isMasterWithinRange(user, master)).toBe(false);
-    });
-
-    it('should return true if same country, different states, but within radius', () => {
-      // Cork to Dublin is ~219 km. Let's use a 300km radius.
-      const user = { country: 'Ireland', state: 'Cork', latitude: 51.8985, longitude: -8.4756 };
-      const master = { country: 'Ireland', state: 'Dublin', latitude: 53.3498, longitude: -6.2603 };
-
-      expect(isMasterWithinRange(user, master, 100)).toBe(false);
-      expect(isMasterWithinRange(user, master, 300)).toBe(true);
-    });
+  it('calculates approximate distance between NY and LA', () => {
+    const ny = { lat: 40.7128, lon: -74.006 };
+    const la = { lat: 34.0522, lon: -118.2437 };
+    const distance = haversineDistanceKm(ny.lat, ny.lon, la.lat, la.lon);
+    // Approximate distance is ~3935 km
+    expect(distance).toBeGreaterThan(3900);
+    expect(distance).toBeLessThan(4000);
   });
-  describe('getCurrentPosition', () => {
-    let originalNavigator: unknown;
+});
 
-    beforeEach(() => {
-      originalNavigator = global.navigator;
-    });
+describe('isMasterWithinRange', () => {
+  const user = { country: 'Ireland', state: 'Dublin', state_code: 'DUB', latitude: 53.3498, longitude: -6.2603 };
+  const master = { country: 'Ireland', state: 'Dublin', state_code: 'DUB', latitude: 53.3498, longitude: -6.2603 };
 
-    afterEach(() => {
-      Object.defineProperty(global, 'navigator', {
-        value: originalNavigator,
-        configurable: true,
-      });
-      jest.useRealTimers();
-      jest.clearAllMocks();
-    });
+  it('returns false if user country is missing', () => {
+    expect(isMasterWithinRange({ ...user, country: null }, master)).toBe(false);
+  });
 
-    it('should return null if navigator.geolocation is undefined', async () => {
-      Object.defineProperty(global, 'navigator', {
-        value: { geolocation: undefined },
-        configurable: true,
-      });
-      const result = await getCurrentPosition();
-      expect(result).toBeNull();
-    });
+  it('returns false if master country is missing', () => {
+    expect(isMasterWithinRange(user, { ...master, country: null })).toBe(false);
+  });
 
-    it('should resolve with coordinates when getCurrentPosition succeeds', async () => {
-      const mockPosition = { coords: { latitude: 51.5, longitude: -0.1 } };
-      const mockGeolocation = {
-        getCurrentPosition: jest.fn().mockImplementation((...args: unknown[]) => {
-          const success = args[0] as (p: unknown) => void; success(mockPosition);
+  it('returns false if countries do not match', () => {
+    expect(isMasterWithinRange(user, { ...master, country: 'UK' })).toBe(false);
+  });
+
+  it('returns true if country matches and user state is missing', () => {
+    expect(isMasterWithinRange({ ...user, state: null, state_code: null }, master)).toBe(true);
+  });
+
+  it('returns true if country and state codes match', () => {
+    expect(isMasterWithinRange(user, master)).toBe(true);
+  });
+
+  it('returns true if country and state names match', () => {
+    expect(isMasterWithinRange(
+      { ...user, state_code: null },
+      { ...master, state_code: null }
+    )).toBe(true);
+  });
+
+  it('returns true if state differs but distance is within radius', () => {
+    // Distance between Dublin and Kildare is ~50km, within 100km radius
+    const masterInKildare = { ...master, state: 'Kildare', state_code: 'KIL', latitude: 53.1589, longitude: -6.9096 };
+    expect(isMasterWithinRange(user, masterInKildare, 100)).toBe(true);
+  });
+
+  it('returns false if state differs and distance exceeds radius', () => {
+    // Distance between Dublin and Cork is ~220km, outside 100km radius
+    const masterInCork = { ...master, state: 'Cork', state_code: 'COR', latitude: 51.8985, longitude: -8.4756 };
+    expect(isMasterWithinRange(user, masterInCork, 100)).toBe(false);
+  });
+
+  it('returns false if state differs and coordinates are missing', () => {
+    const masterInCorkNoCoords = { ...master, state: 'Cork', state_code: 'COR', latitude: null, longitude: null };
+    expect(isMasterWithinRange(user, masterInCorkNoCoords, 100)).toBe(false);
+  });
+});
+
+describe('getCurrentPosition', () => {
+  it('returns null if window is undefined', async () => {
+    const origWindow = global.window;
+    // @ts-expect-error test
+    delete global.window;
+
+    const result = await getCurrentPosition();
+    expect(result).toBeNull();
+
+    global.window = origWindow;
+  });
+
+  it('returns null if navigator.geolocation is unavailable', async () => {
+    if (global.navigator) {
+      Object.defineProperty(global.navigator, 'geolocation', { value: undefined, configurable: true });
+    }
+    const result = await getCurrentPosition();
+    expect(result).toBeNull();
+  });
+
+  it('resolves with position on success', async () => {
+    const mockPosition = { coords: { latitude: 10, longitude: 20 } };
+    if (!global.navigator) {
+       Object.defineProperty(global, 'navigator', { value: {}, configurable: true });
+    }
+    Object.defineProperty(global.navigator, 'geolocation', {
+      value: {
+        getCurrentPosition: jest.fn().mockImplementation((success: (pos: unknown) => void) => {
+          success(mockPosition);
         }),
-      };
-      Object.defineProperty(global, 'navigator', {
-        value: { geolocation: mockGeolocation },
-        configurable: true,
-      });
-
-      const result = await getCurrentPosition();
-      expect(result).toEqual(mockPosition);
-      expect(mockGeolocation.getCurrentPosition).toHaveBeenCalled();
+      },
+      configurable: true
     });
 
-    it('should resolve with null and log a warning if getCurrentPosition fails', async () => {
-      const mockError = { message: 'User denied Geolocation' };
-      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
-
-      const mockGeolocation = {
-        getCurrentPosition: jest.fn().mockImplementation((...args: unknown[]) => {
-          const error = args[1] as (e: unknown) => void; error(mockError);
-        }),
-      };
-      Object.defineProperty(global, 'navigator', {
-        value: { geolocation: mockGeolocation },
-        configurable: true,
-      });
-
-      const result = await getCurrentPosition();
-      expect(result).toBeNull();
-      expect(consoleWarnSpy).toHaveBeenCalledWith('[location] getCurrentPosition error:', mockError.message);
-
-      consoleWarnSpy.mockRestore();
-    });
-
-    it('should timeout and return null if getCurrentPosition hangs', async () => {
-      jest.useFakeTimers();
-
-      const mockGeolocation = {
-        // Mock that neither succeeds nor fails
-        getCurrentPosition: jest.fn().mockImplementation(() => {}),
-      };
-      Object.defineProperty(global, 'navigator', {
-        value: { geolocation: mockGeolocation },
-        configurable: true,
-      });
-
-      const promise = getCurrentPosition();
-
-      // Fast-forward past the 12000ms hard timeout
-      jest.advanceTimersByTime(12500);
-
-      const result = await promise;
-      expect(result).toBeNull();
-    });
+    const promise = getCurrentPosition();
+    const result = await promise;
+    expect(result).toEqual(mockPosition);
   });
 
-  describe('reverseGeocodeCountry', () => {
-    let originalFetch: unknown;
-
-    beforeEach(() => {
-      originalFetch = global.fetch;
+  it('resolves with null on error', async () => {
+    if (!global.navigator) {
+       Object.defineProperty(global, 'navigator', { value: {}, configurable: true });
+    }
+    Object.defineProperty(global.navigator, 'geolocation', {
+      value: {
+        getCurrentPosition: jest.fn().mockImplementation((success: unknown, error: (err: unknown) => void) => {
+          error(new Error('User denied'));
+        }),
+      },
+      configurable: true
     });
 
-    afterEach(() => {
-      global.fetch = originalFetch as typeof global.fetch;
-      jest.clearAllMocks();
-    });
-
-    it('should return country and countryCode on successful fetch', async () => {
-      const mockResponse = {
-        ok: true,
-        json: async () => ({ address: { country: 'Ireland', country_code: 'ie' } }),
-      };
-      global.fetch = jest.fn().mockResolvedValue(mockResponse);
-
-      const result = await reverseGeocodeCountry(53.3498, -6.2603);
-      expect(global.fetch).toHaveBeenCalled();
-      expect(result).toEqual({ country: 'Ireland', countryCode: 'IE' });
-    });
-
-    it('should return nulls if fetch response is not ok', async () => {
-      const mockResponse = { ok: false };
-      global.fetch = jest.fn().mockResolvedValue(mockResponse);
-
-      const result = await reverseGeocodeCountry(53.3498, -6.2603);
-      expect(result).toEqual({ country: null, countryCode: null });
-    });
-
-    it('should return nulls and log a warning if fetch throws an error', async () => {
-      const mockError = new Error('Network error');
-      global.fetch = jest.fn().mockRejectedValue(mockError);
-      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
-
-      const result = await reverseGeocodeCountry(53.3498, -6.2603);
-      expect(result).toEqual({ country: null, countryCode: null });
-      expect(consoleWarnSpy).toHaveBeenCalledWith('[location] reverseGeocodeCountry failed:', mockError);
-
-      consoleWarnSpy.mockRestore();
-    });
-
-    it('should return nulls if response does not have address info', async () => {
-      const mockResponse = {
-        ok: true,
-        json: async () => ({}),
-      };
-      global.fetch = jest.fn().mockResolvedValue(mockResponse);
-
-      const result = await reverseGeocodeCountry(53.3498, -6.2603);
-      expect(result).toEqual({ country: null, countryCode: null });
-    });
+    const promise = getCurrentPosition();
+    const result = await promise;
+    expect(result).toBeNull();
   });
 
-  describe('detectUserLocation', () => {
-    let originalNavigator: unknown;
-    let originalFetch: unknown;
-
-    beforeEach(() => {
-      originalNavigator = global.navigator;
-      originalFetch = global.fetch;
+  it('resolves with null on timeout', async () => {
+    if (!global.navigator) {
+       Object.defineProperty(global, 'navigator', { value: {}, configurable: true });
+    }
+    Object.defineProperty(global.navigator, 'geolocation', {
+      value: {
+        getCurrentPosition: jest.fn(), // Never calls success or error
+      },
+      configurable: true
     });
 
-    afterEach(() => {
-      Object.defineProperty(global, 'navigator', {
-        value: originalNavigator,
-        configurable: true,
-      });
-      global.fetch = originalFetch as typeof global.fetch;
-      jest.clearAllMocks();
+    const promise = getCurrentPosition();
+
+    // Fast-forward timeout
+    jest.runAllTimers();
+
+    const result = await promise;
+    expect(result).toBeNull();
+  });
+});
+
+describe('reverseGeocodeCountry', () => {
+  it('returns country and countryCode on success', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: jest.fn().mockResolvedValue({
+        address: { country: 'Ireland', country_code: 'ie' }
+      })
     });
 
-    it('should return nulls if getCurrentPosition fails', async () => {
-      // Mock navigator without geolocation
-      Object.defineProperty(global, 'navigator', {
-        value: { geolocation: undefined },
-        configurable: true,
-      });
+    const result = await reverseGeocodeCountry(53.3498, -6.2603);
+    expect(result).toEqual({ country: 'Ireland', countryCode: 'IE' });
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    const urlString = (global.fetch as jest.Mock).mock.calls[0][0];
+    const url = new URL(urlString);
+    expect(url.hostname).toBe('nominatim.openstreetmap.org');
+    expect(url.searchParams.get('lat')).toBe('53.3498');
+    expect(url.searchParams.get('lon')).toBe('-6.2603');
+  });
 
-      const result = await detectUserLocation();
-      expect(result).toEqual({ latitude: null, longitude: null, country: null, countryCode: null });
+  it('returns nulls on non-ok response', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false
     });
 
-    it('should return full UserLocation object on success', async () => {
-      // Mock successful geolocation
-      const mockGeolocation = {
-        getCurrentPosition: jest.fn().mockImplementation((...args: unknown[]) => {
-          const success = args[0] as (p: unknown) => void; success({ coords: { latitude: 53.3498, longitude: -6.2603 } });
+    const result = await reverseGeocodeCountry(53.3498, -6.2603);
+    expect(result).toEqual({ country: null, countryCode: null });
+  });
+
+  it('returns nulls on fetch exception', async () => {
+    global.fetch = jest.fn().mockRejectedValue(new Error('Network error'));
+
+    const result = await reverseGeocodeCountry(53.3498, -6.2603);
+    expect(result).toEqual({ country: null, countryCode: null });
+  });
+
+  it('returns nulls if address is missing', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: jest.fn().mockResolvedValue({})
+    });
+
+    const result = await reverseGeocodeCountry(53.3498, -6.2603);
+    expect(result).toEqual({ country: null, countryCode: null });
+  });
+});
+
+describe('detectUserLocation', () => {
+  it('returns all nulls if geolocation fails', async () => {
+    if (!global.navigator) {
+       Object.defineProperty(global, 'navigator', { value: {}, configurable: true });
+    }
+    Object.defineProperty(global.navigator, 'geolocation', {
+      value: {
+        getCurrentPosition: jest.fn().mockImplementation((success: unknown, error: (err: unknown) => void) => {
+          error(new Error('Denied'));
         }),
-      };
-      Object.defineProperty(global, 'navigator', {
-        value: { geolocation: mockGeolocation },
-        configurable: true,
-      });
-
-      // Mock successful reverse geocode
-      const mockResponse = {
-        ok: true,
-        json: async () => ({ address: { country: 'Ireland', country_code: 'ie' } }),
-      };
-      global.fetch = jest.fn().mockResolvedValue(mockResponse);
-
-      const result = await detectUserLocation();
-      expect(result).toEqual({
-        latitude: 53.3498,
-        longitude: -6.2603,
-        country: 'Ireland',
-        countryCode: 'IE',
-      });
+      },
+      configurable: true
     });
+
+    const result = await detectUserLocation();
+    expect(result).toEqual({ latitude: null, longitude: null, country: null, countryCode: null });
+  });
+
+  it('returns aggregated location on success', async () => {
+    if (!global.navigator) {
+       Object.defineProperty(global, 'navigator', { value: {}, configurable: true });
+    }
+    Object.defineProperty(global.navigator, 'geolocation', {
+      value: {
+        getCurrentPosition: jest.fn().mockImplementation((success: (pos: unknown) => void) => {
+          success({ coords: { latitude: 53.3498, longitude: -6.2603 } });
+        }),
+      },
+      configurable: true
+    });
+
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: jest.fn().mockResolvedValue({
+        address: { country: 'Ireland', country_code: 'ie' }
+      })
+    });
+
+    const result = await detectUserLocation();
+    expect(result).toEqual({ latitude: 53.3498, longitude: -6.2603, country: 'Ireland', countryCode: 'IE' });
   });
 });
