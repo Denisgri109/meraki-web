@@ -36,10 +36,10 @@ describe('getShippingCost', () => {
   });
 
   it('should return 0 for undefined/null if bypassed', () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    expect(getShippingCost(undefined as any)).toBe(0);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    expect(getShippingCost(null as any)).toBe(0);
+    // @ts-expect-error Testing invalid runtime input
+    expect(getShippingCost(undefined)).toBe(0);
+    // @ts-expect-error Testing invalid runtime input
+    expect(getShippingCost(null)).toBe(0);
   });
 });
 
