@@ -106,11 +106,11 @@ function CheckoutForm() {
     const stockMap = new Map((data || []).map((p) => [p.id, p.stock_count]));
 
     for (const item of items) {
-      if (!stockMap.has(item.id)) {
+      const stockCount = stockMap.get(item.id);
+      if (stockCount === undefined) {
         throw new Error(`Could not verify stock for ${item.name}`);
       }
-      const stockCount = stockMap.get(item.id) ?? 0;
-      if (stockCount < item.quantity) {
+      if (stockCount !== null && stockCount < item.quantity) {
         throw new Error(`Insufficient stock for ${item.name}. Only ${stockCount} available.`);
       }
     }
