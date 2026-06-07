@@ -7,11 +7,12 @@ import { createClient } from '@/lib/supabase/client';
 import { Calendar, ShoppingBag, GraduationCap, Gift, Search, ArrowRight, Sparkles, Star, TrendingUp, Heart, MessageSquare, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import StaffDashboard from './StaffDashboard';
+import { DEFAULT_PRODUCT_IMAGE } from '@/lib/constants/images';
 
 const quickActions = [
   { href: '/dashboard/booking', label: 'Book Now', icon: Calendar, gradient: 'from-pink-400 to-rose-300', img: 'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=400&q=80&auto=format&fit=crop' },
   { href: '/dashboard/discover', label: 'Discover', icon: Search, gradient: 'from-violet-400 to-purple-300', img: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=400&q=80&auto=format&fit=crop' },
-  { href: '/dashboard/shop', label: 'Shop', icon: ShoppingBag, gradient: 'from-amber-400 to-orange-300', img: 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=400&q=80&auto=format&fit=crop' },
+  { href: '/dashboard/shop', label: 'Shop', icon: ShoppingBag, gradient: 'from-amber-400 to-orange-300', img: DEFAULT_PRODUCT_IMAGE },
   { href: '/dashboard/academy', label: 'Academy', icon: GraduationCap, gradient: 'from-blue-400 to-cyan-300', img: 'https://images.unsplash.com/photo-1487412912498-0447578fcca8?w=400&q=80&auto=format&fit=crop' },
   { href: '/dashboard/loyalty', label: 'Rewards', icon: Gift, gradient: 'from-emerald-400 to-teal-300', img: 'https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=400&q=80&auto=format&fit=crop' },
 ];

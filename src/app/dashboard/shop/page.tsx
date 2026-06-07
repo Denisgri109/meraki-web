@@ -10,6 +10,7 @@ import {
   ShoppingBag, Search, Star, Package,
   ArrowRight, Plus, X, Loader2,
 } from 'lucide-react';
+import { FALLBACK_PRODUCT_IMAGES, DEFAULT_PRODUCT_IMAGE_LARGE } from '@/lib/constants/images';
 
 interface Product {
   id: string;
@@ -23,13 +24,6 @@ interface Product {
   is_active: boolean;
   is_preview?: boolean;
 }
-
-const fallbackImages = [
-  'https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=400&q=80&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1571781926291-c477ebfd024b?w=400&q=80&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=400&q=80&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?w=400&q=80&auto=format&fit=crop',
-];
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error) return error.message;
@@ -168,7 +162,7 @@ export default function ShopPage() {
     <div className="animate-fade-in">
       {/* Hero Banner */}
       <div style={{ position: 'relative', borderRadius: 'var(--radius-2xl)', overflow: 'hidden', marginBottom: '40px', height: '220px' }}>
-        <img src="https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=1600&q=80&auto=format&fit=crop" alt="Beauty products" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        <img src={DEFAULT_PRODUCT_IMAGE_LARGE} alt="Beauty products" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.7), rgba(0,0,0,0.3), transparent)' }} />
         <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', color: 'white', padding: '24px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
@@ -276,7 +270,7 @@ export default function ShopPage() {
               style={{ animationFillMode: 'both' }}
             >
               <div className="aspect-square relative overflow-hidden">
-                <img src={product.image_url || fallbackImages[idx % fallbackImages.length]} alt={product.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                <img src={product.image_url || FALLBACK_PRODUCT_IMAGES[idx % FALLBACK_PRODUCT_IMAGES.length]} alt={product.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 {product.stock_count <= 5 && product.stock_count > 0 && (
                   <span className="absolute top-3 left-3 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase bg-gradient-to-r from-red-500 to-rose-500 text-white shadow-md">
