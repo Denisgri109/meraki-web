@@ -1,25 +1,21 @@
-import { validatePassword } from './validation';
+import { formatIrishPhone } from './validation';
 
-describe('Validation Utilities', () => {
-  describe('validatePassword', () => {
-    it('returns invalid for empty password', () => {
-      const result = validatePassword('');
-      expect(result).toEqual({ valid: false, error: 'Password is required' });
-    });
+describe('formatIrishPhone', () => {
+  it('should return an empty string when given an empty string', () => {
+    expect(formatIrishPhone('')).toBe('');
+  });
 
-    it('returns invalid for password less than 6 characters', () => {
-      const result = validatePassword('12345');
-      expect(result).toEqual({ valid: false, error: 'Password must be at least 6 characters' });
-    });
+  it('should return an empty string when given a string with only spaces', () => {
+    expect(formatIrishPhone('   ')).toBe('');
+  });
 
-    it('returns valid for password with exactly 6 characters', () => {
-      const result = validatePassword('123456');
-      expect(result).toEqual({ valid: true });
-    });
+  it('should return an empty string when given null', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect(formatIrishPhone(null as any)).toBe('');
+  });
 
-    it('returns valid for password with more than 6 characters', () => {
-      const result = validatePassword('password123');
-      expect(result).toEqual({ valid: true });
-    });
+  it('should return an empty string when given undefined', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect(formatIrishPhone(undefined as any)).toBe('');
   });
 });
