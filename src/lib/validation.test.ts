@@ -1,38 +1,39 @@
-import { validatePassword } from './validation';
+import { validateEmail } from './validation';
 
-describe('validatePassword', () => {
-  it('should return valid: false with error when password is empty', () => {
-    expect(validatePassword('')).toEqual({
-      valid: false,
-      error: 'Password is required'
-    });
+describe('validateEmail', () => {
+  it('should return valid for valid email addresses', () => {
+    expect(validateEmail('test@example.com')).toEqual({ valid: true });
+    expect(validateEmail('user.name+tag+sorting@example.com')).toEqual({ valid: true });
+    expect(validateEmail('x@example.com')).toEqual({ valid: true });
+    expect(validateEmail('example-indeed@strange-example.com')).toEqual({ valid: true });
+    expect(validateEmail('example@s.example')).toEqual({ valid: true });
   });
 
-  it('should return valid: false with error when password is less than 6 characters', () => {
-    expect(validatePassword('12345')).toEqual({
-      valid: false,
-      error: 'Password must be at least 6 characters'
-    });
-
-    expect(validatePassword('1')).toEqual({
-      valid: false,
-      error: 'Password must be at least 6 characters'
-    });
+  it('should return error if email is empty, null, or undefined', () => {
+    expect(validateEmail('')).toEqual({ valid: false, error: 'Email is required' });
+    expect(validateEmail('   ')).toEqual({ valid: false, error: 'Email is required' });
+    // @ts-expect-error - testing runtime behaviour with invalid types
+    expect(validateEmail(null)).toEqual({ valid: false, error: 'Email is required' });
+    // @ts-expect-error - testing runtime behaviour with invalid types
+    expect(validateEmail(undefined)).toEqual({ valid: false, error: 'Email is required' });
   });
 
-  it('should return valid: true when password is exactly 6 characters', () => {
-    expect(validatePassword('123456')).toEqual({
-      valid: true
-    });
-  });
+  it('should return error for invalid email addresses', () => {
+    const errorMsg = 'Please enter a valid email address';
 
-  it('should return valid: true when password is more than 6 characters', () => {
-    expect(validatePassword('1234567')).toEqual({
-      valid: true
-    });
-
-    expect(validatePassword('longpassword123')).toEqual({
-      valid: true
-    });
+    // Missing @
+    expect(validateEmail('Abc.example.com')).toEqual({ valid: false, error: errorMsg });
+    // Missing domain part after @
+    expect(validateEmail('A@')).toEqual({ valid: false, error: errorMsg });
+    // Missing domain part before .
+    expect(validateEmail('A@.com')).toEqual({ valid: false, error: errorMsg });
+    // Multiple @
+    expect(validateEmail('A@b@c@example.com')).toEqual({ valid: false, error: errorMsg });
+    // Spaces inside
+    expect(validateEmail('this is not allowed@example.com')).toEqual({ valid: false, error: errorMsg });
+    expect(validateEmail('with space @example.com')).toEqual({ valid: false, error: errorMsg });
+    expect(validateEmail('with@space .com')).toEqual({ valid: false, error: errorMsg });
+    // Missing .
+    expect(validateEmail('admin@mailserver1')).toEqual({ valid: false, error: errorMsg });
   });
 });
