@@ -96,27 +96,48 @@ const headers: HeadersInit = { 'X-CSCAPI-KEY': API_KEY };
 
 /* ─── API Functions ──────────────────────────────────────────── */
 
+/**
+ * Helper to fetch location data and handle common errors safely.
+ * Returns null on error, and T[] on success (which can be empty).
+ */
+async function fetchLocationData<T>(url: string, errorContext: string): Promise<T[] | null> {
+  try {
+    const res = await fetch(url, { headers });
+    if (!res.ok) {
+      console.warn(`[locationApi] Failed to fetch ${errorContext}: status ${res.status}`);
+      return null;
+    }
+    const data: unknown = await res.json();
+
+    // Check for API-level errors using type-safe Record<string, unknown>
+    if (
+      data &&
+      typeof data === 'object' &&
+      'status' in data &&
+      (data as Record<string, unknown>).status === 'error'
+    ) {
+      console.warn(`[locationApi] API error fetching ${errorContext}: ${(data as Record<string, unknown>).message}`);
+      return null;
+    }
+
+    return data as T[];
+  } catch (err) {
+    console.error(`[locationApi] ${errorContext} error:`, err);
+    return null;
+  }
+}
+
 /** Get all countries (cached). */
 export async function getAllCountries(): Promise<Country[]> {
   const cached = cacheGet<Country[]>('countries');
   if (cached) return cached;
-  try {
-    const res = await fetch(`${API_BASE_URL}/countries`, { headers });
-    if (!res.ok) {
-      console.warn(`[locationApi] Failed to fetch countries: status ${res.status}`);
-      return [];
-    }
-    const data: Country[] = await res.json();
-    if (data && 'status' in data && (data as any).status === 'error') {
-      console.warn(`[locationApi] API error fetching countries: ${(data as any).message}`);
-      return [];
-    }
+
+  const data = await fetchLocationData<Country>(`${API_BASE_URL}/countries`, 'countries');
+  if (data !== null) {
     cacheSet('countries', data);
     return data;
-  } catch (err) {
-    console.error('[locationApi] getAllCountries error:', err);
-    return [];
   }
+  return [];
 }
 
 /** Get all cities in a country (cached per countryCode). */
@@ -124,23 +145,13 @@ export async function getCitiesOfCountry(countryCode: string): Promise<City[]> {
   const cacheKey = `cities:${countryCode}`;
   const cached = cacheGet<City[]>(cacheKey);
   if (cached) return cached;
-  try {
-    const res = await fetch(`${API_BASE_URL}/countries/${countryCode}/cities`, { headers });
-    if (!res.ok) {
-      console.warn(`[locationApi] Failed to fetch cities for ${countryCode}: status ${res.status}`);
-      return [];
-    }
-    const data: City[] = await res.json();
-    if (data && 'status' in data && (data as any).status === 'error') {
-      console.warn(`[locationApi] API error fetching cities: ${(data as any).message}`);
-      return [];
-    }
+
+  const data = await fetchLocationData<City>(`${API_BASE_URL}/countries/${countryCode}/cities`, `cities for ${countryCode}`);
+  if (data !== null) {
     cacheSet(cacheKey, data);
     return data;
-  } catch (err) {
-    console.error('[locationApi] getCitiesOfCountry error:', err);
-    return [];
   }
+  return [];
 }
 
 /** Get all states in a country (cached). */
@@ -148,23 +159,13 @@ export async function getStatesOfCountry(countryCode: string): Promise<State[]> 
   const cacheKey = `states:${countryCode}`;
   const cached = cacheGet<State[]>(cacheKey);
   if (cached) return cached;
-  try {
-    const res = await fetch(`${API_BASE_URL}/countries/${countryCode}/states`, { headers });
-    if (!res.ok) {
-      console.warn(`[locationApi] Failed to fetch states for ${countryCode}: status ${res.status}`);
-      return [];
-    }
-    const data: State[] = await res.json();
-    if (data && 'status' in data && (data as any).status === 'error') {
-      console.warn(`[locationApi] API error fetching states: ${(data as any).message}`);
-      return [];
-    }
+
+  const data = await fetchLocationData<State>(`${API_BASE_URL}/countries/${countryCode}/states`, `states for ${countryCode}`);
+  if (data !== null) {
     cacheSet(cacheKey, data);
     return data;
-  } catch (err) {
-    console.error('[locationApi] getStatesOfCountry error:', err);
-    return [];
   }
+  return [];
 }
 
 /** Get all cities in a state (cached). */
@@ -172,23 +173,13 @@ export async function getCitiesOfState(countryCode: string, stateCode: string): 
   const cacheKey = `cities:${countryCode}:${stateCode}`;
   const cached = cacheGet<City[]>(cacheKey);
   if (cached) return cached;
-  try {
-    const res = await fetch(`${API_BASE_URL}/countries/${countryCode}/states/${stateCode}/cities`, { headers });
-    if (!res.ok) {
-      console.warn(`[locationApi] Failed to fetch cities for state ${stateCode}: status ${res.status}`);
-      return [];
-    }
-    const data: City[] = await res.json();
-    if (data && 'status' in data && (data as any).status === 'error') {
-      console.warn(`[locationApi] API error fetching cities of state: ${(data as any).message}`);
-      return [];
-    }
+
+  const data = await fetchLocationData<City>(`${API_BASE_URL}/countries/${countryCode}/states/${stateCode}/cities`, `cities for state ${stateCode}`);
+  if (data !== null) {
     cacheSet(cacheKey, data);
     return data;
-  } catch (err) {
-    console.error('[locationApi] getCitiesOfState error:', err);
-    return [];
   }
+  return [];
 }
 
 /* ─── Client-side search helpers ─────────────────────────────── */
