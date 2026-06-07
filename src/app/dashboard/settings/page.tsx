@@ -217,31 +217,49 @@ export default function SettingsPage() {
     if (validFiles.length === 0) return;
 
     setUploadingPortfolio(true);
-    let successCount = 0;
     try {
+      // 1. Upload files concurrently
       const uploadPromises = validFiles.map(async (file) => {
         const fileExt = file.name.split('.').pop()?.toLowerCase() || 'jpg';
         const fileName = `${profile.id}/${Date.now()}_${crypto.randomUUID()}.${fileExt}`;
-        const { error: uploadError } = await supabase.storage.from('portfolios').upload(fileName, file, { upsert: false });
+
+        const { error: uploadError } = await supabase.storage
+          .from('portfolios')
+          .upload(fileName, file, { upsert: false });
+
         if (uploadError) {
           console.error('Upload error:', uploadError);
           return null;
         }
+
         const { data: urlData } = supabase.storage.from('portfolios').getPublicUrl(fileName);
-        return { master_id: profile.id, image_url: urlData.publicUrl, description: '' };
+        return urlData.publicUrl;
       });
 
       const uploadResults = await Promise.all(uploadPromises);
-      const validInserts = uploadResults.filter((result): result is { master_id: string; image_url: string; description: string } => result !== null);
+      const successfulUrls = uploadResults.filter((url): url is string => url !== null);
 
-      if (validInserts.length > 0) {
-        const { error: dbError } = await supabase.from('portfolios').insert(validInserts);
-        if (dbError) {
-          console.error('DB error:', dbError);
-        } else {
-          successCount = validInserts.length;
-        }
+      if (successfulUrls.length === 0) {
+        throw new Error('All file uploads failed');
       }
+
+      // 2. Bulk insert into database
+      const insertRecords = successfulUrls.map((url) => ({
+        master_id: profile.id,
+        image_url: url,
+        description: '',
+      }));
+
+      const { error: dbError } = await supabase
+        .from('portfolios')
+        .insert(insertRecords);
+
+      if (dbError) {
+        console.error('DB error:', dbError);
+        throw dbError;
+      }
+
+      const successCount = successfulUrls.length;
       if (successCount > 0) {
         showToast(`${successCount} photo${successCount > 1 ? 's' : ''} uploaded`, 'success');
         // Reload
