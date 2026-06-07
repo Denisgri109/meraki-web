@@ -3,47 +3,18 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Search, MapPin, TrendingUp, Heart, Sparkles, ArrowRight, Users } from 'lucide-react';
-import { useToast } from '@/components/Toast';
-import { useRouter } from 'next/navigation';
+import { Search, MapPin, Sparkles } from 'lucide-react';
 import { isMasterWithinRange } from '@/lib/location';
-
-interface Master {
-  id: string;
-  full_name: string | null;
-  avatar_url: string | null;
-  specialties: string | null;
-  city: string | null;
-  country: string | null;
-  state: string | null;
-  state_code: string | null;
-  latitude: number | null;
-  longitude: number | null;
-  bio: string | null;
-}
-
-const trendingTags = ['Balayage', 'Gel Nails', 'Lash Extensions', 'Facial', 'Braids', 'Microblading', 'Keratin', 'Waxing'];
-
-const tagGradients = [
-  'from-pink-400 to-rose-300',
-  'from-violet-400 to-purple-300',
-  'from-blue-400 to-cyan-300',
-  'from-emerald-400 to-teal-300',
-  'from-amber-400 to-orange-300',
-  'from-indigo-400 to-blue-300',
-  'from-rose-400 to-pink-300',
-  'from-teal-400 to-emerald-300',
-];
+import { Master } from './types';
+import { TrendingTags } from './components/TrendingTags';
+import { ProfessionalsGrid } from './components/ProfessionalsGrid';
 
 export default function DiscoverPage() {
   const supabase = createClient();
-  const router = useRouter();
-  const { showToast } = useToast();
   const { profile, user } = useAuth();
   const [search, setSearch] = useState('');
   const [masters, setMasters] = useState<Master[]>([]);
   const [loading, setLoading] = useState(true);
-  const [favorites, setFavorites] = useState<Set<string>>(new Set());
 
   // User location from profile — used for country + state match AND haversine fallback.
   const userCountry = ((profile as Record<string, unknown> | null)?.country as string | null | undefined) ?? null;
@@ -134,136 +105,14 @@ export default function DiscoverPage() {
         />
       </div>
 
-      {/* Trending Tags — Colorful gradient pills */}
-      <div className="mb-10">
-        <div className="flex items-center gap-2 mb-4">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-pink-400 to-violet-400 flex items-center justify-center">
-            <TrendingUp size={14} className="text-white" />
-          </div>
-          <h2 className="text-sm font-bold text-[var(--color-text-primary)] uppercase tracking-wider">Popular</h2>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {trendingTags.map((tag, idx) => (
-            <button
-              key={tag}
-              onClick={() => setSearch(tag)}
-              className={`px-5 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 cursor-pointer hover:scale-105 hover:shadow-md ${
-                search === tag
-                  ? `bg-gradient-to-r ${tagGradients[idx]} text-white shadow-lg`
-                  : 'bg-white text-[var(--color-text-secondary)] border border-[var(--color-border-light)] hover:border-pink-200 hover:text-pink-600'
-              }`}
-            >
-              {tag}
-            </button>
-          ))}
-        </div>
-      </div>
+      <TrendingTags search={search} setSearch={setSearch} />
 
-      {/* Professionals Grid */}
-      <div className="flex items-center gap-2 mb-4">
-        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-400 to-purple-400 flex items-center justify-center">
-          <Users size={14} className="text-white" />
-        </div>
-        <h2 className="text-lg font-bold text-[var(--color-text-primary)]">Beauty Professionals</h2>
-      </div>
-
-      {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className="glass-card p-6">
-              <div className="flex items-center gap-4 mb-4">
-                <div className="w-16 h-16 rounded-2xl shimmer" />
-                <div className="flex-1">
-                  <div className="h-4 shimmer rounded w-2/3 mb-2" />
-                  <div className="h-3 shimmer rounded w-1/2" />
-                </div>
-              </div>
-              <div className="h-3 shimmer rounded w-full" />
-            </div>
-          ))}
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="glass-card p-16 text-center relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-violet-100/50 to-transparent rounded-bl-full" />
-          <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-violet-200 to-purple-200 flex items-center justify-center mx-auto mb-4 animate-float">
-            <Search size={32} className="text-violet-400" />
-          </div>
-          <p className="text-lg font-bold text-[var(--color-text-primary)]">No professionals found</p>
-          <p className="text-sm text-[var(--color-text-muted)] mt-2">
-            {search
-              ? 'Try adjusting your search query'
-              : !userCountry
-                ? 'Set your country in Settings → Profile to discover nearby professionals'
-                : 'No professionals are available in your area yet. Try increasing your search radius in Settings.'}
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filtered.map((master, idx) => (
-            <div
-              key={master.id}
-              onClick={() => router.push(`/dashboard/booking?masterId=${master.id}`)}
-              className={`glass-card p-6 hover:shadow-xl hover:-translate-y-2 transition-all duration-300 cursor-pointer group relative animate-scale-in stagger-${Math.min(idx + 1, 6)}`}
-              style={{ animationFillMode: 'both' }}
-            >
-              {/* Favorite Heart */}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setFavorites((prev) => {
-                    const next = new Set(prev);
-                    if (next.has(master.id)) { next.delete(master.id); showToast('Removed from favorites', 'info'); }
-                    else { next.add(master.id); showToast('Added to favorites ❤️', 'success'); }
-                    return next;
-                  });
-                }}
-                className="absolute top-4 right-4 w-9 h-9 flex items-center justify-center rounded-full bg-white/80 hover:bg-white hover:scale-110 transition-all shadow-sm cursor-pointer"
-              >
-                <Heart size={16} className={favorites.has(master.id) ? 'text-pink-500 fill-pink-500' : 'text-gray-300 hover:text-pink-400'} />
-              </button>
-
-              <div className="flex items-center gap-4 mb-4">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-400 to-pink-400 flex items-center justify-center text-white font-bold text-xl shrink-0 shadow-lg group-hover:scale-105 transition-transform">
-                  {master.avatar_url ? (
-                    <img src={master.avatar_url} alt={master.full_name || ''} className="w-full h-full object-cover rounded-2xl" />
-                  ) : (
-                    master.full_name?.charAt(0) || '?'
-                  )}
-                </div>
-                <div>
-                  <p className="font-bold text-[var(--color-text-primary)] group-hover:text-violet-600 transition-colors">
-                    {master.full_name}
-                  </p>
-                  <p className="text-sm text-[var(--color-text-muted)]">{master.specialties || 'Beauty Professional'}</p>
-                </div>
-              </div>
-
-              {master.bio && (
-                <p className="text-sm text-[var(--color-text-secondary)] line-clamp-2 mb-4">{master.bio}</p>
-              )}
-
-              <div className="flex items-center justify-between pt-3 border-t border-[var(--color-border-light)]">
-                <div className="flex items-center gap-3 text-xs text-[var(--color-text-muted)]">
-                  {master.city && (
-                    <div className="flex items-center gap-1">
-                      <MapPin size={12} className="text-violet-400" />
-                      <span>{master.city}{master.country ? `, ${master.country}` : ''}</span>
-                    </div>
-                  )}
-                  {master.state && (
-                    <span className="px-2 py-0.5 rounded-full bg-pink-50 text-pink-600 font-semibold text-[10px]">
-                      {master.state}
-                    </span>
-                  )}
-                </div>
-                <span className="text-xs font-bold text-violet-500 opacity-0 group-hover:opacity-100 translate-x-2 group-hover:translate-x-0 transition-all flex items-center gap-1">
-                  View <ArrowRight size={12} />
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      <ProfessionalsGrid
+        loading={loading}
+        filtered={filtered}
+        search={search}
+        userCountry={userCountry}
+      />
     </div>
   );
 }
