@@ -9,6 +9,7 @@ import { useToast } from '@/components/Toast';
 import {
   ArrowLeft, Camera, Radio, Loader2, X, Sparkles, Gift, Star, RefreshCw, ScanLine,
 } from 'lucide-react';
+import { parseScanCode, shouldDebounceScan } from '@/lib/loyalty/scan';
 
 // html5-qrcode is browser-only; load lazily
 type Html5QrcodeModule = typeof import('html5-qrcode');
@@ -208,30 +209,24 @@ export default function LoyaltyScanPage() {
       const text = raw.trim();
       if (!text) return;
 
-      // Debounce duplicate decodes (camera fires many frames)
       const now = Date.now();
-      if (lastDecodedRef.current && lastDecodedRef.current.text === text && now - lastDecodedRef.current.at < 3000) {
+
+      if (shouldDebounceScan(text, now, lastDecodedRef.current)) {
         return;
       }
       lastDecodedRef.current = { text, at: now };
 
-      if (text.startsWith('stamp:')) {
-        const masterId = text.slice('stamp:'.length).trim();
-        if (!isUuid(masterId)) {
-          showToast('Invalid stamp QR', 'error');
-          return;
-        }
-        await handleStampScan(masterId);
-      } else if (text.startsWith('qr:')) {
-        const code = text.slice('qr:'.length).trim();
-        if (!code) {
-          showToast('Invalid QR code', 'error');
-          return;
-        }
-        await handlePointsScan(code);
-      } else {
-        // Allow raw codes (legacy / NFC plain text) — try as points QR first
-        await handlePointsScan(text);
+      const result = parseScanCode(text);
+      if (result.type === 'invalid') {
+        const isStamp = text.startsWith('stamp:');
+        showToast(isStamp ? 'Invalid stamp QR' : 'Invalid QR code', 'error');
+        return;
+      }
+
+      if (result.type === 'stamp') {
+        await handleStampScan(result.value);
+      } else if (result.type === 'points') {
+        await handlePointsScan(result.value);
       }
     },
     [handleStampScan, handlePointsScan, showToast],
@@ -596,9 +591,6 @@ export default function LoyaltyScanPage() {
   );
 }
 
-function isUuid(s: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
-}
 
 function rewardLabel(card: LoyaltyCard) {
   switch (card.reward_type) {
