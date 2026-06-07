@@ -314,7 +314,7 @@ export default function TestPanelPage() {
           action: act.action,
           label: act.label,
           navigateTo: act.navigateTo,
-          timestamp: new Date().getTime(),
+          timestamp: Date.now(),
         });
         router.push(act.navigateTo);
       }

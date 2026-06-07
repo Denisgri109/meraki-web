@@ -15,32 +15,6 @@ export const TEST_EMAILS = TEST_ACCOUNTS.map((a) => a.email);
 export const emailToId = (email: string): string | undefined =>
   TEST_ACCOUNTS.find((a) => a.email.toLowerCase() === email.toLowerCase())?.id;
 
-// ─── Per-account password cache ─────────────────────────────────────────
-const PASSWORD_PREFIX = 'meraki:test-panel:password:';
-const LEGACY_PW_KEY = 'meraki:test-panel:password';
-
-export const readSavedPassword = (email: string): string | null => {
-  try { return localStorage.getItem(`${PASSWORD_PREFIX}${email.toLowerCase()}`); } catch { return null; }
-};
-export const saveSavedPassword = (email: string, pw: string) => {
-  try { localStorage.setItem(`${PASSWORD_PREFIX}${email.toLowerCase()}`, pw); } catch { /* */ }
-};
-export const clearSavedPassword = (email: string) => {
-  try { localStorage.removeItem(`${PASSWORD_PREFIX}${email.toLowerCase()}`); } catch { /* */ }
-};
-export const clearAllSavedPasswords = () => {
-  try {
-    TEST_ACCOUNTS.forEach((a) => localStorage.removeItem(`${PASSWORD_PREFIX}${a.email.toLowerCase()}`));
-    localStorage.removeItem(LEGACY_PW_KEY);
-  } catch { /* */ }
-};
-export const readLegacyPassword = (): string | null => {
-  try { return localStorage.getItem(LEGACY_PW_KEY); } catch { return null; }
-};
-export const clearLegacyPassword = () => {
-  try { localStorage.removeItem(LEGACY_PW_KEY); } catch { /* */ }
-};
-
 // ─── Seed settings ──────────────────────────────────────────────────────
 export interface SeedSettings {
   clientEmail: string;

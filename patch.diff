@@ -1,0 +1,74 @@
+--- src/app/dashboard/test-panel/page.tsx
++++ src/app/dashboard/test-panel/page.tsx
+@@ -15,8 +15,6 @@
+   writeSettings,
+   readNavigateEnabled,
+   writeNavigateEnabled,
+-  readSavedPassword, saveSavedPassword, clearSavedPassword, clearAllSavedPasswords,
+-  readLegacyPassword, clearLegacyPassword,
+   setHighlightTarget
+ } from '@/lib/test-panel';
+ import { createClient } from '@/lib/supabase/client';
+@@ -207,26 +205,19 @@
+
+   const handleAccountSwitch = async (targetEmail: string, overridePw?: string) => {
+     if (targetEmail === userEmail) return;
+-    const perAccount = readSavedPassword(targetEmail);
+-    const legacy = readLegacyPassword();
+-    const pw = overridePw ?? perAccount ?? legacy ?? '';
+
+-    if (!pw) {
++    if (!overridePw) {
+       setPassword('');
+       setPendingAccount(targetEmail);
+       setShowPasswordPrompt(true);
+       return;
+     }
+
+     setSwitching(true);
+     setSwitchError(null);
+     try {
+-      const errorMessage = await performSignIn(targetEmail, pw);
++      const errorMessage = await performSignIn(targetEmail, overridePw);
+       if (errorMessage) {
+         const isInvalidCreds = /invalid.*credentials|invalid_grant|invalid login/i.test(errorMessage);
+         if (isInvalidCreds) {
+-          clearSavedPassword(targetEmail);
+-          clearLegacyPassword();
+           setPassword('');
+           setPendingAccount(targetEmail);
+           setSwitchError(`Saved password wrong for ${targetEmail}. Enter the correct one.`);
+@@ -238,7 +229,6 @@
+         setSwitching(false);
+         return;
+       }
+-      if (perAccount !== pw) saveSavedPassword(targetEmail, pw);
+       setSwitching(false);
+       window.location.assign('/dashboard/test-panel');
+     } catch (err) {
+@@ -254,7 +244,6 @@
+       setPendingAccount(null);
+       return;
+     }
+-    saveSavedPassword(pendingAccount, pw);
+     setShowPasswordPrompt(false);
+     const target = pendingAccount;
+     setPendingAccount(null);
+@@ -604,9 +593,6 @@
+       {/* ─── Footer ───────────────────────────────────────────────── */}
+       <div className="flex items-center justify-between text-[10px] text-gray-400 px-1">
+         <span>Test accounts only · Client: <strong>{settings.clientEmail}</strong> · Master: <strong>{settings.masterEmail}</strong></span>
+-        <button onClick={() => { clearAllSavedPasswords(); }} className="text-red-400 hover:text-red-600 cursor-pointer">
+-          Clear saved passwords
+-        </button>
+       </div>
+
+       {/* ─── Password Prompt Modal ────────────────────────────────── */}
+@@ -617,7 +603,6 @@
+             <h3 className="text-lg font-bold text-gray-900 mb-2">Enter Test Password</h3>
+             <p className="text-sm text-gray-500 mb-4">
+               Password for {pendingAccount ? <code className="px-1 py-0.5 bg-gray-100 rounded">{pendingAccount}</code> : 'this account'}.
+-              Saved locally for this account only.
+             </p>
+             <input
+               type="password"
