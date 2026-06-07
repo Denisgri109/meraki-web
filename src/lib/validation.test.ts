@@ -1,33 +1,31 @@
 import { validateFullName } from './validation';
 
 describe('validateFullName', () => {
-  it('returns false when name is empty', () => {
-    const result = validateFullName('');
-    expect(result).toEqual({ valid: false, error: 'Full name is required' });
+  it('should return valid: false for an empty string', () => {
+    expect(validateFullName('')).toEqual({ valid: false, error: 'Full name is required' });
   });
 
-  it('returns false when name contains only whitespace', () => {
-    const result = validateFullName('   ');
-    expect(result).toEqual({ valid: false, error: 'Full name is required' });
+  it('should return valid: false for a whitespace string', () => {
+    expect(validateFullName('   ')).toEqual({ valid: false, error: 'Full name is required' });
   });
 
-  it('returns false when name is less than 2 characters after trimming', () => {
-    const result = validateFullName(' A ');
-    expect(result).toEqual({ valid: false, error: 'Name must be at least 2 characters' });
+  it('should return valid: false for a string with length less than 2', () => {
+    expect(validateFullName('a')).toEqual({ valid: false, error: 'Name must be at least 2 characters' });
   });
 
-  it('returns false when name is exactly 1 character', () => {
-    const result = validateFullName('A');
-    expect(result).toEqual({ valid: false, error: 'Name must be at least 2 characters' });
+  it('should return valid: false for a string with length less than 2 after trimming', () => {
+    expect(validateFullName(' a ')).toEqual({ valid: false, error: 'Name must be at least 2 characters' });
   });
 
-  it('returns true when name is exactly 2 characters', () => {
-    const result = validateFullName('Bo');
-    expect(result).toEqual({ valid: true });
+  it('should return valid: true for a valid full name', () => {
+    expect(validateFullName('John Doe')).toEqual({ valid: true });
   });
 
-  it('returns true when name is valid', () => {
-    const result = validateFullName('John Doe');
-    expect(result).toEqual({ valid: true });
+  it('should return valid: true for a valid short name', () => {
+    expect(validateFullName('Bo')).toEqual({ valid: true });
+  });
+
+  it('should return valid: true for a valid name with extra whitespace', () => {
+    expect(validateFullName('  John Doe  ')).toEqual({ valid: true });
   });
 });
