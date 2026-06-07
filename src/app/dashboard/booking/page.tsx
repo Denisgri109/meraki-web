@@ -75,27 +75,7 @@ function CheckoutForm({ user, profile, selectedService, selectedMaster, selected
 
   const usingSavedCard = selectedPm !== 'new';
 
-  const processPayment = async ({
-    profile,
-    usingSavedCard,
-    selectedPm,
-    elements,
-    stripe,
-    supabase,
-    selectedService,
-    bookingMasterId,
-    bookingHostName,
-  }: {
-    profile: any;
-    usingSavedCard: boolean;
-    selectedPm: string;
-    elements: any;
-    stripe: any;
-    supabase: any;
-    selectedService: any;
-    bookingMasterId: string;
-    bookingHostName: string;
-  }) => {
+  const processStripePayment = async (bookingMasterId: string, bookingHostName: string) => {
     let paymentMethodId: string;
     let setupIntentId: string | null = null;
     let customerId: string | undefined = profile?.stripe_customer_id || undefined;
@@ -111,7 +91,7 @@ function CheckoutForm({ user, profile, selectedService, selectedMaster, selected
       });
       if (setupError) throw setupError;
 
-      const { setupIntent, error: confirmSetupError } = await stripe.confirmCardSetup(
+      const { setupIntent, error: confirmSetupError } = await stripe!.confirmCardSetup(
         setupIntentData.clientSecret,
         { payment_method: { card: cardElement } }
       );
@@ -122,7 +102,7 @@ function CheckoutForm({ user, profile, selectedService, selectedMaster, selected
       customerId = setupIntentData.customerId;
     }
 
-    const amountToPay = Math.round(selectedService.base_price * 100);
+    const amountToPay = Math.round(selectedService!.base_price * 100);
 
     const { data: paymentIntentData, error: piError } = await supabase.functions.invoke('create-payment-intent', {
       body: {
@@ -137,13 +117,13 @@ function CheckoutForm({ user, profile, selectedService, selectedMaster, selected
     });
     if (piError) throw piError;
 
-    const { error: confirmPaymentError } = await stripe.confirmCardPayment(
+    const { error: confirmPaymentError } = await stripe!.confirmCardPayment(
       paymentIntentData.clientSecret,
       usingSavedCard ? { payment_method: paymentMethodId } : undefined
     );
     if (confirmPaymentError) throw confirmPaymentError;
 
-    return { setupIntentId, paymentIntentId: paymentIntentData.paymentIntentId };
+    return { setupIntentId, paymentIntentData };
   };
 
   const handleBook = async () => {
@@ -166,25 +146,15 @@ function CheckoutForm({ user, profile, selectedService, selectedMaster, selected
     }
     setSubmitting(true);
     try {
-      const { setupIntentId, paymentIntentId } = await processPayment({
-        profile,
-        usingSavedCard,
-        selectedPm,
-        elements,
-        stripe,
-        supabase,
-        selectedService,
-        bookingMasterId,
-        bookingHostName,
-      });
+      const { setupIntentId, paymentIntentData } = await processStripePayment(bookingMasterId, bookingHostName);
 
       const { error: bookError } = isPilates && selectedPilatesSession
         ? await supabase.rpc('book_pilates_session', {
           p_session_id: selectedPilatesSession.id,
           p_stripe_setup_intent_id: setupIntentId ?? undefined,
-          p_stripe_payment_intent_id: paymentIntentId,
+          p_stripe_payment_intent_id: paymentIntentData.paymentIntentId,
           p_deposit_amount: selectedService.base_price,
-          p_deposit_payment_intent_id: paymentIntentId,
+          p_deposit_payment_intent_id: paymentIntentData.paymentIntentId,
         })
         : await supabase.rpc(
           'book_appointment_with_confirmation',
@@ -193,9 +163,9 @@ function CheckoutForm({ user, profile, selectedService, selectedMaster, selected
               p_service_id: selectedService.id,
               p_start_time: appointmentStartDate!.toISOString(),
               p_stripe_setup_intent_id: setupIntentId ?? undefined,
-              p_stripe_payment_intent_id: paymentIntentId,
+              p_stripe_payment_intent_id: paymentIntentData.paymentIntentId,
               p_deposit_amount: selectedService.base_price,
-              p_deposit_payment_intent_id: paymentIntentId,
+              p_deposit_payment_intent_id: paymentIntentData.paymentIntentId,
           }
         );
       if (bookError) throw bookError;
