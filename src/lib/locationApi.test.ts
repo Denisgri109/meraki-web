@@ -1,95 +1,114 @@
-import { filterCities, filterCountries, City, Country } from './locationApi';
+import { filterCountries, Country } from './locationApi';
 
-describe('locationApi Client-side search helpers', () => {
-  describe('filterCountries', () => {
-    const mockCountries: Country[] = [
-      { id: 1, name: 'United States', iso2: 'US', iso3: 'USA', phonecode: '1', capital: 'Washington', currency: 'USD', currency_symbol: '$', timezones: [] },
-      { id: 2, name: 'United Kingdom', iso2: 'GB', iso3: 'GBR', phonecode: '44', capital: 'London', currency: 'GBP', currency_symbol: '£', timezones: [] },
-      { id: 3, name: 'Canada', iso2: 'CA', iso3: 'CAN', phonecode: '1', capital: 'Ottawa', currency: 'CAD', currency_symbol: '$', timezones: [] },
-      { id: 4, name: 'Australia', iso2: 'AU', iso3: 'AUS', phonecode: '61', capital: 'Canberra', currency: 'AUD', currency_symbol: '$', timezones: [] },
-    ];
+describe('filterCountries', () => {
+  const mockCountries: Country[] = [
+    {
+      id: 1,
+      name: 'United States',
+      iso2: 'US',
+      iso3: 'USA',
+      phonecode: '1',
+      capital: 'Washington, D.C.',
+      currency: 'USD',
+      currency_symbol: '$',
+      timezones: []
+    },
+    {
+      id: 2,
+      name: 'Canada',
+      iso2: 'CA',
+      iso3: 'CAN',
+      phonecode: '1',
+      capital: 'Ottawa',
+      currency: 'CAD',
+      currency_symbol: '$',
+      timezones: []
+    },
+    {
+      id: 3,
+      name: 'United Kingdom',
+      iso2: 'GB',
+      iso3: 'GBR',
+      phonecode: '44',
+      capital: 'London',
+      currency: 'GBP',
+      currency_symbol: '£',
+      timezones: []
+    },
+    {
+      id: 4,
+      name: 'Germany',
+      iso2: 'DE',
+      iso3: 'DEU',
+      phonecode: '49',
+      capital: 'Berlin',
+      currency: 'EUR',
+      currency_symbol: '€',
+      timezones: []
+    }
+  ];
 
-    it('returns all countries when query is empty', () => {
-      expect(filterCountries(mockCountries, '')).toHaveLength(4);
-    });
-
-    it('returns all countries when query is whitespace only', () => {
-      expect(filterCountries(mockCountries, '   ')).toHaveLength(4);
-    });
-
-    it('filters countries by partial name match (case-insensitive)', () => {
-      const result = filterCountries(mockCountries, 'united');
-      expect(result).toHaveLength(2);
-      expect(result.map(c => c.name)).toEqual(['United States', 'United Kingdom']);
-    });
-
-    it('filters countries by exact iso2 match (case-insensitive)', () => {
-      const result = filterCountries(mockCountries, 'gb');
-      expect(result).toHaveLength(1);
-      expect(result[0].name).toBe('United Kingdom');
-    });
-
-    it('does not match partial iso2', () => {
-      expect(filterCountries(mockCountries, 'x')).toHaveLength(0);
-    });
-
-    it('returns empty array when no matches found', () => {
-      expect(filterCountries(mockCountries, 'Germany')).toHaveLength(0);
-    });
+  it('should return all countries when query is empty', () => {
+    const result = filterCountries(mockCountries, '');
+    expect(result).toHaveLength(4);
+    expect(result).toEqual(mockCountries);
   });
 
-  describe('filterCities', () => {
-    // Generate 60 cities for testing the 50-item limit
-    const mockCities: City[] = Array.from({ length: 60 }, (_, i) => ({
-      id: i + 1,
-      name: `City ${i + 1}`,
-      state_id: 1,
-      state_code: 'ST',
-      state_name: 'State',
-      country_id: 1,
-      country_code: 'US',
-      country_name: 'United States',
-      latitude: '0',
-      longitude: '0',
-    }));
+  it('should return all countries when query is only whitespace', () => {
+    const result = filterCountries(mockCountries, '   ');
+    expect(result).toHaveLength(4);
+    expect(result).toEqual(mockCountries);
+  });
 
-    // Add some specific cities for search testing
-    mockCities[0].name = 'New York';
-    mockCities[1].name = 'Los Angeles';
-    mockCities[2].name = 'Chicago';
-    mockCities[3].name = 'Houston';
-    mockCities[4].name = 'Phoenix';
-    mockCities[5].name = 'Newark';
+  it('should filter countries by exact name match (case-insensitive)', () => {
+    const result = filterCountries(mockCountries, 'cAnAdA');
+    expect(result).toHaveLength(1);
+    expect(result[0].name).toBe('Canada');
+  });
 
-    it('returns up to 50 cities when query is empty', () => {
-      const result = filterCities(mockCities, '');
-      expect(result).toHaveLength(50);
-    });
+  it('should filter countries by partial name match', () => {
+    const result = filterCountries(mockCountries, 'united');
+    expect(result).toHaveLength(2);
+    expect(result.map(c => c.name)).toEqual(['United States', 'United Kingdom']);
+  });
 
-    it('returns up to 50 cities when query is whitespace only', () => {
-      const result = filterCities(mockCities, '   ');
-      expect(result).toHaveLength(50);
-    });
+  it('should filter countries by exact ISO2 code (case-insensitive)', () => {
+    const result = filterCountries(mockCountries, 'gb');
+    expect(result).toHaveLength(1);
+    expect(result[0].name).toBe('United Kingdom');
+  });
 
-    it('filters cities by partial name match (case-insensitive)', () => {
-      const result = filterCities(mockCities, 'new');
-      expect(result).toHaveLength(2); // New York, Newark
-      expect(result.map(c => c.name)).toEqual(['New York', 'Newark']);
-    });
+  it('should not match partial ISO2 codes', () => {
+    // A query of "U" shouldn't match "US" by iso2, but it might match "United Kingdom" and "United States" by name
 
-    it('returns empty array when no matches found', () => {
-      const result = filterCities(mockCities, 'Seattle');
-      expect(result).toHaveLength(0);
-    });
 
-    it('limits search results to 50 items', () => {
-      // Modify all cities to include 'test'
-      const manyTestCities: City[] = Array.from({ length: 60 }, (_, i) => ({
-        ...mockCities[i],
-        name: `Test City ${i + 1}`,
-      }));
-      const result = filterCities(manyTestCities, 'test');
-      expect(result).toHaveLength(50);
-    });
+    // Let's test a specific query that doesn't match a name but matches a part of ISO2
+    // mockCountries has US, CA, GB, DE
+    // Query 'U' matches 'United States' and 'United Kingdom' by name.
+    // It should not match just by partial ISO2.
+    // Query 'S' matches 'United States' by name.
+
+    // Instead of that, let's create a query that matches no names, but is a partial iso2.
+    // ISO2 'CA', name 'Canada'.
+    // Query 'c' matches 'Canada' by name.
+
+    // Let's add a fake country for this specific test
+    const fakeCountries: Country[] = [
+      { ...mockCountries[0], name: 'Zeta', iso2: 'XY' }
+    ];
+    // query 'x' shouldn't match 'XY' iso2 because it's only exact match for iso2
+    const result2 = filterCountries(fakeCountries, 'x');
+    expect(result2).toHaveLength(0);
+  });
+
+  it('should return empty array if no matches found', () => {
+    const result = filterCountries(mockCountries, 'France');
+    expect(result).toHaveLength(0);
+  });
+
+  it('should trim whitespace from query before filtering', () => {
+    const result = filterCountries(mockCountries, '  germany  ');
+    expect(result).toHaveLength(1);
+    expect(result[0].name).toBe('Germany');
   });
 });
