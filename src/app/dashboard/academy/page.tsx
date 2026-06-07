@@ -492,52 +492,65 @@ function ClientAcademyView() {
         .eq('student_id', user.id)
         .order('enrolled_at', { ascending: false });
 
-      const enriched: (Enrollment & { course: Course })[] = [];
-      const enrollmentsData = (data || []) as Record<string, unknown>[];
-      const courseIds = enrollmentsData.map(r => r.course?.id).filter(Boolean);
+      const enrollments = (data || []) as any[];
+      const courseIds = enrollments.map((r) => r.course?.id).filter(Boolean);
 
+      // Pre-fetch all lessons for these courses
+      let lessonsData: any[] = [];
       if (courseIds.length > 0) {
-        const [lessonsRes, progressRes] = await Promise.all([
-          supabase
-            .from('lessons')
-            .select('id, course_id')
-            .in('course_id', courseIds),
-          supabase
-            .from('lesson_progress')
-            .select('lesson_id')
-            .eq('user_id', user.id)
-            .not('completed_at', 'is', null)
-        ]);
+        const { data: lessonsRes } = await supabase
+          .from('lessons')
+          .select('id, course_id')
+          .in('course_id', courseIds);
+        lessonsData = lessonsRes || [];
+      }
 
-        const lessonsData = lessonsRes.data || [];
-        const completedLessonsData = progressRes.data || [];
+      const lessonsByCourse = lessonsData.reduce((acc, lesson) => {
+        acc[lesson.course_id] = (acc[lesson.course_id] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
 
-        const validLessonIds = new Set(lessonsData.map(l => l.id));
-        const completedSet = new Set(completedLessonsData.map(p => p.lesson_id).filter(id => validLessonIds.has(id)));
+      // Map lesson IDs back to course IDs for progress matching
+      const lessonToCourseMap = lessonsData.reduce((acc, lesson) => {
+        acc[lesson.id] = lesson.course_id;
+        return acc;
+      }, {} as Record<string, string>);
 
-        const courseLessonCount: Record<string, number> = {};
-        const courseCompletedCount: Record<string, number> = {};
+      const lessonIds = Object.keys(lessonToCourseMap);
 
-        for (const lesson of lessonsData) {
-          const cid = lesson.course_id;
-          courseLessonCount[cid] = (courseLessonCount[cid] || 0) + 1;
-          if (completedSet.has(lesson.id)) {
-            courseCompletedCount[cid] = (courseCompletedCount[cid] || 0) + 1;
-          }
+      // Pre-fetch all completed progress for these lessons
+      let progressData: any[] = [];
+      if (lessonIds.length > 0) {
+        const { data: progressRes } = await supabase
+          .from('lesson_progress')
+          .select('lesson_id')
+          .eq('user_id', user.id)
+          .not('completed_at', 'is', null)
+          .in('lesson_id', lessonIds);
+        progressData = progressRes || [];
+      }
+
+      const completedByCourse = progressData.reduce((acc, progress) => {
+        const courseId = lessonToCourseMap[progress.lesson_id];
+        if (courseId) {
+          acc[courseId] = (acc[courseId] || 0) + 1;
         }
+        return acc;
+      }, {} as Record<string, number>);
 
-        for (const row of enrollmentsData) {
-          if (!row.course) continue;
-          const totalLessons = courseLessonCount[row.course.id] || 0;
-          const completed = courseCompletedCount[row.course.id] || 0;
-          const progress = totalLessons > 0 ? Math.round((completed / totalLessons) * 100) : 0;
+      const enriched: (Enrollment & { course: Course })[] = [];
+      for (const row of enrollments) {
+        if (!row.course) continue;
 
-          enriched.push({
-            ...row,
-            progress,
-            course: { ...row.course, lesson_count: totalLessons },
-          });
-        }
+        const totalLessons = lessonsByCourse[row.course.id] || 0;
+        const completed = completedByCourse[row.course.id] || 0;
+        const progress = totalLessons > 0 ? Math.round((completed / totalLessons) * 100) : 0;
+
+        enriched.push({
+          ...row,
+          progress,
+          course: { ...row.course, lesson_count: totalLessons },
+        });
       }
       setMyEnrollments(enriched);
     } catch (err) {
@@ -548,17 +561,8 @@ function ClientAcademyView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
-  useEffect(() => {
-    (async () => {
-      await fetchBrowse();
-    })();
-  }, [fetchBrowse]);
-
-  useEffect(() => {
-    (async () => {
-      if (tab === 'my-courses') await fetchMyCourses();
-    })();
-  }, [tab, fetchMyCourses]);
+  useEffect(() => { fetchBrowse(); }, [fetchBrowse]);
+  useEffect(() => { if (tab === 'my-courses') fetchMyCourses(); }, [tab, fetchMyCourses]);
 
   const filtered = courses.filter((c) => !search || c.title.toLowerCase().includes(search.toLowerCase()));
 
