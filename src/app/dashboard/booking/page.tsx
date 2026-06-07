@@ -75,7 +75,27 @@ function CheckoutForm({ user, profile, selectedService, selectedMaster, selected
 
   const usingSavedCard = selectedPm !== 'new';
 
-  const processPayment = async (amountToPay: number, bookingMasterId: string, bookingHostName: string) => {
+  const processPayment = async ({
+    profile,
+    usingSavedCard,
+    selectedPm,
+    elements,
+    stripe,
+    supabase,
+    selectedService,
+    bookingMasterId,
+    bookingHostName,
+  }: {
+    profile: any;
+    usingSavedCard: boolean;
+    selectedPm: string;
+    elements: any;
+    stripe: any;
+    supabase: any;
+    selectedService: any;
+    bookingMasterId: string;
+    bookingHostName: string;
+  }) => {
     let paymentMethodId: string;
     let setupIntentId: string | null = null;
     let customerId: string | undefined = profile?.stripe_customer_id || undefined;
@@ -91,7 +111,7 @@ function CheckoutForm({ user, profile, selectedService, selectedMaster, selected
       });
       if (setupError) throw setupError;
 
-      const { setupIntent, error: confirmSetupError } = await stripe!.confirmCardSetup(
+      const { setupIntent, error: confirmSetupError } = await stripe.confirmCardSetup(
         setupIntentData.clientSecret,
         { payment_method: { card: cardElement } }
       );
@@ -101,6 +121,8 @@ function CheckoutForm({ user, profile, selectedService, selectedMaster, selected
       setupIntentId = setupIntentData.setupIntentId;
       customerId = setupIntentData.customerId;
     }
+
+    const amountToPay = Math.round(selectedService.base_price * 100);
 
     const { data: paymentIntentData, error: piError } = await supabase.functions.invoke('create-payment-intent', {
       body: {
@@ -115,16 +137,13 @@ function CheckoutForm({ user, profile, selectedService, selectedMaster, selected
     });
     if (piError) throw piError;
 
-    const { error: confirmPaymentError } = await stripe!.confirmCardPayment(
+    const { error: confirmPaymentError } = await stripe.confirmCardPayment(
       paymentIntentData.clientSecret,
       usingSavedCard ? { payment_method: paymentMethodId } : undefined
     );
     if (confirmPaymentError) throw confirmPaymentError;
 
-    return {
-      setupIntentId,
-      paymentIntentId: paymentIntentData.paymentIntentId,
-    };
+    return { setupIntentId, paymentIntentId: paymentIntentData.paymentIntentId };
   };
 
   const handleBook = async () => {
@@ -147,13 +166,17 @@ function CheckoutForm({ user, profile, selectedService, selectedMaster, selected
     }
     setSubmitting(true);
     try {
-      const amountToPay = Math.round(selectedService.base_price * 100);
-
-      const { setupIntentId, paymentIntentId } = await processPayment(
-        amountToPay,
+      const { setupIntentId, paymentIntentId } = await processPayment({
+        profile,
+        usingSavedCard,
+        selectedPm,
+        elements,
+        stripe,
+        supabase,
+        selectedService,
         bookingMasterId,
-        bookingHostName
-      );
+        bookingHostName,
+      });
 
       const { error: bookError } = isPilates && selectedPilatesSession
         ? await supabase.rpc('book_pilates_session', {
