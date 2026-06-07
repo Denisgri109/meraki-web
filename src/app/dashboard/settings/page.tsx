@@ -221,7 +221,7 @@ export default function SettingsPage() {
     try {
       for (const file of validFiles) {
         const fileExt = file.name.split('.').pop()?.toLowerCase() || 'jpg';
-        const fileName = `${profile.id}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${fileExt}`;
+        const fileName = `${profile.id}/${crypto.randomUUID()}.${fileExt}`;
 
         const { error: uploadError } = await supabase.storage
           .from('portfolios')
