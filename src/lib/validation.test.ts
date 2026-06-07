@@ -1,31 +1,20 @@
-import { cleanPhoneNumber } from './validation';
+import { validatePassword } from './validation';
 
-describe('cleanPhoneNumber', () => {
-  it('should return the same string if it only contains digits', () => {
-    expect(cleanPhoneNumber('1234567890')).toBe('1234567890');
-    expect(cleanPhoneNumber('0871234567')).toBe('0871234567');
+describe('validatePassword', () => {
+  it('returns invalid when password is empty', () => {
+    expect(validatePassword('')).toEqual({ valid: false, error: 'Password is required' });
   });
 
-  it('should remove spaces, dashes, and parentheses', () => {
-    expect(cleanPhoneNumber('(087) 123-4567')).toBe('0871234567');
-    expect(cleanPhoneNumber('087 123 4567')).toBe('0871234567');
-    expect(cleanPhoneNumber('087-123-4567')).toBe('0871234567');
+  it('returns invalid when password length is less than 6', () => {
+    expect(validatePassword('12345')).toEqual({ valid: false, error: 'Password must be at least 6 characters' });
   });
 
-  it('should remove the + prefix', () => {
-    expect(cleanPhoneNumber('+353871234567')).toBe('353871234567');
-    expect(cleanPhoneNumber('+1 (555) 123-4567')).toBe('15551234567');
+  it('returns valid when password length is exactly 6', () => {
+    expect(validatePassword('123456')).toEqual({ valid: true });
   });
 
-  it('should remove letters and special characters', () => {
-    expect(cleanPhoneNumber('Phone: 087-123-4567!')).toBe('0871234567');
-    expect(cleanPhoneNumber('ext 123')).toBe('123');
-    expect(cleanPhoneNumber('abc123def')).toBe('123');
-    expect(cleanPhoneNumber('!@#$%^&*()123')).toBe('123');
-  });
-
-  it('should handle empty strings', () => {
-    expect(cleanPhoneNumber('')).toBe('');
-    expect(cleanPhoneNumber('   ')).toBe('');
+  it('returns valid when password length is greater than 6', () => {
+    expect(validatePassword('1234567')).toEqual({ valid: true });
+    expect(validatePassword('a_very_long_and_secure_password_123')).toEqual({ valid: true });
   });
 });
