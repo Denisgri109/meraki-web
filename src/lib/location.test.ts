@@ -1,61 +1,76 @@
-import { haversineDistanceKm } from './location';
+import { isMasterWithinRange } from './location';
 
-describe('haversineDistanceKm', () => {
-  it('should return 0 when the two points are identical', () => {
-    const lat = 40.7128;
-    const lon = -74.0060;
-    expect(haversineDistanceKm(lat, lon, lat, lon)).toBe(0);
+describe('isMasterWithinRange', () => {
+  describe('Country and State Matches', () => {
+    it('returns true when user and master are in the same country and state name', () => {
+      const user = { country: 'IE', state: 'Dublin' };
+      const master = { country: 'ie', state: 'dublin' };
+      expect(isMasterWithinRange(user, master)).toBe(true);
+    });
+
+    it('returns true when user and master are in the same country and state code', () => {
+      const user = { country: 'US', state_code: 'CA' };
+      const master = { country: 'us', state_code: 'ca' };
+      expect(isMasterWithinRange(user, master)).toBe(true);
+    });
+
+    it('returns true when user has no state info (only country matters)', () => {
+      const user = { country: 'IE' };
+      const master = { country: 'IE', state: 'Cork' };
+      expect(isMasterWithinRange(user, master)).toBe(true);
+    });
+
+    it('returns false when user and master are in different countries', () => {
+      const user = { country: 'IE', state: 'Dublin' };
+      const master = { country: 'UK', state: 'London' };
+      expect(isMasterWithinRange(user, master)).toBe(false);
+    });
+
+    it('returns false when country is missing', () => {
+      const user1 = { country: null, state: 'Dublin' };
+      const master1 = { country: 'IE', state: 'Dublin' };
+      expect(isMasterWithinRange(user1, master1)).toBe(false);
+
+      const user2 = { country: 'IE', state: 'Dublin' };
+      const master2 = { country: null, state: 'Dublin' };
+      expect(isMasterWithinRange(user2, master2)).toBe(false);
+    });
   });
 
-  it('should calculate the distance between New York and Los Angeles correctly', () => {
-    // NY: 40.7128° N, 74.0060° W
-    const nyLat = 40.7128;
-    const nyLon = -74.0060;
-    // LA: 34.0522° N, 118.2437° W
-    const laLat = 34.0522;
-    const laLon = -118.2437;
+  describe('Haversine Distance Fallback', () => {
+    // Dublin: ~53.3498, -6.2603
+    // Kildare: ~53.1583, -6.9095
+    // Distance is roughly 48km
 
-    const distance = haversineDistanceKm(nyLat, nyLon, laLat, laLon);
+    const dublinCoords = { latitude: 53.3498, longitude: -6.2603 };
+    const kildareCoords = { latitude: 53.1583, longitude: -6.9095 };
+    // Galway: ~53.2707, -9.0568
+    // Distance from Dublin is roughly 185km
+    const galwayCoords = { latitude: 53.2707, longitude: -9.0568 };
 
-    // Distance should be around 3935 km. Allow a small margin of error (e.g., 20km)
-    // due to Earth's shape approximation.
-    expect(distance).toBeGreaterThan(3915);
-    expect(distance).toBeLessThan(3955);
-  });
+    it('returns true when different states, same country, within default 100km radius', () => {
+      const user = { country: 'IE', state: 'Dublin', ...dublinCoords };
+      const master = { country: 'IE', state: 'Kildare', ...kildareCoords };
+      expect(isMasterWithinRange(user, master)).toBe(true);
+    });
 
-  it('should be commutative (distance from A to B is distance from B to A)', () => {
-    const p1Lat = 51.5074; // London
-    const p1Lon = -0.1278;
-    const p2Lat = 48.8566; // Paris
-    const p2Lon = 2.3522;
+    it('returns false when different states, same country, outside default 100km radius', () => {
+      const user = { country: 'IE', state: 'Dublin', ...dublinCoords };
+      const master = { country: 'IE', state: 'Galway', ...galwayCoords };
+      expect(isMasterWithinRange(user, master)).toBe(false);
+    });
 
-    const distAB = haversineDistanceKm(p1Lat, p1Lon, p2Lat, p2Lon);
-    const distBA = haversineDistanceKm(p2Lat, p2Lon, p1Lat, p1Lon);
+    it('returns true when different states, same country, within custom radius', () => {
+      const user = { country: 'IE', state: 'Dublin', ...dublinCoords };
+      const master = { country: 'IE', state: 'Galway', ...galwayCoords };
+      // 200km radius should cover Dublin to Galway
+      expect(isMasterWithinRange(user, master, 200)).toBe(true);
+    });
 
-    expect(distAB).toBeCloseTo(distBA, 5);
-  });
-
-  it('should calculate distance correctly across the equator and prime meridian', () => {
-    const p1Lat = 10.0;
-    const p1Lon = 10.0;
-    const p2Lat = -10.0;
-    const p2Lon = -10.0;
-
-    const distance = haversineDistanceKm(p1Lat, p1Lon, p2Lat, p2Lon);
-    // Calculated manually or via online calculator: ~3144 km
-    expect(distance).toBeGreaterThan(3100);
-    expect(distance).toBeLessThan(3200);
-  });
-
-  it('should calculate distance for North Pole to South Pole as approx Earth half circumference', () => {
-    const npLat = 90.0;
-    const npLon = 0.0;
-    const spLat = -90.0;
-    const spLon = 0.0;
-
-    const distance = haversineDistanceKm(npLat, npLon, spLat, spLon);
-    // Approx Earth half circumference = PI * R = ~20015 km
-    expect(distance).toBeGreaterThan(19900);
-    expect(distance).toBeLessThan(20100);
+    it('returns false when different states, same country, missing coordinates', () => {
+      const user = { country: 'IE', state: 'Dublin', ...dublinCoords };
+      const master = { country: 'IE', state: 'Kildare' }; // missing coords
+      expect(isMasterWithinRange(user, master)).toBe(false);
+    });
   });
 });
