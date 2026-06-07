@@ -231,15 +231,13 @@ export default function ChatPage() {
 
       // Per-conversation unread count: messages from others that are not yet read
       const unreadByConv: Record<string, number> = {};
+      const profilesMap = new Map<string, any>(profilesData.map(p => [p.id, p]));
+      const messagesMap = new Map<string, any>();
+
       for (const m of messagesData) {
         if (m.sender_id !== user.id && !m.is_read) {
           unreadByConv[m.conversation_id] = (unreadByConv[m.conversation_id] || 0) + 1;
         }
-      }
-
-      const profilesMap = new Map<string, any>(profilesData.map(p => [p.id, p]));
-      const messagesMap = new Map<string, any>();
-      for (const m of messagesData) {
         if (!messagesMap.has(m.conversation_id)) {
           messagesMap.set(m.conversation_id, m);
         }
