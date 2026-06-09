@@ -1,0 +1,8 @@
+🎯 **What:** The vulnerability fixed
+Resolved an open redirect vulnerability where untrusted URLs returned from Stripe API endpoints (`create-portal-session`, `stripe-connect-onboarding`, `stripe-connect-dashboard`) were directly executed via `window.open(data.url, '_blank')`. We now parse the URL and validate the hostname to strictly permit domains ending with `.stripe.com` or exactly `stripe.com`.
+
+⚠️ **Risk:** The potential impact if left unfixed
+An attacker manipulating the API response or discovering a server-side injection could cause the application to return an arbitrary, attacker-controlled URL (e.g., a phishing page). Opening this URL directly would result in an open redirect, potentially compromising the user.
+
+🛡️ **Solution:** How the fix addresses the vulnerability
+Introduced a strict URL parser and hostname validation using the standard built-in `URL` constructor prior to invoking `window.open`. The defense-in-depth approach is robust and ignores invalid/relative/javascript URLs by throwing an error natively or falling through to the `else { throw new Error('Invalid URL'); }` block, effectively preventing execution of non-whitelisted domains. This was consistently applied across four instances in the codebase.

@@ -286,7 +286,12 @@ export default function EarningsPage() {
       const { data, error } = await supabase.functions.invoke('stripe-connect-onboarding', { body: {} });
       if (error) throw error;
       if (data?.url) {
-        window.open(data.url, '_blank');
+        const parsedUrl = new URL(data.url);
+        if (parsedUrl.hostname.endsWith('.stripe.com') || parsedUrl.hostname === 'stripe.com') {
+          window.open(data.url, '_blank');
+        } else {
+          throw new Error('Invalid URL');
+        }
       }
     } catch (err) {
       showToast('Failed to start Stripe Connect onboarding', 'error');
@@ -302,7 +307,12 @@ export default function EarningsPage() {
       const { data, error } = await supabase.functions.invoke('stripe-connect-dashboard', { body: {} });
       if (error) throw error;
       if (data?.url) {
-        window.open(data.url, '_blank');
+        const parsedUrl = new URL(data.url);
+        if (parsedUrl.hostname.endsWith('.stripe.com') || parsedUrl.hostname === 'stripe.com') {
+          window.open(data.url, '_blank');
+        } else {
+          throw new Error('Invalid URL');
+        }
       }
     } catch (err) {
       showToast('Failed to open Stripe Dashboard', 'error');

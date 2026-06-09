@@ -412,7 +412,14 @@ export default function FinancePage() {
     try {
       const { data, error } = await supabase.functions.invoke('create-portal-session', { body: {} });
       if (error) throw error;
-      if (data?.url) window.open(data.url, '_blank');
+      if (data?.url) {
+        const parsedUrl = new URL(data.url);
+        if (parsedUrl.hostname.endsWith('.stripe.com') || parsedUrl.hostname === 'stripe.com') {
+          window.open(data.url, '_blank');
+        } else {
+          throw new Error('Invalid URL');
+        }
+      }
     } catch (err) {
       showToast('Failed to open billing portal', 'error');
       console.error(err);
@@ -428,7 +435,12 @@ export default function FinancePage() {
       const { data, error } = await supabase.functions.invoke('stripe-connect-dashboard', { body: {} });
       if (error) throw error;
       if (data?.url) {
-        window.open(data.url, '_blank');
+        const parsedUrl = new URL(data.url);
+        if (parsedUrl.hostname.endsWith('.stripe.com') || parsedUrl.hostname === 'stripe.com') {
+          window.open(data.url, '_blank');
+        } else {
+          throw new Error('Invalid URL');
+        }
       } else {
         showToast('No Stripe Dashboard available. Connect your account first.', 'error');
       }
