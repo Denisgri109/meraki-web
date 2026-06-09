@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/Toast';
@@ -10,6 +10,10 @@ import {
   Megaphone,
 } from 'lucide-react';
 import type { Json } from '@/types/database';
+
+export interface BusinessSettingsPanelRef {
+  save: () => Promise<void>;
+}
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -147,7 +151,7 @@ function SelectField({ value, onChange, options, className }: {
 
 // ─── Main Component ─────────────────────────────────────────────────────────
 
-export default function BusinessSettingsPanel() {
+const BusinessSettingsPanel = forwardRef<BusinessSettingsPanelRef>(function BusinessSettingsPanel(_props, ref) {
   const { profile } = useAuth();
   const supabase = createClient();
   const { showToast } = useToast();
@@ -160,10 +164,7 @@ export default function BusinessSettingsPanel() {
   const [tcDraft, setTcDraft] = useState('');
 
   // Deposit derived state
-  const depositEnabled =
-    settings.deposit_type === 'percentage'
-      ? settings.deposit_percentage > 0
-      : settings.deposit_amount > 0;
+  const depositEnabled = settings.deposit_percentage > 0;
 
   // ─── Aftercare Campaigns ──────────────────────────────────────────────────
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -258,8 +259,8 @@ export default function BusinessSettingsPanel() {
             late_arrival_minutes: 15,
             grace_period_multiplier: 0.5,
             auto_charge_after_grace_period: settings.auto_charge_after_grace_period,
-            deposit_type: settings.deposit_type,
-            deposit_amount: settings.deposit_amount,
+            deposit_type: 'percentage',
+            deposit_amount: 0,
             deposit_percentage: settings.deposit_percentage,
             terms_and_conditions: settings.terms_and_conditions,
             require_tc_acceptance: settings.require_tc_acceptance,
@@ -281,6 +282,11 @@ export default function BusinessSettingsPanel() {
       setSaving(false);
     }
   };
+
+  // Expose save method to parent via ref
+  useImperativeHandle(ref, () => ({
+    save: handleSaveSettings,
+  }));
 
   // ─── Deposit Toggle ───────────────────────────────────────────────────────
 
@@ -444,67 +450,24 @@ export default function BusinessSettingsPanel() {
 
         {depositEnabled && (
           <div className="mt-4 space-y-4 animate-fade-in">
-            {/* Deposit type toggle */}
             <div>
-              <label className="label-upper">Deposit Mode</label>
-              <div className="flex gap-2">
-                {(['percentage', 'fixed'] as const).map((t) => (
+              <label className="label-upper">Deposit Percentage</label>
+              <div className="flex gap-2 flex-wrap">
+                {DEPOSIT_PERCENT_OPTIONS.map((pct) => (
                   <button
-                    key={t}
-                    onClick={() => setSettings((s) => ({
-                      ...s,
-                      deposit_type: t,
-                      deposit_percentage: t === 'percentage' ? (s.deposit_percentage || 20) : 0,
-                      deposit_amount: t === 'fixed' ? (s.deposit_amount || 20) : 0,
-                    }))}
-                    className={`flex-1 py-2 px-4 rounded-[var(--radius-lg)] text-sm font-medium border transition-all cursor-pointer ${
-                      settings.deposit_type === t
+                    key={pct}
+                    onClick={() => setSettings((s) => ({ ...s, deposit_percentage: pct }))}
+                    className={`px-4 py-2 rounded-[var(--radius-lg)] text-sm font-semibold border transition-all cursor-pointer ${
+                      settings.deposit_percentage === pct
                         ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
-                        : 'bg-[var(--color-surface-light)] text-[var(--color-text-secondary)] border-[var(--color-border-light)] hover:border-[var(--color-primary)]'
+                        : 'bg-[var(--color-surface-light)] text-[var(--color-text-secondary)] border-[var(--color-border-light)]'
                     }`}
                   >
-                    {t === 'percentage' ? 'Percentage (%)' : 'Fixed Amount'}
+                    {pct}%
                   </button>
                 ))}
               </div>
             </div>
-
-            {settings.deposit_type === 'percentage' ? (
-              <div>
-                <label className="label-upper">Deposit Percentage</label>
-                <div className="flex gap-2 flex-wrap">
-                  {DEPOSIT_PERCENT_OPTIONS.map((pct) => (
-                    <button
-                      key={pct}
-                      onClick={() => setSettings((s) => ({ ...s, deposit_percentage: pct }))}
-                      className={`px-4 py-2 rounded-[var(--radius-lg)] text-sm font-semibold border transition-all cursor-pointer ${
-                        settings.deposit_percentage === pct
-                          ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
-                          : 'bg-[var(--color-surface-light)] text-[var(--color-text-secondary)] border-[var(--color-border-light)]'
-                      }`}
-                    >
-                      {pct}%
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div>
-                <label className="label-upper">Fixed Deposit Amount</label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] text-sm font-medium">&euro;</span>
-                  <input
-                    type="number"
-                    min="1"
-                    step="0.01"
-                    value={settings.deposit_amount || ''}
-                    onChange={(e) => setSettings((s) => ({ ...s, deposit_amount: Number(e.target.value) || 0 }))}
-                    className="input-glass pl-7"
-                    placeholder="20.00"
-                  />
-                </div>
-              </div>
-            )}
 
             <div className="p-3 rounded-[var(--radius-md)] bg-amber-50 border border-amber-200 text-xs text-amber-800">
               <strong>Per-Service Deposit Override:</strong> You can override deposit settings for individual services from the{' '}
@@ -852,4 +815,6 @@ export default function BusinessSettingsPanel() {
       )}
     </div>
   );
-}
+});
+
+export default BusinessSettingsPanel;

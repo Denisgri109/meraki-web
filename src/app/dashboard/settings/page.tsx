@@ -1,15 +1,24 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/components/Toast';
 import { Settings, User, Shield, Save, Loader2, Camera, CreditCard, Mail, Dumbbell, AlertTriangle, X, Briefcase, Image as ImageIcon, Trash2, Plus, ExternalLink, MapPin, Crosshair } from 'lucide-react';
 import BusinessSettingsPanel from '@/components/BusinessSettingsPanel';
+import type { BusinessSettingsPanelRef } from '@/components/BusinessSettingsPanel';
 import PaymentMethodsManager from '@/components/PaymentMethodsManager';
 import LocationPicker from '@/components/LocationPicker';
 import type { Tables, Portfolio } from '@/types/database';
+import {
+  validatePhone,
+  formatPhone,
+  normalizePhone,
+  parsePhoneNumber,
+  SUPPORTED_COUNTRIES,
+} from '@/lib/validation';
+import CountryCodeDropdown from '@/components/CountryCodeDropdown';
 
 const DELETE_PHRASE = 'DELETE MY ACCOUNT';
 
@@ -62,6 +71,9 @@ export default function SettingsPage() {
   const initialTab = searchParams.get('tab') || 'profile';
   const [activeSection, setActiveSection] = useState(initialTab);
   const [saving, setSaving] = useState(false);
+  const [savingAll, setSavingAll] = useState(false);
+  const businessPanelRef = useRef<BusinessSettingsPanelRef>(null);
+  const profileFormRef = useRef<HTMLFormElement>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [sendingReset, setSendingReset] = useState(false);
   const [newEmail, setNewEmail] = useState('');
@@ -91,6 +103,20 @@ export default function SettingsPage() {
   const [stateName, setStateName] = useState<string>(profileState || '');
   const [stateCode, setStateCode] = useState<string>(profileStateCode || '');
   const [city, setCity] = useState<string>(profileCity || '');
+  const [phone, setPhone] = useState('');
+  const [phoneCountryCode, setPhoneCountryCode] = useState('IE');
+
+  useEffect(() => {
+    if (profile?.phone) {
+      const parsed = parsePhoneNumber(profile.phone);
+      setPhone(parsed.localNumber);
+      setPhoneCountryCode(parsed.countryCode);
+    } else {
+      setPhone('');
+      setPhoneCountryCode('IE');
+    }
+  }, [profile?.phone]);
+
   const [cityLatitude, setCityLatitude] = useState<string | null>(null);
   const [cityLongitude, setCityLongitude] = useState<string | null>(null);
   const [stateLatitude, setStateLatitude] = useState<string | null>(null);
@@ -316,9 +342,24 @@ export default function SettingsPage() {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     setSaving(true);
+
+    if (phone.trim()) {
+      const phoneRes = validatePhone(phone, phoneCountryCode);
+      if (!phoneRes.valid) {
+        showToast(phoneRes.error || 'Invalid phone number format', 'error');
+        setSaving(false);
+        return;
+      }
+    }
+
+    let normalizedPhone = null;
+    if (phone.trim()) {
+      normalizedPhone = normalizePhone(phone, phoneCountryCode);
+    }
+
     const updates: Record<string, unknown> = {
       full_name: String(formData.get('fullName') || ''),
-      phone: String(formData.get('phone') || ''),
+      phone: normalizedPhone,
       bio: String(formData.get('bio') || ''),
       city: city.trim() || null,
       country: country.trim() || null,
@@ -551,14 +592,56 @@ export default function SettingsPage() {
     }
   };
 
+  // ─── Unified Save All ─────────────────────────────────────────────────────
+  const handleSaveAll = async () => {
+    setSavingAll(true);
+    try {
+      // 1. Save profile if on profile tab or save all
+      if (profileFormRef.current && activeSection === 'profile') {
+        profileFormRef.current.requestSubmit();
+      }
+
+      // 2. Save business settings if panel is mounted
+      if (activeSection === 'business' && businessPanelRef.current) {
+        await businessPanelRef.current.save();
+      }
+
+      // 3. Save pilates settings if on pilates tab
+      if (activeSection === 'pilates' && canManagePilates) {
+        await handleSavePilates();
+      }
+
+      if (activeSection !== 'profile') {
+        showToast('Settings saved successfully!', 'success');
+      }
+    } catch (err) {
+      showToast(getErrorMessage(err, 'Failed to save settings'), 'error');
+    } finally {
+      setSavingAll(false);
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto animate-fade-in">
-      <div className="mb-8">
-        <div className="flex items-center gap-2 mb-1">
-          <Settings size={22} className="text-[var(--color-text-muted)]" />
-          <h1 className="text-3xl font-semibold text-[var(--color-text-primary)]">Settings</h1>
+      <div className="mb-8 flex items-start justify-between">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <Settings size={22} className="text-[var(--color-text-muted)]" />
+            <h1 className="text-3xl font-semibold text-[var(--color-text-primary)]">Settings</h1>
+          </div>
+          <p className="text-[var(--color-text-secondary)]">Manage your preferences</p>
         </div>
-        <p className="text-[var(--color-text-secondary)]">Manage your preferences</p>
+        {/* Global Save Button */}
+        {activeSection !== 'security' && activeSection !== 'billing' && activeSection !== 'portfolio' && (
+          <button
+            onClick={handleSaveAll}
+            disabled={savingAll || saving || savingPilates}
+            className="btn-primary flex items-center gap-2 px-5 py-2.5 text-sm font-medium cursor-pointer shadow-md hover:shadow-lg transition-all"
+          >
+            {savingAll ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+            {savingAll ? 'Saving...' : 'Save Settings'}
+          </button>
+        )}
       </div>
 
       <div className="flex gap-6">
@@ -622,7 +705,7 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              <form key={profile?.id || 'profile-form'} onSubmit={handleSave} className="space-y-5">
+              <form ref={profileFormRef} key={profile?.id || 'profile-form'} onSubmit={handleSave} className="space-y-5">
                 <div>
                   <label className="label-upper">Full Name</label>
                   <input type="text" name="fullName" defaultValue={profile?.full_name || ''} className="input-glass" />
@@ -634,7 +717,38 @@ export default function SettingsPage() {
                 </div>
                 <div>
                   <label className="label-upper">Phone</label>
-                  <input type="tel" name="phone" defaultValue={profile?.phone || ''} className="input-glass" placeholder="+44..." />
+                  <div className="flex gap-2 w-full relative">
+                    <CountryCodeDropdown
+                      selectedCountryCode={phoneCountryCode}
+                      onSelectCountryCode={setPhoneCountryCode}
+                    />
+                    <div className="relative flex-grow">
+                      <input
+                        type="tel"
+                        value={phone}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setPhone(val);
+                          // Auto-detect country code from prefix if pasted/typed
+                          if (val.startsWith('+') || val.startsWith('00')) {
+                            const parsed = parsePhoneNumber(val);
+                            if (parsed.countryCode) {
+                              setPhoneCountryCode(parsed.countryCode);
+                              setPhone(parsed.localNumber);
+                            }
+                          }
+                        }}
+                        onBlur={() => {
+                          if (phone.trim()) {
+                            const v = validatePhone(phone, phoneCountryCode);
+                            if (v.valid) setPhone(formatPhone(phone, phoneCountryCode));
+                          }
+                        }}
+                        className="input-glass w-full"
+                        placeholder={SUPPORTED_COUNTRIES.find(c => c.code === phoneCountryCode)?.placeholder || "Enter phone"}
+                      />
+                    </div>
+                  </div>
                 </div>
                 <LocationPicker
                   country={country}
@@ -923,7 +1037,7 @@ export default function SettingsPage() {
           )}
 
           {activeSection === 'business' && isMasterOrOwner && (
-            <BusinessSettingsPanel />
+            <BusinessSettingsPanel ref={businessPanelRef} />
           )}
 
           {activeSection === 'pilates' && canManagePilates && (

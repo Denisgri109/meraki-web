@@ -6,12 +6,16 @@ import Link from 'next/link';
 import { useAuth, UserRole } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 import {
-  validateIrishPhone,
-  formatIrishPhone,
+  validatePhone,
+  formatPhone,
+  normalizePhone,
+  parsePhoneNumber,
   validateEmail,
   validatePassword,
   validateFullName,
+  SUPPORTED_COUNTRIES,
 } from '@/lib/validation';
+import CountryCodeDropdown from '@/components/CountryCodeDropdown';
 import {
   Loader2,
   User,
@@ -52,6 +56,7 @@ export default function RegisterPage() {
   );
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
+  const [phoneCountryCode, setPhoneCountryCode] = useState('IE');
   const [email, setEmail] = useState(invitedEmail);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -115,7 +120,7 @@ export default function RegisterPage() {
 
     // Phone is optional — only validate when provided (matches mobile)
     if (phone.trim()) {
-      const phoneRes = validateIrishPhone(phone);
+      const phoneRes = validatePhone(phone, phoneCountryCode);
       if (!phoneRes.valid) next.phone = phoneRes.error;
     }
 
@@ -134,10 +139,26 @@ export default function RegisterPage() {
     return Object.keys(next).length === 0;
   };
 
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setPhone(value);
+    
+    // Auto-detect country code from prefix if pasted/typed
+    if (value.startsWith('+') || value.startsWith('00')) {
+      const parsed = parsePhoneNumber(value);
+      if (parsed.countryCode) {
+        setPhoneCountryCode(parsed.countryCode);
+        setPhone(parsed.localNumber);
+      }
+    }
+    
+    clearError('phone');
+  };
+
   const handlePhoneBlur = () => {
     if (phone.trim()) {
-      const v = validateIrishPhone(phone);
-      if (v.valid) setPhone(formatIrishPhone(phone));
+      const v = validatePhone(phone, phoneCountryCode);
+      if (v.valid) setPhone(formatPhone(phone, phoneCountryCode));
     }
   };
 
@@ -184,12 +205,17 @@ export default function RegisterPage() {
     // Save location to profile (the signUp function creates the profile row)
     const { data: { user: newUser } } = await supabase.auth.getUser();
     if (newUser) {
+      let normalizedPhone = null;
+      if (phone.trim()) {
+        normalizedPhone = normalizePhone(phone, phoneCountryCode);
+      }
       await supabase
         .from('profiles')
         .update({
           country: selectedCountry,
           country_code: selectedCountryCode,
           city: selectedCity,
+          phone: normalizedPhone,
         })
         .eq('id', newUser.id);
     }
@@ -439,26 +465,29 @@ export default function RegisterPage() {
         {/* Phone */}
         <div style={{ width: '100%' }}>
           <label style={labelStyle}>Phone Number</label>
-          <div style={{ position: 'relative', width: '100%' }}>
-            <Phone size={18} style={iconStyle} />
-            <input
-              type="tel"
-              value={phone}
-              onChange={(e) => {
-                setPhone(e.target.value);
-                clearError('phone');
-              }}
-              onBlur={handlePhoneBlur}
-              placeholder="+353 87 123 4567"
-              autoComplete="tel"
-              className="input-glass"
-              style={{
-                paddingLeft: '44px',
-                width: '100%',
-                boxSizing: 'border-box',
-                borderColor: errors.phone ? '#FCA5A5' : undefined,
-              }}
+          <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
+            <CountryCodeDropdown
+              selectedCountryCode={phoneCountryCode}
+              onSelectCountryCode={setPhoneCountryCode}
             />
+            <div style={{ position: 'relative', flexGrow: 1 }}>
+              <Phone size={18} style={iconStyle} />
+              <input
+                type="tel"
+                value={phone}
+                onChange={handlePhoneChange}
+                onBlur={handlePhoneBlur}
+                placeholder={SUPPORTED_COUNTRIES.find(c => c.code === phoneCountryCode)?.placeholder || "Enter phone"}
+                autoComplete="tel"
+                className="input-glass"
+                style={{
+                  paddingLeft: '44px',
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  borderColor: errors.phone ? '#FCA5A5' : undefined,
+                }}
+              />
+            </div>
           </div>
           {errors.phone && <p style={fieldErrorStyle}>{errors.phone}</p>}
         </div>
