@@ -64,6 +64,22 @@ export interface City {
 
 /* ─── Cache helpers (sessionStorage, 24h TTL) ────────────────── */
 
+interface ApiErrorResponse {
+  status: 'error';
+  message: string;
+}
+
+const isApiError = (data: unknown): data is ApiErrorResponse => {
+  return (
+    data !== null &&
+    typeof data === 'object' &&
+    'status' in data &&
+    (data as Record<string, unknown>).status === 'error' &&
+    'message' in data &&
+    typeof (data as Record<string, unknown>).message === 'string'
+  );
+};
+
 const CACHE_PREFIX = 'meraki:csc:';
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
@@ -109,14 +125,9 @@ async function fetchLocationData<T>(url: string, errorContext: string): Promise<
     }
     const data: unknown = await res.json();
 
-    // Check for API-level errors using type-safe Record<string, unknown>
-    if (
-      data &&
-      typeof data === 'object' &&
-      'status' in data &&
-      (data as Record<string, unknown>).status === 'error'
-    ) {
-      console.warn(`[locationApi] API error fetching ${errorContext}: ${(data as Record<string, unknown>).message}`);
+    // Check for API-level errors
+    if (isApiError(data)) {
+      console.warn(`[locationApi] API error fetching ${errorContext}: ${data.message}`);
       return null;
     }
 
