@@ -164,7 +164,7 @@ export const SUPPORTED_COUNTRIES: CountryConfig[] = [
     flag: '🇪🇸',
     placeholder: '612 345 678',
     validate: (local) => {
-      let cleaned = local.replace(/\D/g, '');
+      const cleaned = local.replace(/\D/g, '');
       if (cleaned.length !== 9) return { valid: false, error: 'Spanish phone numbers must be 9 digits' };
       if (!['6', '7', '8', '9'].some(p => cleaned.startsWith(p))) {
         return { valid: false, error: 'Spanish numbers must start with 6, 7, 8, or 9' };
@@ -172,7 +172,7 @@ export const SUPPORTED_COUNTRIES: CountryConfig[] = [
       return { valid: true };
     },
     format: (local) => {
-      let cleaned = local.replace(/\D/g, '');
+      const cleaned = local.replace(/\D/g, '');
       if (cleaned.length === 9) {
         return `${cleaned.substring(0, 3)} ${cleaned.substring(3, 6)} ${cleaned.substring(6)}`;
       }
@@ -272,7 +272,7 @@ export function formatIrishPhone(phone: string): string {
   const parsed = parsePhoneNumber(phone);
   if (parsed.countryCode !== 'IE') return phone;
   const ieConfig = SUPPORTED_COUNTRIES.find(c => c.code === 'IE')!;
-  let cleaned = parsed.localNumber.replace(/\D/g, '');
+  const cleaned = parsed.localNumber.replace(/\D/g, '');
   if (cleaned.length < 7) return phone;
   return `${ieConfig.callingCode} ${ieConfig.format(parsed.localNumber)}`;
 }

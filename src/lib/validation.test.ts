@@ -1,5 +1,6 @@
 import {
   validateFullName,
+  validateIrishPhone,
   validatePhone,
   normalizePhone,
   formatPhone,
@@ -102,5 +103,49 @@ describe('formatPhone', () => {
     expect(formatPhone('871234567', 'IE')).toBe('87 123 4567');
     expect(formatPhone('2015550123', 'US')).toBe('(201) 555-0123');
     expect(formatPhone('7700900000', 'GB')).toBe('7700 900000');
+  });
+});
+
+describe('validateIrishPhone', () => {
+  it('should return error when phone is empty', () => {
+    expect(validateIrishPhone('')).toEqual({ valid: false, error: 'Phone number is required' });
+    expect(validateIrishPhone('   ')).toEqual({ valid: false, error: 'Phone number is required' });
+  });
+
+  it('should return error for non-Irish numbers', () => {
+    expect(validateIrishPhone('+447700900000')).toEqual({
+      valid: false,
+      error: 'Please enter a valid Irish phone number starting with +353',
+    });
+    expect(validateIrishPhone('+12015550123')).toEqual({
+      valid: false,
+      error: 'Please enter a valid Irish phone number starting with +353',
+    });
+  });
+
+  it('should return valid for valid local Irish numbers', () => {
+    expect(validateIrishPhone('0871234567')).toEqual({ valid: true });
+    expect(validateIrishPhone('871234567')).toEqual({ valid: true });
+    expect(validateIrishPhone('01234567')).toEqual({ valid: true }); // Landline
+  });
+
+  it('should return valid for valid international Irish numbers', () => {
+    expect(validateIrishPhone('+353871234567')).toEqual({ valid: true });
+    expect(validateIrishPhone('00353871234567')).toEqual({ valid: true });
+  });
+
+  it('should return error for invalid length Irish numbers', () => {
+    expect(validateIrishPhone('08712')).toEqual({
+      valid: false,
+      error: 'Irish mobile numbers must have 9 digits after the prefix',
+    });
+    expect(validateIrishPhone('+3538712')).toEqual({
+      valid: false,
+      error: 'Irish mobile numbers must have 9 digits after the prefix',
+    });
+    expect(validateIrishPhone('087123456789')).toEqual({
+      valid: false,
+      error: 'Irish mobile numbers must have 9 digits after the prefix',
+    });
   });
 });
