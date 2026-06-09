@@ -49,6 +49,11 @@ export interface State {
   longitude: string | null;
 }
 
+export interface LocationApiError {
+  status: string;
+  message: string;
+}
+
 export interface City {
   id: number;
   name: string;
@@ -109,14 +114,14 @@ async function fetchLocationData<T>(url: string, errorContext: string): Promise<
     }
     const data: unknown = await res.json();
 
-    // Check for API-level errors using type-safe Record<string, unknown>
+    // Check for API-level errors using LocationApiError type
     if (
       data &&
       typeof data === 'object' &&
       'status' in data &&
-      (data as Record<string, unknown>).status === 'error'
+      (data as LocationApiError).status === 'error'
     ) {
-      console.warn(`[locationApi] API error fetching ${errorContext}: ${(data as Record<string, unknown>).message}`);
+      console.warn(`[locationApi] API error fetching ${errorContext}: ${(data as LocationApiError).message}`);
       return null;
     }
 
