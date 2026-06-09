@@ -285,7 +285,20 @@ export default function EarningsPage() {
     try {
       const { data, error } = await supabase.functions.invoke('stripe-connect-onboarding', { body: {} });
       if (error) throw error;
+      const isValidStripeUrl = (url: string) => {
+        try {
+          const parsedUrl = new URL(url);
+          return parsedUrl.hostname === 'stripe.com' || parsedUrl.hostname.endsWith('.stripe.com');
+        } catch {
+          return false;
+        }
+      };
+
       if (data?.url) {
+        if (!isValidStripeUrl(data.url)) {
+          throw new Error('Invalid Stripe URL returned from server');
+        }
+
         window.open(data.url, '_blank');
       }
     } catch (err) {
@@ -301,7 +314,20 @@ export default function EarningsPage() {
     try {
       const { data, error } = await supabase.functions.invoke('stripe-connect-dashboard', { body: {} });
       if (error) throw error;
+      const isValidStripeUrl = (url: string) => {
+        try {
+          const parsedUrl = new URL(url);
+          return parsedUrl.hostname === 'stripe.com' || parsedUrl.hostname.endsWith('.stripe.com');
+        } catch {
+          return false;
+        }
+      };
+
       if (data?.url) {
+        if (!isValidStripeUrl(data.url)) {
+          throw new Error('Invalid Stripe URL returned from server');
+        }
+
         window.open(data.url, '_blank');
       }
     } catch (err) {
