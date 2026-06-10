@@ -41,15 +41,29 @@ export default function ShopProductPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const supabase = createClient();
-  const { role } = useAuth();
+  const { role, loading: authLoading } = useAuth();
   const { addToCart } = useCart();
   const { showToast } = useToast();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (!authLoading && role === 'owner') {
+      router.replace('/dashboard/inventory');
+    }
+  }, [authLoading, role, router]);
+
   const productId = Array.isArray(params.id) ? params.id[0] : params.id;
   const isMasterOrOwner = role === 'master' || role === 'owner';
+
+  if (authLoading || role === 'owner') {
+    return (
+      <div className="min-h-[400px] flex items-center justify-center">
+        <Loader2 size={34} className="animate-spin text-[var(--color-brand-pink-dark)]" />
+      </div>
+    );
+  }
   const price = useMemo(() => {
     if (!product) return 0;
     return isMasterOrOwner ? product.wholesale_price : product.retail_price;

@@ -1,13 +1,32 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowRight, Minus, Package, Plus, ShoppingBag, Trash2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+import { ArrowRight, Minus, Package, Plus, ShoppingBag, Trash2, Loader2 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
 import { DEFAULT_PRODUCT_IMAGE } from '@/lib/constants/images';
 
 export default function CartPage() {
+  const router = useRouter();
+  const { role, loading: authLoading } = useAuth();
   const { items, removeFromCart, updateQuantity, clearCart, getItemCount, getTotal } = useCart();
   const subtotal = getTotal();
+
+  useEffect(() => {
+    if (!authLoading && role === 'owner') {
+      router.replace('/dashboard/inventory');
+    }
+  }, [authLoading, role, router]);
+
+  if (authLoading || role === 'owner') {
+    return (
+      <div className="min-h-[400px] flex items-center justify-center">
+        <Loader2 size={34} className="animate-spin text-[var(--color-brand-pink-dark)]" />
+      </div>
+    );
+  }
 
   if (items.length === 0) {
     return (

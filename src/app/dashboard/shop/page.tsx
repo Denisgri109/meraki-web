@@ -34,7 +34,7 @@ function getErrorMessage(error: unknown) {
 export default function ShopPage() {
   const router = useRouter();
   const supabase = createClient();
-  const { role } = useAuth();
+  const { role, loading: authLoading } = useAuth();
   const { addToCart } = useCart();
   const { showToast } = useToast();
   const [products, setProducts] = useState<Product[]>([]);
@@ -44,13 +44,22 @@ export default function ShopPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Add Product modal (owner only)
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [newProduct, setNewProduct] = useState({ name: '', description: '', retail_price: '', wholesale_price: '', stock_count: '', category: 'Nails' });
-  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    if (!authLoading && role === 'owner') {
+      router.replace('/dashboard/inventory');
+    }
+  }, [authLoading, role, router]);
 
   const isOwner = role === 'owner';
   const isMasterOrOwner = role === 'master' || role === 'owner';
+
+  if (authLoading || role === 'owner') {
+    return (
+      <div className="min-h-[400px] flex items-center justify-center">
+        <Loader2 size={34} className="animate-spin text-[var(--color-brand-pink-dark)]" />
+      </div>
+    );
+  }
 
   const fetchProducts = async () => {
     try {
@@ -130,33 +139,7 @@ export default function ShopPage() {
     showToast(added ? `${product.name} added to bag!` : 'Stock limit reached for this product', added ? 'success' : 'error');
   };
 
-  const handleAddProduct = async () => {
-    if (!newProduct.name || !newProduct.retail_price || !newProduct.wholesale_price) {
-      showToast('Please fill in all required fields', 'error');
-      return;
-    }
-    setSaving(true);
-    try {
-      const { error } = await supabase.from('products').insert({
-        name: newProduct.name,
-        description: newProduct.description || null,
-        retail_price: parseFloat(newProduct.retail_price),
-        wholesale_price: parseFloat(newProduct.wholesale_price),
-        stock_count: parseInt(newProduct.stock_count) || 0,
-        category: newProduct.category,
-        is_active: true,
-      });
-      if (error) throw error;
-      showToast('Product added successfully!', 'success');
-      setShowAddModal(false);
-      setNewProduct({ name: '', description: '', retail_price: '', wholesale_price: '', stock_count: '', category: 'Nails' });
-      // Realtime subscription will automatically refresh the product list
-    } catch (err) {
-      showToast(getErrorMessage(err), 'error');
-    } finally {
-      setSaving(false);
-    }
-  };
+
 
   return (
     <div className="animate-fade-in">
@@ -183,14 +166,7 @@ export default function ShopPage() {
           <Search size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)', pointerEvents: 'none' }} />
           <input type="text" placeholder="Search products..." value={search} onChange={(e) => setSearch(e.target.value)} className="input-glass" style={{ paddingLeft: '44px', width: '100%', boxSizing: 'border-box' }} />
         </div>
-        {isOwner && (
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="btn-pink flex items-center gap-2 px-5 py-2.5 text-sm whitespace-nowrap"
-          >
-            <Plus size={16} /> Add Product
-          </button>
-        )}
+
       </div>
 
       {/* Category Tabs */}
@@ -313,56 +289,7 @@ export default function ShopPage() {
         </div>
       )}
 
-      {/* Add Product Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)' }}>
-          <div className="glass-card p-6 w-full max-w-lg max-h-[85vh] overflow-y-auto animate-scale-in" style={{ background: 'white' }}>
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-[var(--color-text-primary)]">Add Product</h2>
-              <button onClick={() => setShowAddModal(false)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[var(--color-surface-light)] cursor-pointer"><X size={18} /></button>
-            </div>
-            <div className="space-y-4">
-              <div>
-                <label className="label-upper">Name *</label>
-                <input type="text" value={newProduct.name} onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })} className="input-glass" placeholder="Product name" />
-              </div>
-              <div>
-                <label className="label-upper">Description</label>
-                <textarea value={newProduct.description} onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })} className="input-glass resize-none" rows={3} placeholder="Product description" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="label-upper">Retail Price (£) *</label>
-                  <input type="number" step="0.01" value={newProduct.retail_price} onChange={(e) => setNewProduct({ ...newProduct, retail_price: e.target.value })} className="input-glass" placeholder="0.00" />
-                </div>
-                <div>
-                  <label className="label-upper">Wholesale (£) *</label>
-                  <input type="number" step="0.01" value={newProduct.wholesale_price} onChange={(e) => setNewProduct({ ...newProduct, wholesale_price: e.target.value })} className="input-glass" placeholder="0.00" />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="label-upper">Stock Count</label>
-                  <input type="number" value={newProduct.stock_count} onChange={(e) => setNewProduct({ ...newProduct, stock_count: e.target.value })} className="input-glass" placeholder="0" />
-                </div>
-                <div>
-                  <label className="label-upper">Category</label>
-                  <select value={newProduct.category} onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })} className="input-glass">
-                    {['Nails', 'Lashes', 'Brows', 'Skincare', 'Equipment'].map((c) => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
-              </div>
-              <button
-                onClick={handleAddProduct}
-                disabled={saving}
-                className="btn-primary w-full py-3 text-sm flex items-center justify-center gap-2"
-              >
-                {saving ? <><Loader2 size={16} className="animate-spin" /> Adding...</> : 'Add Product'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
     </div>
   );
 }

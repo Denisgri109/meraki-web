@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { Package, Search, Plus, AlertTriangle, TrendingDown, Box, X, Trash2, History, Truck } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { Package, Search, Plus, AlertTriangle, TrendingDown, Box, X, Trash2, History, Truck, Loader2 } from 'lucide-react';
 import { useToast } from '@/components/Toast';
 
 interface Product {
@@ -20,6 +21,8 @@ interface Product {
 
 type EditDraft = {
   name: string;
+  description: string;
+  image_url: string;
   category: string;
   retail_price: string;
   wholesale_price: string;
@@ -38,6 +41,9 @@ const getStockCount = (product: Product) => product.stock_count ?? 0;
 
 export default function InventoryPage() {
   const supabase = createClient();
+  const { role } = useAuth();
+  const isOwner = role === 'owner';
+
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -46,10 +52,68 @@ export default function InventoryPage() {
   const [draft, setDraft] = useState<EditDraft | null>(null);
   const [saving, setSaving] = useState(false);
 
+  // Add Product modal state
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newProduct, setNewProduct] = useState({
+    name: '',
+    description: '',
+    image_url: '',
+    retail_price: '',
+    wholesale_price: '',
+    stock_count: '',
+    low_stock_threshold: '5',
+    category: 'Nails',
+    is_active: true,
+    supplier_name: 'Meraki Distribution',
+  });
+
+  // Uploading state
+  const [uploadingImage, setUploadingImage] = useState(false);
+
+  const handleImageUpload = async (file: File, isEdit: boolean) => {
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('Image must be under 5MB', 'error');
+      return;
+    }
+    setUploadingImage(true);
+    try {
+      const fileExt = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+      const fileName = `products/${Date.now()}_${crypto.randomUUID()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('products')
+        .upload(fileName, file, { upsert: false });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('products')
+        .getPublicUrl(fileName);
+
+      if (isEdit) {
+        if (draft) {
+          setDraft({ ...draft, image_url: urlData.publicUrl });
+        }
+      } else {
+        setNewProduct(prev => ({ ...prev, image_url: urlData.publicUrl }));
+      }
+      showToast('Image uploaded successfully', 'success');
+    } catch (err: unknown) {
+      console.error('[Upload] error:', err);
+      const msg = err instanceof Error ? err.message : 'Failed to upload image';
+      showToast(msg, 'error');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
   const openEdit = (p: Product) => {
     setEditing(p);
     setDraft({
       name: p.name || '',
+      description: p.description || '',
+      image_url: p.image_url || '',
       category: p.category || '',
       retail_price: p.retail_price == null ? '' : String(p.retail_price),
       wholesale_price: p.wholesale_price == null ? '' : String(p.wholesale_price),
@@ -97,6 +161,8 @@ export default function InventoryPage() {
         .from('products')
         .update({
           name: draft.name.trim(),
+          description: draft.description.trim() || null,
+          image_url: draft.image_url || null,
           category: draft.category.trim() || null,
           retail_price: priceNum,
           wholesale_price: wholesaleNum,
@@ -109,6 +175,8 @@ export default function InventoryPage() {
       setProducts((prev) => prev.map((p) => p.id === editing.id ? {
         ...p,
         name: draft.name.trim(),
+        description: draft.description.trim() || null,
+        image_url: draft.image_url || null,
         category: draft.category.trim() || null,
         retail_price: priceNum,
         wholesale_price: wholesaleNum,
@@ -137,6 +205,72 @@ export default function InventoryPage() {
       closeEdit();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to delete product';
+      showToast(msg, 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAddProduct = async () => {
+    if (!newProduct.name || !newProduct.retail_price || !newProduct.wholesale_price) {
+      showToast('Please fill in all required fields (Name, Retail Price, Wholesale Price)', 'error');
+      return;
+    }
+    const priceNum = Number(newProduct.retail_price);
+    const wholesaleNum = Number(newProduct.wholesale_price);
+    const stockNum = Number(newProduct.stock_count) || 0;
+    const thresholdNum = newProduct.low_stock_threshold.trim() ? Number(newProduct.low_stock_threshold) : 5;
+
+    if (!Number.isFinite(priceNum) || priceNum < 0) {
+      showToast('Invalid retail price', 'error');
+      return;
+    }
+    if (!Number.isFinite(wholesaleNum) || wholesaleNum < 0) {
+      showToast('Invalid wholesale price', 'error');
+      return;
+    }
+    if (!Number.isFinite(stockNum) || stockNum < 0 || !Number.isInteger(stockNum)) {
+      showToast('Stock must be a non-negative integer', 'error');
+      return;
+    }
+    setSaving(true);
+    try {
+      const { data, error } = await supabase.from('products').insert({
+        name: newProduct.name.trim(),
+        description: newProduct.description.trim() || null,
+        image_url: newProduct.image_url || null,
+        retail_price: priceNum,
+        wholesale_price: wholesaleNum,
+        stock_count: stockNum,
+        low_stock_threshold: thresholdNum,
+        category: newProduct.category || null,
+        is_active: newProduct.is_active,
+      }).select();
+
+      if (error) throw error;
+      if (data && data[0]) {
+        setProducts(prev => [data[0] as unknown as Product, ...prev]);
+      } else {
+        const { data: refreshed } = await supabase.from('products').select('*').order('name').limit(100);
+        setProducts((refreshed as unknown as Product[]) || []);
+      }
+
+      showToast('Product added successfully!', 'success');
+      setShowAddModal(false);
+      setNewProduct({
+        name: '',
+        description: '',
+        image_url: '',
+        retail_price: '',
+        wholesale_price: '',
+        stock_count: '',
+        low_stock_threshold: '5',
+        category: 'Nails',
+        is_active: true,
+        supplier_name: 'Meraki Distribution',
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to add product';
       showToast(msg, 'error');
     } finally {
       setSaving(false);
@@ -186,10 +320,12 @@ export default function InventoryPage() {
           </div>
           <p className="text-[var(--color-text-secondary)]">Track product stock levels</p>
         </div>
-        <button onClick={() => showToast('Add product from the Shop page (Owner only)', 'info')} className="btn-primary flex items-center gap-2 px-5 py-2.5 text-sm cursor-pointer">
-          <Plus size={16} />
-          Add Product
-        </button>
+        {isOwner && (
+          <button onClick={() => setShowAddModal(true)} className="btn-primary flex items-center gap-2 px-5 py-2.5 text-sm cursor-pointer">
+            <Plus size={16} />
+            Add Product
+          </button>
+        )}
       </div>
 
       {/* Alert Cards */}
@@ -268,10 +404,18 @@ export default function InventoryPage() {
           {filtered.map((product) => {
             const stockCount = getStockCount(product);
             return (
-              <div key={product.id} onClick={() => openEdit(product)} className="grid grid-cols-12 gap-4 px-5 py-4 border-b border-[var(--color-border-light)] hover:bg-[var(--color-surface-light)]/50 transition-colors items-center cursor-pointer">
+              <div
+                key={product.id}
+                onClick={() => { if (isOwner) openEdit(product); }}
+                className={`grid grid-cols-12 gap-4 px-5 py-4 border-b border-[var(--color-border-light)] hover:bg-[var(--color-surface-light)]/50 transition-colors items-center ${isOwner ? 'cursor-pointer' : 'cursor-default'}`}
+              >
                 <div className="col-span-5 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-[var(--radius-md)] bg-[var(--color-brand-pink-light)] flex items-center justify-center shrink-0">
-                    <Package size={16} className="text-[var(--color-brand-pink-dark)]" />
+                  <div className="w-10 h-10 rounded-[var(--radius-md)] bg-[var(--color-brand-pink-light)] flex items-center justify-center shrink-0 overflow-hidden border border-[var(--color-border-light)]">
+                    {product.image_url ? (
+                      <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <Package size={16} className="text-[var(--color-brand-pink-dark)]" />
+                    )}
                   </div>
                   <span className="font-medium text-sm text-[var(--color-text-primary)] truncate">{product.name}</span>
                 </div>
@@ -298,22 +442,88 @@ export default function InventoryPage() {
       )}
 
       {editing && draft && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={closeEdit}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 animate-fade-in" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 overflow-y-auto" onClick={closeEdit}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 animate-fade-in my-8" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-xl font-semibold text-[var(--color-text-primary)]">Edit Product</h2>
               <button onClick={closeEdit} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[var(--color-surface-light)] cursor-pointer">
                 <X size={18} />
               </button>
             </div>
-            <div className="space-y-4">
+            <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+              <div>
+                <label className="block text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Product Image</label>
+                <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed border-[var(--color-border-light)] hover:border-pink-300 transition-colors rounded-xl relative overflow-hidden bg-[var(--color-surface-light)]/30">
+                  {uploadingImage ? (
+                    <div className="flex flex-col items-center justify-center py-4">
+                      <Loader2 className="h-8 w-8 animate-spin text-[var(--color-primary)] mb-2" />
+                      <span className="text-xs text-[var(--color-text-muted)] font-medium">Uploading image...</span>
+                    </div>
+                  ) : draft.image_url ? (
+                    <div className="w-full relative flex flex-col items-center">
+                      <img src={draft.image_url} alt="Product preview" className="w-full max-h-40 object-cover rounded-lg shadow-sm" />
+                      <button
+                        type="button"
+                        onClick={() => setDraft({ ...draft, image_url: '' })}
+                        className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1.5 shadow-md transition-colors"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-1 text-center py-2">
+                      <div className="flex justify-center text-[var(--color-text-muted)]">
+                        <Package size={36} className="text-[var(--color-text-muted)]/50 mb-1" />
+                      </div>
+                      <div className="flex text-sm text-[var(--color-text-secondary)] justify-center">
+                        <label
+                          htmlFor="edit-image-upload"
+                          className="relative cursor-pointer rounded-md font-semibold text-[var(--color-primary)] hover:text-pink-600 focus-within:outline-none"
+                        >
+                          <span>Upload a file</span>
+                          <input
+                            id="edit-image-upload"
+                            name="edit-image-upload"
+                            type="file"
+                            accept="image/*"
+                            className="sr-only"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleImageUpload(file, true);
+                            }}
+                          />
+                        </label>
+                      </div>
+                      <p className="text-xs text-[var(--color-text-muted)]">PNG, JPG, GIF up to 5MB</p>
+                    </div>
+                  )}
+                </div>
+              </div>
               <div>
                 <label className="block text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Name</label>
                 <input className="input-glass" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
               </div>
               <div>
+                <label className="block text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Description</label>
+                <textarea
+                  className="input-glass resize-none"
+                  rows={3}
+                  value={draft.description}
+                  onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+                  placeholder="Product description"
+                />
+              </div>
+              <div>
                 <label className="block text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Category</label>
-                <input className="input-glass" value={draft.category} onChange={(e) => setDraft({ ...draft, category: e.target.value })} />
+                <select
+                  className="input-glass"
+                  value={draft.category}
+                  onChange={(e) => setDraft({ ...draft, category: e.target.value })}
+                >
+                  {['Nails', 'Lashes', 'Brows', 'Skincare', 'Equipment'].map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -371,6 +581,142 @@ export default function InventoryPage() {
                   {saving ? 'Saving…' : 'Save Changes'}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Product Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 overflow-y-auto" onClick={() => setShowAddModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 animate-fade-in my-8" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-xl font-semibold text-[var(--color-text-primary)]">Add Product</h2>
+              <button onClick={() => setShowAddModal(false)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[var(--color-surface-light)] cursor-pointer">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+              <div>
+                <label className="block text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Product Image</label>
+                <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed border-[var(--color-border-light)] hover:border-pink-300 transition-colors rounded-xl relative overflow-hidden bg-[var(--color-surface-light)]/30">
+                  {uploadingImage ? (
+                    <div className="flex flex-col items-center justify-center py-4">
+                      <Loader2 className="h-8 w-8 animate-spin text-[var(--color-primary)] mb-2" />
+                      <span className="text-xs text-[var(--color-text-muted)] font-medium">Uploading image...</span>
+                    </div>
+                  ) : newProduct.image_url ? (
+                    <div className="w-full relative flex flex-col items-center">
+                      <img src={newProduct.image_url} alt="Product preview" className="w-full max-h-40 object-cover rounded-lg shadow-sm" />
+                      <button
+                        type="button"
+                        onClick={() => setNewProduct({ ...newProduct, image_url: '' })}
+                        className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1.5 shadow-md transition-colors"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-1 text-center py-2">
+                      <div className="flex justify-center text-[var(--color-text-muted)]">
+                        <Package size={36} className="text-[var(--color-text-muted)]/50 mb-1" />
+                      </div>
+                      <div className="flex text-sm text-[var(--color-text-secondary)] justify-center">
+                        <label
+                          htmlFor="add-image-upload"
+                          className="relative cursor-pointer rounded-md font-semibold text-[var(--color-primary)] hover:text-pink-600 focus-within:outline-none"
+                        >
+                          <span>Upload a file</span>
+                          <input
+                            id="add-image-upload"
+                            name="add-image-upload"
+                            type="file"
+                            accept="image/*"
+                            className="sr-only"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleImageUpload(file, false);
+                            }}
+                          />
+                        </label>
+                      </div>
+                      <p className="text-xs text-[var(--color-text-muted)]">PNG, JPG, GIF up to 5MB</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Name *</label>
+                <input className="input-glass" value={newProduct.name} onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })} placeholder="Product name" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Description</label>
+                <textarea
+                  className="input-glass resize-none"
+                  rows={3}
+                  value={newProduct.description}
+                  onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
+                  placeholder="Product description"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Category</label>
+                <select
+                  className="input-glass"
+                  value={newProduct.category}
+                  onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
+                >
+                  {['Nails', 'Lashes', 'Brows', 'Skincare', 'Equipment'].map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Retail Price *</label>
+                  <input type="number" min="0" step="0.01" className="input-glass" value={newProduct.retail_price} onChange={(e) => setNewProduct({ ...newProduct, retail_price: e.target.value })} placeholder="0.00" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Wholesale Price *</label>
+                  <input type="number" min="0" step="0.01" className="input-glass" value={newProduct.wholesale_price} onChange={(e) => setNewProduct({ ...newProduct, wholesale_price: e.target.value })} placeholder="0.00" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Stock</label>
+                  <input type="number" min="0" step="1" className="input-glass" value={newProduct.stock_count} onChange={(e) => setNewProduct({ ...newProduct, stock_count: e.target.value })} placeholder="0" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Low Stock Alert</label>
+                  <input type="number" min="0" step="1" className="input-glass" value={newProduct.low_stock_threshold} onChange={(e) => setNewProduct({ ...newProduct, low_stock_threshold: e.target.value })} placeholder="5" />
+                </div>
+              </div>
+              <label className="flex items-center justify-between p-3 rounded-xl bg-[var(--color-surface-light)] cursor-pointer">
+                <div>
+                  <p className="text-sm font-medium text-[var(--color-text-primary)]">Active</p>
+                  <p className="text-xs text-[var(--color-text-muted)]">Visible to customers in the shop</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setNewProduct({ ...newProduct, is_active: !newProduct.is_active })}
+                  className={`relative inline-flex w-11 h-6 rounded-full transition-colors cursor-pointer ${newProduct.is_active ? 'bg-emerald-500' : 'bg-[var(--color-text-muted)]/40'}`}
+                >
+                  <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${newProduct.is_active ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                </button>
+              </label>
+              <div>
+                <label className="block text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Supplier (Mock)</label>
+                <div className="relative">
+                  <Truck size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
+                  <input className="input-glass pl-9" value={newProduct.supplier_name} onChange={(e) => setNewProduct({ ...newProduct, supplier_name: e.target.value })} />
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 mt-6">
+              <button onClick={() => setShowAddModal(false)} className="px-4 py-2 rounded-full text-sm font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-light)] cursor-pointer">Cancel</button>
+              <button onClick={handleAddProduct} disabled={saving || uploadingImage} className="btn-primary px-5 py-2 text-sm cursor-pointer disabled:opacity-50">
+                {saving ? 'Adding…' : 'Add Product'}
+              </button>
             </div>
           </div>
         </div>
