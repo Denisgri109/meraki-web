@@ -1,4 +1,4 @@
-import { isMasterWithinRange } from './location';
+import { isMasterWithinRange, haversineDistanceKm } from './location';
 
 describe('isMasterWithinRange', () => {
   describe('Country and State Matches', () => {
@@ -72,5 +72,37 @@ describe('isMasterWithinRange', () => {
       const master = { country: 'IE', state: 'Kildare' }; // missing coords
       expect(isMasterWithinRange(user, master)).toBe(false);
     });
+  });
+});
+
+describe('haversineDistanceKm', () => {
+  it('returns 0 for the same coordinates', () => {
+    expect(haversineDistanceKm(53.3498, -6.2603, 53.3498, -6.2603)).toBeCloseTo(0);
+  });
+
+  it('calculates the correct distance between two points (Dublin to London)', () => {
+    const dublin = { lat: 53.3498, lon: -6.2603 };
+    const london = { lat: 51.5074, lon: -0.1278 };
+    // The expected distance is ~463 km
+    const distance = haversineDistanceKm(dublin.lat, dublin.lon, london.lat, london.lon);
+    expect(distance).toBeGreaterThan(450);
+    expect(distance).toBeLessThan(470);
+  });
+
+  it('calculates the correct distance across the equator/prime meridian', () => {
+    const newYork = { lat: 40.7128, lon: -74.0060 };
+    const sydney = { lat: -33.8688, lon: 151.2093 };
+    // The expected distance is ~15990 km
+    const distance = haversineDistanceKm(newYork.lat, newYork.lon, sydney.lat, sydney.lon);
+    expect(distance).toBeGreaterThan(15000);
+    expect(distance).toBeLessThan(16500);
+  });
+
+  it('is commutative (distance from A to B is same as B to A)', () => {
+    const a = { lat: 53.3498, lon: -6.2603 };
+    const b = { lat: 51.5074, lon: -0.1278 };
+    const distAB = haversineDistanceKm(a.lat, a.lon, b.lat, b.lon);
+    const distBA = haversineDistanceKm(b.lat, b.lon, a.lat, a.lon);
+    expect(distAB).toBeCloseTo(distBA);
   });
 });
