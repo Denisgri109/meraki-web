@@ -285,13 +285,21 @@ export default function EarningsPage() {
     try {
       const { data, error } = await supabase.functions.invoke('stripe-connect-onboarding', { body: {} });
       if (error) throw error;
-      if (data?.url) {
-        const parsedUrl = new URL(data.url);
-        if (parsedUrl.hostname.endsWith('.stripe.com') || parsedUrl.hostname === 'stripe.com') {
-          window.open(data.url, '_blank');
-        } else {
-          throw new Error('Invalid URL');
+      const isValidStripeUrl = (url: string) => {
+        try {
+          const parsedUrl = new URL(url);
+          return parsedUrl.hostname === 'stripe.com' || parsedUrl.hostname.endsWith('.stripe.com');
+        } catch {
+          return false;
         }
+      };
+
+      if (data?.url) {
+        if (!isValidStripeUrl(data.url)) {
+          throw new Error('Invalid Stripe URL returned from server');
+        }
+
+        window.open(data.url, '_blank');
       }
     } catch (err) {
       showToast('Failed to start Stripe Connect onboarding', 'error');
@@ -306,13 +314,21 @@ export default function EarningsPage() {
     try {
       const { data, error } = await supabase.functions.invoke('stripe-connect-dashboard', { body: {} });
       if (error) throw error;
-      if (data?.url) {
-        const parsedUrl = new URL(data.url);
-        if (parsedUrl.hostname.endsWith('.stripe.com') || parsedUrl.hostname === 'stripe.com') {
-          window.open(data.url, '_blank');
-        } else {
-          throw new Error('Invalid URL');
+      const isValidStripeUrl = (url: string) => {
+        try {
+          const parsedUrl = new URL(url);
+          return parsedUrl.hostname === 'stripe.com' || parsedUrl.hostname.endsWith('.stripe.com');
+        } catch {
+          return false;
         }
+      };
+
+      if (data?.url) {
+        if (!isValidStripeUrl(data.url)) {
+          throw new Error('Invalid Stripe URL returned from server');
+        }
+
+        window.open(data.url, '_blank');
       }
     } catch (err) {
       showToast('Failed to open Stripe Dashboard', 'error');

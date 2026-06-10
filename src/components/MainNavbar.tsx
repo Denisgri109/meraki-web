@@ -185,18 +185,20 @@ export function MainNavbar({ transparent = false }: MainNavbarProps) {
 
           {/* Right: Actions + Profile */}
           <div className="flex items-center gap-3">
-            <Link
-              href="/dashboard/cart"
-              className="relative w-9 h-9 flex items-center justify-center rounded-full hover:bg-[var(--color-brand-pink-light)] transition-colors text-[var(--color-text-secondary)] hover:text-[var(--color-brand-pink-dark)]"
-              title="Cart"
-            >
-              <ShoppingCart size={18} />
-              {cartItemCount > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-[var(--color-brand-pink-dark)] text-white text-[10px] font-bold flex items-center justify-center">
-                  {cartItemCount > 99 ? '99+' : cartItemCount}
-                </span>
-              )}
-            </Link>
+            {role !== 'owner' && (
+              <Link
+                href="/dashboard/cart"
+                className="relative w-9 h-9 flex items-center justify-center rounded-full hover:bg-[var(--color-brand-pink-light)] transition-colors text-[var(--color-text-secondary)] hover:text-[var(--color-brand-pink-dark)]"
+                title="Cart"
+              >
+                <ShoppingCart size={18} />
+                {cartItemCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-[var(--color-brand-pink-dark)] text-white text-[10px] font-bold flex items-center justify-center">
+                    {cartItemCount > 99 ? '99+' : cartItemCount}
+                  </span>
+                )}
+              </Link>
+            )}
 
             {/* Chat icon with unread badge */}
             <Link

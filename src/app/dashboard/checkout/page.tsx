@@ -406,6 +406,22 @@ function CheckoutForm() {
 
 export default function CheckoutPage() {
   const { items } = useCart();
+  const { role, loading: authLoading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!authLoading && role === 'owner') {
+      router.replace('/dashboard/inventory');
+    }
+  }, [authLoading, role, router]);
+
+  if (authLoading || role === 'owner') {
+    return (
+      <div className="min-h-[400px] flex items-center justify-center">
+        <Loader2 size={34} className="animate-spin text-[var(--color-brand-pink-dark)]" />
+      </div>
+    );
+  }
 
   if (items.length === 0) {
     return (
