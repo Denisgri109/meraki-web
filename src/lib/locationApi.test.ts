@@ -69,6 +69,27 @@ describe('filterCountries', () => {
     expect(result[0].name).toBe('France');
   });
 
+  it('handles empty countries list', () => {
+    expect(filterCountries([], 'united')).toHaveLength(0);
+  });
+
+  it('handles queries with trailing/leading spaces correctly', () => {
+    const result = filterCountries(mockCountries, '  France  ');
+    expect(result).toHaveLength(1);
+    expect(result[0].iso2).toBe('FR');
+  });
+
+  it('handles partial matching in the middle of a name', () => {
+    const result = filterCountries(mockCountries, 'king');
+    expect(result).toHaveLength(1);
+    expect(result[0].name).toBe('United Kingdom');
+  });
+
+  it('handles special characters safely without throwing', () => {
+    const result = filterCountries(mockCountries, '(!@#)');
+    expect(result).toHaveLength(0);
+  });
+
   it('returns empty array when no matches found', () => {
     expect(filterCountries(mockCountries, 'xyz')).toHaveLength(0);
   });
