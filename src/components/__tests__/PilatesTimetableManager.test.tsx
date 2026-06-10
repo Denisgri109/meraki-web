@@ -40,7 +40,7 @@ describe('PilatesTimetableManager error handling', () => {
     // Default implementation handles all chains simply returning an empty array to allow component to render without throwing unhandled promises.
     mockSupabase = {
       rpc: jest.fn().mockResolvedValue({ data: null, error: null }),
-      from: jest.fn().mockImplementation((table: string) => {
+      from: jest.fn().mockImplementation(() => {
          const mockChain = {
              select: jest.fn().mockReturnThis(),
              eq: jest.fn().mockReturnThis(),
@@ -52,10 +52,8 @@ describe('PilatesTimetableManager error handling', () => {
              upsert: jest.fn().mockResolvedValue({ data: null, error: null }),
              insert: jest.fn().mockResolvedValue({ data: null, error: null }),
              update: jest.fn().mockReturnValue({ eq: jest.fn().mockResolvedValue({ data: null, error: null }) }),
+             then: jest.fn((resolve) => resolve({ data: [], error: null })),
          };
-         if (table === 'pilates_hosts' || table === 'profiles' || table === 'pilates_schedule_templates' || table === 'pilates_class_sessions') {
-             mockChain.order = jest.fn().mockResolvedValue({ data: [], error: null });
-         }
          return mockChain;
       }),
     };
@@ -68,7 +66,7 @@ describe('PilatesTimetableManager error handling', () => {
         const mockChain = {
             select: jest.fn().mockReturnThis(),
             eq: jest.fn().mockReturnThis(),
-            order: jest.fn().mockResolvedValue({ data: [], error: null }),
+            order: jest.fn().mockReturnThis(),
             in: jest.fn().mockReturnThis(),
             gte: jest.fn().mockReturnThis(),
             lt: jest.fn().mockReturnThis(),
@@ -76,15 +74,8 @@ describe('PilatesTimetableManager error handling', () => {
             upsert: jest.fn().mockResolvedValue({ data: null, error: null }),
             insert: jest.fn().mockResolvedValue({ data: null, error: null }),
             update: jest.fn().mockReturnValue({ eq: jest.fn().mockResolvedValue({ data: null, error: null }) }),
+            then: jest.fn((resolve) => resolve({ data: [], error: null })),
         };
-
-        if (table === 'pilates_schedule_templates' && !overrides[table]) {
-             // Default for templates needs to handle double order
-             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-             (mockChain as any).order = jest.fn().mockReturnValue({
-                 order: jest.fn().mockResolvedValue({ data: [], error: null })
-             });
-        }
 
         if (overrides[table]) {
              if (typeof overrides[table] === 'function') {
@@ -181,15 +172,14 @@ describe('PilatesTimetableManager error handling', () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         pilates_hosts: (chain: any) => ({
              ...chain,
-             order: jest.fn().mockResolvedValue({ data: [{ id: 'host-1', display_name: 'Test Host' }], error: null }),
+             order: jest.fn().mockReturnThis(),
+             then: jest.fn((resolve) => resolve({ data: [{ id: 'host-1', display_name: 'Test Host' }], error: null })),
         }),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         pilates_schedule_templates: (chain: any) => ({
              ...chain,
-             // Fix double order for loadData
-             order: jest.fn().mockReturnValue({
-                 order: jest.fn().mockResolvedValue({ data: [], error: null })
-             }),
+             order: jest.fn().mockReturnThis(),
+             then: jest.fn((resolve) => resolve({ data: [], error: null })),
              insert: jest.fn().mockResolvedValue({ data: null, error: new Error('Failed to add class slot') })
         })
     });
@@ -225,12 +215,11 @@ describe('PilatesTimetableManager error handling', () => {
         pilates_schedule_templates: (chain: any) => {
              return {
                  ...chain,
-                 order: jest.fn().mockReturnValue({
-                     order: jest.fn().mockResolvedValue({
-                         data: [{ id: 'template-1', day_of_week: 1, start_time: '10:00:00', host_id: 'host-1', is_active: true, capacity: 5, duration_minutes: 60, level: 'All levels' }],
-                         error: null
-                     })
-                 }),
+                 order: jest.fn().mockReturnThis(),
+                 then: jest.fn((resolve) => resolve({
+                     data: [{ id: 'template-1', day_of_week: 1, start_time: '10:00:00', host_id: 'host-1', is_active: true, capacity: 5, duration_minutes: 60, level: 'All levels' }],
+                     error: null
+                 })),
                  update: jest.fn().mockReturnValue({
                      eq: jest.fn().mockResolvedValue({ data: null, error: new Error('Failed to update class slot') })
                  })
@@ -261,29 +250,29 @@ describe('PilatesTimetableManager error handling', () => {
     setupSuccessLoadData({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         pilates_class_sessions: (chain: any) => {
-             const orderMock = jest.fn().mockResolvedValue({
-                data: [{
-                    id: 'session-1',
-                    starts_at: testDate.toISOString(),
-                    capacity: 10,
-                    level: 'All levels',
-                    status: 'scheduled',
-                    host: { display_name: 'Test Host' },
-                    pilates_session_bookings: []
-                }],
-                error: null
-             });
-
-             // Ensure the exact chain used in the component works
-             // .select().eq().gte().lt().order()
-             const ltMock = jest.fn().mockReturnValue({ order: orderMock });
-             const gteMock = jest.fn().mockReturnValue({ lt: ltMock });
-             const eqMock = jest.fn().mockReturnValue({ gte: gteMock });
-             const selectMock = jest.fn().mockReturnValue({ eq: eqMock });
+             const mockSessionChain = {
+                 select: jest.fn().mockReturnThis(),
+                 eq: jest.fn().mockReturnThis(),
+                 gte: jest.fn().mockReturnThis(),
+                 lt: jest.fn().mockReturnThis(),
+                 order: jest.fn().mockReturnThis(),
+                 then: jest.fn((resolve) => resolve({
+                    data: [{
+                        id: 'session-1',
+                        starts_at: testDate.toISOString(),
+                        capacity: 10,
+                        level: 'All levels',
+                        status: 'scheduled',
+                        host: { display_name: 'Test Host' },
+                        pilates_session_bookings: []
+                    }],
+                    error: null
+                 }))
+             };
 
              return {
                  ...chain,
-                 select: selectMock,
+                 select: jest.fn().mockReturnValue(mockSessionChain),
                  update: jest.fn().mockReturnValue({
                      eq: jest.fn().mockResolvedValue({ data: null, error: new Error('Failed to update class') })
                  })
