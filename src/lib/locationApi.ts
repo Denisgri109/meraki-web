@@ -49,6 +49,11 @@ export interface State {
   longitude: string | null;
 }
 
+export interface LocationApiError {
+  status: string;
+  message: string;
+}
+
 export interface City {
   id: number;
   name: string;
