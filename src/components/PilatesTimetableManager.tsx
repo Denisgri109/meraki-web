@@ -539,10 +539,13 @@ export function PilatesTimetableManager({ service, onServiceUpdate }: PilatesTim
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                    {templates.map((template) => {
-                      const host = hosts.find((item) => item.id === template.host_id);
-                      const dayLabel = DAYS.find((day) => day.value === template.day_of_week)?.label || '';
-                      return (
+                    {(() => {
+                      const hostMap = new Map(hosts.map((h) => [h.id, h]));
+                      const dayMap = new Map(DAYS.map((d) => [d.value, d.label]));
+                      return templates.map((template) => {
+                        const host = template.host_id ? hostMap.get(template.host_id) : undefined;
+                        const dayLabel = dayMap.get(template.day_of_week) || '';
+                        return (
                         <div key={template.id} className={`rounded-2xl border p-4 transition-all ${template.is_active ? 'border-emerald-100 bg-white shadow-sm' : 'border-gray-200 bg-gray-50 opacity-70'}`}>
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
@@ -559,8 +562,9 @@ export function PilatesTimetableManager({ service, onServiceUpdate }: PilatesTim
                           </div>
                           {template.notes && <p className="mt-3 rounded-xl bg-[var(--color-surface-light)] p-2 text-[11px] italic text-[var(--color-text-secondary)]">{template.notes}</p>}
                         </div>
-                      );
-                    })}
+                        );
+                      });
+                    })()}
                   </div>
                 )}
               </div>
