@@ -1,10 +1,10 @@
 import {
   validateFullName,
+  validateIrishPhone,
   validatePhone,
   normalizePhone,
   formatPhone,
-  parsePhoneNumber,
-  validateIrishPhone
+  parsePhoneNumber
 } from './validation';
 
 describe('validateFullName', () => {
@@ -107,7 +107,7 @@ describe('formatPhone', () => {
 });
 
 describe('validateIrishPhone', () => {
-  it('should return error for empty or whitespace phone', () => {
+  it('should return error when phone is empty', () => {
     expect(validateIrishPhone('')).toEqual({ valid: false, error: 'Phone number is required' });
     expect(validateIrishPhone('   ')).toEqual({ valid: false, error: 'Phone number is required' });
   });
@@ -115,25 +115,37 @@ describe('validateIrishPhone', () => {
   it('should return error for non-Irish numbers', () => {
     expect(validateIrishPhone('+447700900000')).toEqual({
       valid: false,
-      error: 'Please enter a valid Irish phone number starting with +353'
+      error: 'Please enter a valid Irish phone number starting with +353',
     });
-    expect(validateIrishPhone('0012015550123')).toEqual({
+    expect(validateIrishPhone('+12015550123')).toEqual({
       valid: false,
-      error: 'Please enter a valid Irish phone number starting with +353'
+      error: 'Please enter a valid Irish phone number starting with +353',
     });
   });
 
-  it('should validate valid Irish mobile and landline numbers', () => {
+  it('should return valid for valid local Irish numbers', () => {
     expect(validateIrishPhone('0871234567')).toEqual({ valid: true });
     expect(validateIrishPhone('871234567')).toEqual({ valid: true });
-    expect(validateIrishPhone('+353871234567')).toEqual({ valid: true });
-    expect(validateIrishPhone('01234567')).toEqual({ valid: true }); // landline
-    expect(validateIrishPhone('+3531234567')).toEqual({ valid: true }); // landline
+    expect(validateIrishPhone('01234567')).toEqual({ valid: true }); // Landline
   });
 
-  it('should return error for invalid length numbers', () => {
-    // Irish numbers should be at least 7 digits locally
-    expect(validateIrishPhone('12345').valid).toBe(false);
-    expect(validateIrishPhone('087123').valid).toBe(false);
+  it('should return valid for valid international Irish numbers', () => {
+    expect(validateIrishPhone('+353871234567')).toEqual({ valid: true });
+    expect(validateIrishPhone('00353871234567')).toEqual({ valid: true });
+  });
+
+  it('should return error for invalid length Irish numbers', () => {
+    expect(validateIrishPhone('08712')).toEqual({
+      valid: false,
+      error: 'Irish mobile numbers must have 9 digits after the prefix',
+    });
+    expect(validateIrishPhone('+3538712')).toEqual({
+      valid: false,
+      error: 'Irish mobile numbers must have 9 digits after the prefix',
+    });
+    expect(validateIrishPhone('087123456789')).toEqual({
+      valid: false,
+      error: 'Irish mobile numbers must have 9 digits after the prefix',
+    });
   });
 });
