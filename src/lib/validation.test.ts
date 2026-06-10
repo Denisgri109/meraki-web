@@ -3,7 +3,8 @@ import {
   validatePhone,
   normalizePhone,
   formatPhone,
-  parsePhoneNumber
+  parsePhoneNumber,
+  validateIrishPhone
 } from './validation';
 
 describe('validateFullName', () => {
@@ -102,5 +103,37 @@ describe('formatPhone', () => {
     expect(formatPhone('871234567', 'IE')).toBe('87 123 4567');
     expect(formatPhone('2015550123', 'US')).toBe('(201) 555-0123');
     expect(formatPhone('7700900000', 'GB')).toBe('7700 900000');
+  });
+});
+
+describe('validateIrishPhone', () => {
+  it('should return error for empty or whitespace phone', () => {
+    expect(validateIrishPhone('')).toEqual({ valid: false, error: 'Phone number is required' });
+    expect(validateIrishPhone('   ')).toEqual({ valid: false, error: 'Phone number is required' });
+  });
+
+  it('should return error for non-Irish numbers', () => {
+    expect(validateIrishPhone('+447700900000')).toEqual({
+      valid: false,
+      error: 'Please enter a valid Irish phone number starting with +353'
+    });
+    expect(validateIrishPhone('0012015550123')).toEqual({
+      valid: false,
+      error: 'Please enter a valid Irish phone number starting with +353'
+    });
+  });
+
+  it('should validate valid Irish mobile and landline numbers', () => {
+    expect(validateIrishPhone('0871234567')).toEqual({ valid: true });
+    expect(validateIrishPhone('871234567')).toEqual({ valid: true });
+    expect(validateIrishPhone('+353871234567')).toEqual({ valid: true });
+    expect(validateIrishPhone('01234567')).toEqual({ valid: true }); // landline
+    expect(validateIrishPhone('+3531234567')).toEqual({ valid: true }); // landline
+  });
+
+  it('should return error for invalid length numbers', () => {
+    // Irish numbers should be at least 7 digits locally
+    expect(validateIrishPhone('12345').valid).toBe(false);
+    expect(validateIrishPhone('087123').valid).toBe(false);
   });
 });
