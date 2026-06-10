@@ -54,7 +54,13 @@ describe('filterCountries', () => {
 
   it('returns all countries when query is empty', () => {
     expect(filterCountries(mockCountries, '')).toEqual(mockCountries);
-    expect(filterCountries(mockCountries, '   ')).toEqual(mockCountries);
+    expect(filterCountries(mockCountries, '   ')).toEqual(mockCountries); // Test whitespace handling
+  });
+
+  it('matches by partial name case-insensitively', () => {
+    const result = filterCountries(mockCountries, 'king');
+    expect(result).toHaveLength(1);
+    expect(result[0].iso2).toBe('GB');
   });
 
   it('matches by name case-insensitively', () => {
