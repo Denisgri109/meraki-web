@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
+import { useModal } from '@/contexts/ModalContext';
 import {
   FlaskConical, Calendar, MessageSquare, ShoppingBag, Gift, RefreshCw,
   ChevronRight, ChevronDown, Trash2, Loader2, CheckCircle2, AlertCircle,
@@ -143,6 +144,7 @@ const SEED_ACTIONS: SeedAction[] = [
 export default function TestPanelPage() {
   const router = useRouter();
   const { user } = useAuth();
+  const { showConfirm, showPrompt } = useModal();
   const [switching, setSwitching] = useState(false);
   const [switchError, setSwitchError] = useState<string | null>(null);
   const [password, setPassword] = useState('');
@@ -256,17 +258,27 @@ export default function TestPanelPage() {
   // ─── Seed action runner ───────────────────────────────────────────
   const runSeedAction = async (act: SeedAction) => {
     if (act.action === 'nuclear_wipe') {
-      const ok1 = window.confirm(
-        '☢️ NUCLEAR WIPE\n\nThis will permanently delete ALL rows from EVERY content table in the database:\n• All appointments, services, products\n• All orders, payments, refunds\n• All chats, consultations\n• All loyalty cards, stamps, rewards\n• All supplies, inventory\n• All schedules, availability, Pilates data\n\nUser accounts will NOT be deleted.\n\nAre you absolutely sure?'
+      const ok1 = await showConfirm(
+        '☢️ NUCLEAR WIPE\n\nThis will permanently delete ALL rows from EVERY content table in the database:\n• All appointments, services, products\n• All orders, payments, refunds\n• All chats, consultations\n• All loyalty cards, stamps, rewards\n• All supplies, inventory\n• All schedules, availability, Pilates data\n\nUser accounts will NOT be deleted.\n\nAre you absolutely sure?',
+        '☢️ Nuclear Wipe',
+        'Yes, Nuclear Wipe',
+        'Cancel',
+        'danger'
       );
       if (!ok1) return;
-      const typed = window.prompt('Type NUKE to confirm the nuclear wipe:');
+      const typed = await showPrompt('Type NUKE to confirm the nuclear wipe:', 'Nuclear Wipe Confirmation', 'NUKE');
       if (typed?.trim().toUpperCase() !== 'NUKE') {
         pushResult({ ok: false, action: act.action, label: act.label, message: 'Nuclear wipe cancelled — confirmation phrase did not match.' });
         return;
       }
     } else if (act.destructive) {
-      const ok = window.confirm('This will delete test data for all 3 test accounts. Continue?');
+      const ok = await showConfirm(
+        'This will delete test data for all 3 test accounts. Continue?',
+        'Delete Test Data',
+        'Delete',
+        'Cancel',
+        'danger'
+      );
       if (!ok) return;
     }
 

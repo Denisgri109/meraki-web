@@ -31,9 +31,15 @@ interface MasterInfo {
   avatar_url: string | null;
 }
 
-type ScanResult =
-  | { kind: 'points'; points: number; message?: string }
-  | { kind: 'stamp'; cardName: string; masterName: string; collected: number; required: number; rewardAvailable: boolean; message?: string };
+type ScanResult = {
+  kind: 'stamp';
+  cardName: string;
+  masterName: string;
+  collected: number;
+  required: number;
+  rewardAvailable: boolean;
+  message?: string;
+};
 
 const QR_REGION_ID = 'meraki-qr-reader';
 
@@ -63,11 +69,6 @@ export default function LoyaltyScanPage() {
   // Processing scan
   const [processing, setProcessing] = useState(false);
 
-  // Card-selection modal (when scanning a master with multiple loyalty cards)
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [pickerMaster, setPickerMaster] = useState<MasterInfo | null>(null);
-  const [pickerCards, setPickerCards] = useState<LoyaltyCard[]>([]);
-
   // Last result banner
   const [lastResult, setLastResult] = useState<ScanResult | null>(null);
 
@@ -87,116 +88,53 @@ export default function LoyaltyScanPage() {
     }
   }, []);
 
-  // ─── Stamp / Points handlers ────────────────────────────────────────────
-  const fetchMasterCards = useCallback(
-    async (masterId: string): Promise<{ master: MasterInfo | null; cards: LoyaltyCard[] }> => {
-      const [{ data: master }, { data: cards }] = await Promise.all([
-        supabase.from('profiles').select('id, full_name, avatar_url').eq('id', masterId).single(),
-        supabase
-          .from('loyalty_cards')
-          .select('*')
-          .eq('master_id', masterId)
-          .eq('is_active', true)
-          .order('created_at', { ascending: true }),
-      ]);
-      return {
-        master: (master as unknown as MasterInfo) ?? null,
-        cards: (cards as unknown as LoyaltyCard[]) ?? [],
-      };
-    },
-    [supabase],
-  );
-
-  const handleAddStamp = useCallback(
-    async (cardId: string, master: MasterInfo | null, card: LoyaltyCard) => {
-      if (!user) return;
-      setProcessing(true);
-      try {
-        const { data, error } = await supabase.rpc('add_loyalty_stamp', {
-          p_client_id: user.id,
-          p_loyalty_card_id: cardId,
-        });
-        if (error) throw error;
-        const row = Array.isArray(data) ? data[0] : data;
-        const result = row as { success: boolean; new_total: number; reward_available: boolean; message: string } | null;
-        if (!result || result.success === false) {
-          showToast(result?.message || 'Failed to add stamp', 'error');
-          return;
-        }
-        setLastResult({
-          kind: 'stamp',
-          cardName: card.name,
-          masterName: master?.full_name || 'Master',
-          collected: result.new_total,
-          required: card.stamps_required,
-          rewardAvailable: result.reward_available,
-          message: result.message,
-        });
-        showToast(result.reward_available ? 'Reward unlocked! 🎉' : `Stamp added • ${result.new_total}/${card.stamps_required}`, 'success');
-      } catch (err) {
-        showToast(err instanceof Error ? err.message : 'Failed to add stamp', 'error');
-      } finally {
-        setProcessing(false);
-        setPickerOpen(false);
-      }
-    },
-    [user, supabase, showToast],
-  );
-
+  // ─── Stamp handler ────────────────────────────────────────────
   const handleStampScan = useCallback(
     async (masterId: string) => {
       if (!user) return;
       if (masterId === user.id) {
-        showToast('You can\u2019t scan your own QR', 'error');
+        showToast('You cannot scan your own QR code', 'error');
         return;
       }
       setProcessing(true);
       try {
-        const { master, cards } = await fetchMasterCards(masterId);
-        if (!master) {
-          showToast('Master not found', 'error');
-          return;
-        }
-        if (cards.length === 0) {
-          showToast('This master has no active loyalty card', 'error');
-          return;
-        }
-        if (cards.length === 1) {
-          await handleAddStamp(cards[0].id, master, cards[0]);
-          return;
-        }
-        // Multiple cards → ask client to choose
-        setPickerMaster(master);
-        setPickerCards(cards);
-        setPickerOpen(true);
-      } catch (err) {
-        showToast(err instanceof Error ? err.message : 'Stamp failed', 'error');
-      } finally {
-        setProcessing(false);
-      }
-    },
-    [user, fetchMasterCards, handleAddStamp, showToast],
-  );
-
-  const handlePointsScan = useCallback(
-    async (code: string) => {
-      if (!user) return;
-      setProcessing(true);
-      try {
-        const { data, error } = await supabase.rpc('process_qr_scan', {
+        const { data, error } = await supabase.rpc('process_stamp_scan', {
+          p_master_id: masterId,
           p_client_id: user.id,
-          p_code: code,
         });
         if (error) throw error;
-        const result = data as { success: boolean; points?: number; message?: string } | null;
-        if (!result?.success) {
-          showToast(result?.message || 'Invalid QR code', 'error');
+        
+        const result = data as {
+          success: boolean;
+          stamps_collected?: number;
+          stamps_required?: number;
+          card_name?: string;
+          master_name?: string;
+          reward_available?: boolean;
+          message: string;
+        } | null;
+
+        if (!result || result.success === false) {
+          showToast(result?.message || 'Failed to process stamp', 'error');
           return;
         }
-        setLastResult({ kind: 'points', points: result.points ?? 0, message: result.message });
-        showToast(`+${result.points ?? 0} points earned!`, 'success');
+
+        setLastResult({
+          kind: 'stamp',
+          cardName: result.card_name || 'Loyalty Card',
+          masterName: result.master_name || 'Master',
+          collected: result.stamps_collected ?? 0,
+          required: result.stamps_required ?? 8,
+          rewardAvailable: result.reward_available ?? false,
+          message: result.message,
+        });
+
+        showToast(
+          result.reward_available ? 'Reward unlocked! 🎉' : result.message || 'Stamp added!',
+          'success'
+        );
       } catch (err) {
-        showToast(err instanceof Error ? err.message : 'Scan failed', 'error');
+        showToast(err instanceof Error ? err.message : 'Stamp failed', 'error');
       } finally {
         setProcessing(false);
       }
@@ -218,18 +156,15 @@ export default function LoyaltyScanPage() {
 
       const result = parseScanCode(text);
       if (result.type === 'invalid') {
-        const isStamp = text.startsWith('stamp:');
-        showToast(isStamp ? 'Invalid stamp QR' : 'Invalid QR code', 'error');
+        showToast('Invalid stamp QR', 'error');
         return;
       }
 
       if (result.type === 'stamp') {
         await handleStampScan(result.value);
-      } else if (result.type === 'points') {
-        await handlePointsScan(result.value);
       }
     },
-    [handleStampScan, handlePointsScan, showToast],
+    [handleStampScan, showToast],
   );
 
   // ─── Camera scanner lifecycle ────────────────────────────────────────────
@@ -358,7 +293,7 @@ export default function LoyaltyScanPage() {
         </Link>
         <div>
           <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Scan to Earn</h1>
-          <p className="text-sm text-[var(--color-text-muted)]">Earn stamps and points at the salon</p>
+          <p className="text-sm text-[var(--color-text-muted)]">Collect loyalty stamps at the salon</p>
         </div>
       </div>
 
@@ -429,7 +364,7 @@ export default function LoyaltyScanPage() {
           )}
 
           <p className="text-xs text-[var(--color-text-muted)] mt-3 text-center">
-            Point your camera at the master&apos;s QR code to collect a stamp or earn points.
+            Point your camera at the master&apos;s QR code to collect a stamp.
           </p>
         </div>
       )}
@@ -481,42 +416,31 @@ export default function LoyaltyScanPage() {
               <Sparkles size={18} className="text-white" />
             </div>
             <div className="flex-1 min-w-0">
-              {lastResult.kind === 'points' ? (
-                <>
-                  <p className="font-bold text-[var(--color-text-primary)]">+{lastResult.points} points earned!</p>
-                  <p className="text-xs text-[var(--color-text-muted)]">{lastResult.message || 'Keep visiting to unlock rewards'}</p>
-                </>
-              ) : (
-                <>
-                  <p className="font-bold text-[var(--color-text-primary)]">
-                    {lastResult.rewardAvailable ? 'Reward unlocked!' : 'Stamp added'}
-                  </p>
-                  <p className="text-xs text-[var(--color-text-muted)]">
-                    {lastResult.cardName} • {lastResult.masterName} • {lastResult.collected}/{lastResult.required}
-                  </p>
-                </>
-              )}
+              <p className="font-bold text-[var(--color-text-primary)]">
+                {lastResult.rewardAvailable ? 'Reward unlocked!' : 'Stamp added'}
+              </p>
+              <p className="text-xs text-[var(--color-text-muted)]">
+                {lastResult.cardName} • {lastResult.masterName} • {lastResult.collected}/{lastResult.required}
+              </p>
             </div>
           </div>
-          {lastResult.kind === 'stamp' && (
-            <div className="flex flex-wrap gap-1.5 mt-2">
-              {Array.from({ length: lastResult.required }).map((_, i) => {
-                const filled = i < lastResult.collected;
-                return (
-                  <div
-                    key={i}
-                    className={`w-7 h-7 rounded-lg flex items-center justify-center border ${
-                      filled
-                        ? 'bg-gradient-to-br from-amber-400 to-pink-400 border-transparent shadow-sm'
-                        : 'bg-white/60 border-black/5'
-                    }`}
-                  >
-                    <Star size={12} className={filled ? 'text-white' : 'text-black/10'} />
-                  </div>
-                );
-              })}
-            </div>
-          )}
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {Array.from({ length: lastResult.required }).map((_, i) => {
+              const filled = i < lastResult.collected;
+              return (
+                <div
+                  key={i}
+                  className={`w-7 h-7 rounded-lg flex items-center justify-center border ${
+                    filled
+                      ? 'bg-gradient-to-br from-amber-400 to-pink-400 border-transparent shadow-sm'
+                      : 'bg-white/60 border-black/5'
+                  }`}
+                >
+                  <Star size={12} className={filled ? 'text-white' : 'text-black/10'} />
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -524,60 +448,10 @@ export default function LoyaltyScanPage() {
       <div className="glass-card p-5">
         <p className="text-xs uppercase tracking-wider font-bold text-[var(--color-text-muted)] mb-2">How it works</p>
         <ul className="space-y-1.5 text-sm text-[var(--color-text-secondary)]">
-          <li className="flex gap-2"><span className="text-amber-500">•</span> Scan the master&apos;s <strong>Stamp QR</strong> after each appointment to fill your card.</li>
-          <li className="flex gap-2"><span className="text-amber-500">•</span> Scan the salon&apos;s <strong>Points QR</strong> to earn loyalty points (rotates after every scan).</li>
-          <li className="flex gap-2"><span className="text-amber-500">•</span> Redeem rewards from the loyalty page once you&apos;ve collected enough.</li>
+          <li className="flex gap-2"><span className="text-amber-500">•</span> Scan the master&apos;s <strong>Stamp QR</strong> or tap the NFC tag after each completed appointment to collect a stamp.</li>
+          <li className="flex gap-2"><span className="text-amber-500">•</span> Unlock and redeem rewards automatically once you have collected enough stamps.</li>
         </ul>
       </div>
-
-      {/* Card picker modal */}
-      {pickerOpen && pickerMaster && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)' }}
-          onClick={() => !processing && setPickerOpen(false)}
-        >
-          <div
-            className="bg-white rounded-2xl p-6 w-full max-w-md max-h-[85vh] overflow-y-auto shadow-2xl animate-scale-in"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-lg font-bold text-[var(--color-text-primary)]">Choose a card</h2>
-                <p className="text-xs text-[var(--color-text-muted)]">{pickerMaster.full_name} has multiple loyalty cards</p>
-              </div>
-              <button
-                onClick={() => !processing && setPickerOpen(false)}
-                disabled={processing}
-                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[var(--color-surface-light)] cursor-pointer disabled:opacity-50"
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            <div className="space-y-2.5">
-              {pickerCards.map((card) => (
-                <button
-                  key={card.id}
-                  disabled={processing}
-                  onClick={() => void handleAddStamp(card.id, pickerMaster, card)}
-                  className="w-full flex items-center gap-3 p-4 rounded-xl border border-[var(--color-border-light)] bg-white hover:bg-[var(--color-brand-pink-light)] hover:border-[var(--color-brand-pink)] transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-left"
-                >
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-pink-400 flex items-center justify-center shrink-0">
-                    <Gift size={18} className="text-white" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-[var(--color-text-primary)] truncate">{card.name}</p>
-                    <p className="text-xs text-[var(--color-text-muted)] truncate">
-                      {card.stamps_required} stamps → {rewardLabel(card)}
-                    </p>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
 
       <style jsx global>{`
         @keyframes scaleIn {
@@ -589,18 +463,4 @@ export default function LoyaltyScanPage() {
       `}</style>
     </div>
   );
-}
-
-
-function rewardLabel(card: LoyaltyCard) {
-  switch (card.reward_type) {
-    case 'free_service':
-      return 'Free service';
-    case 'discount_percent':
-      return `${card.reward_value ?? ''}% off`;
-    case 'discount_amount':
-      return `\u20AC${card.reward_value ?? ''} off`;
-    default:
-      return 'Reward';
-  }
 }

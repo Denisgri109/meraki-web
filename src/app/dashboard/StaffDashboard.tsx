@@ -130,7 +130,7 @@ export default function StaffDashboard() {
 
       const fetchEarnings = (todayList: ApptRow[]) => {
         return todayList
-          .filter((a) => a.status === 'completed')
+          .filter((a) => ['completed', 'confirmed'].includes(a.status))
           .reduce((sum, a) => sum + (a.price || 0), 0);
       };
 

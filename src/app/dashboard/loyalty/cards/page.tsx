@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/components/Toast';
+import { useModal } from '@/contexts/ModalContext';
 import {
   ArrowLeft, Plus, Pencil, Trash2, Pause, Play, X, Loader2, Ticket, Star, Save,
 } from 'lucide-react';
@@ -50,6 +51,7 @@ export default function LoyaltyCardsPage() {
   const { user, role, loading: authLoading } = useAuth();
   const supabase = createClient();
   const { showToast } = useToast();
+  const { showConfirm } = useModal();
 
   const isMasterOrOwner = role === 'master' || role === 'owner';
 
@@ -183,7 +185,7 @@ export default function LoyaltyCardsPage() {
   };
 
   const deleteCard = async (card: LoyaltyCard) => {
-    if (!confirm(`Delete "${card.name}"? Existing client progress on this card will be lost.`)) return;
+    if (!(await showConfirm(`Delete "${card.name}"? Existing client progress on this card will be lost.`, 'Delete Loyalty Card', 'Delete', 'Cancel', 'danger'))) return;
     try {
       const { error } = await supabase.from('loyalty_cards').delete().eq('id', card.id);
       if (error) throw error;

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/components/Toast';
+import { useModal } from '@/contexts/ModalContext';
 import { Settings, User, Shield, Save, Loader2, Camera, CreditCard, Mail, Dumbbell, AlertTriangle, X, Briefcase, Image as ImageIcon, Trash2, Plus, ExternalLink, MapPin, Crosshair } from 'lucide-react';
 import BusinessSettingsPanel from '@/components/BusinessSettingsPanel';
 import type { BusinessSettingsPanelRef } from '@/components/BusinessSettingsPanel';
@@ -67,6 +68,7 @@ export default function SettingsPage() {
   const router = useRouter();
   const supabase = createClient();
   const { showToast } = useToast();
+  const { showConfirm } = useModal();
   const searchParams = useSearchParams();
   const initialTab = searchParams.get('tab') || 'profile';
   const [activeSection, setActiveSection] = useState(initialTab);
@@ -305,7 +307,7 @@ export default function SettingsPage() {
   };
 
   const handleDeletePhoto = async (photo: Portfolio) => {
-    if (!confirm('Delete this portfolio photo? This cannot be undone.')) return;
+    if (!(await showConfirm('Delete this portfolio photo? This cannot be undone.', 'Delete Portfolio Photo', 'Delete', 'Cancel', 'danger'))) return;
     try {
       const { error } = await supabase.from('portfolios').delete().eq('id', photo.id);
       if (error) throw error;

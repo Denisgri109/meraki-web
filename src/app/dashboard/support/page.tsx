@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/components/Toast';
+import { useModal } from '@/contexts/ModalContext';
 import {
   HelpCircle, MessageCircle, Mail, Phone, Clock, ChevronDown,
   ChevronUp, Plus, Pencil, Trash2, Save, X, Loader2, Settings,
@@ -54,6 +55,7 @@ export default function SupportPage() {
   const { user, role } = useAuth();
   const supabase = createClient();
   const { showToast } = useToast();
+  const { showConfirm } = useModal();
   const isOwner = role === 'owner';
 
   const [activeTab, setActiveTab] = useState<TabValue>('faq');
@@ -201,7 +203,7 @@ export default function SupportPage() {
   };
 
   const handleDeleteFaq = async (id: string) => {
-    if (!confirm('Delete this FAQ item?')) return;
+    if (!(await showConfirm('Delete this FAQ item?', 'Delete FAQ', 'Delete', 'Cancel', 'danger'))) return;
     const updated = faqs.filter(f => f.id !== id);
     await saveFaqs(updated);
   };

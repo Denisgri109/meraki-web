@@ -13,6 +13,14 @@ jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({ user: { id: 'test-user-id' } }),
 }));
 
+const mockShowConfirm = jest.fn();
+
+jest.mock('@/contexts/ModalContext', () => ({
+  useModal: () => ({
+    showConfirm: mockShowConfirm,
+  }),
+}));
+
 jest.mock('@/components/Toast', () => ({
   useToast: jest.fn(),
 }));
@@ -303,6 +311,143 @@ describe('PilatesTimetableManager error handling', () => {
 
     await waitFor(() => {
       expect(mockShowToast).toHaveBeenCalledWith('Failed to update class', 'error');
+    });
+  });
+
+  it('shows error toast when deleteTemplate fails', async () => {
+    mockShowConfirm.mockResolvedValue(true);
+    setupSuccessLoadData({
+      pilates_schedule_templates: (chain: any) => ({
+        ...chain,
+        order: jest.fn().mockReturnThis(),
+        then: jest.fn((resolve) => resolve({
+          data: [{ id: 'template-1', day_of_week: 1, start_time: '10:00:00', host_id: 'host-1', is_active: true, capacity: 5, duration_minutes: 60, level: 'All levels' }],
+          error: null
+        })),
+        delete: jest.fn().mockReturnValue({
+          eq: jest.fn().mockResolvedValue({ data: null, error: new Error('Failed to delete class slot') })
+        })
+      })
+    });
+
+    render(<PilatesTimetableManager service={mockService as any} onServiceUpdate={jest.fn()} />);
+
+    await waitFor(() => {
+      expect(mockSupabase.rpc).toHaveBeenCalled();
+    });
+
+    const deleteButton = await screen.findByText('Delete');
+    fireEvent.click(deleteButton);
+
+    await waitFor(() => {
+      expect(mockShowConfirm).toHaveBeenCalled();
+      expect(mockShowToast).toHaveBeenCalledWith('Failed to delete class slot', 'error');
+    });
+  });
+
+  it('shows error toast when saveTemplate fails', async () => {
+    setupSuccessLoadData({
+      pilates_schedule_templates: (chain: any) => ({
+        ...chain,
+        order: jest.fn().mockReturnThis(),
+        then: jest.fn((resolve) => resolve({
+          data: [{ id: 'template-1', day_of_week: 1, start_time: '10:00:00', host_id: 'host-1', is_active: true, capacity: 5, duration_minutes: 60, level: 'All levels' }],
+          error: null
+        })),
+        update: jest.fn().mockReturnValue({
+          eq: jest.fn().mockResolvedValue({ data: null, error: new Error('Failed to update class slot') })
+        })
+      }),
+      pilates_hosts: (chain: any) => ({
+        ...chain,
+        order: jest.fn().mockReturnThis(),
+        then: jest.fn((resolve) => resolve({ data: [{ id: 'host-1', display_name: 'Test Host' }], error: null })),
+      })
+    });
+
+    render(<PilatesTimetableManager service={mockService as any} onServiceUpdate={jest.fn()} />);
+
+    await waitFor(() => {
+      expect(mockSupabase.rpc).toHaveBeenCalled();
+    });
+
+    const editButton = await screen.findByText('Edit');
+    fireEvent.click(editButton);
+
+    const saveChangesButton = await screen.findByText('Save changes');
+    fireEvent.click(saveChangesButton);
+
+    await waitFor(() => {
+      expect(mockShowToast).toHaveBeenCalledWith('Failed to update class slot', 'error');
+    });
+  });
+
+  it('shows error toast when deleteHost fails', async () => {
+    mockShowConfirm.mockResolvedValue(true);
+    setupSuccessLoadData({
+      pilates_hosts: (chain: any) => ({
+        ...chain,
+        order: jest.fn().mockReturnThis(),
+        then: jest.fn((resolve) => resolve({
+          data: [{ id: 'host-1', display_name: 'Test Host', is_active: true }],
+          error: null
+        })),
+        delete: jest.fn().mockReturnValue({
+          eq: jest.fn().mockResolvedValue({ data: null, error: new Error('Failed to delete instructor') })
+        })
+      })
+    });
+
+    render(<PilatesTimetableManager service={mockService as any} onServiceUpdate={jest.fn()} />);
+
+    await waitFor(() => {
+      expect(mockSupabase.rpc).toHaveBeenCalled();
+    });
+
+    // Switch to Instructors tab
+    fireEvent.click(screen.getByRole('button', { name: /instructors/i }));
+
+    const deleteButton = await screen.findByLabelText('Delete instructor');
+    fireEvent.click(deleteButton);
+
+    await waitFor(() => {
+      expect(mockShowConfirm).toHaveBeenCalled();
+      expect(mockShowToast).toHaveBeenCalledWith('Failed to delete instructor', 'error');
+    });
+  });
+
+  it('shows error toast when saveHost fails', async () => {
+    setupSuccessLoadData({
+      pilates_hosts: (chain: any) => ({
+        ...chain,
+        order: jest.fn().mockReturnThis(),
+        then: jest.fn((resolve) => resolve({
+          data: [{ id: 'host-1', display_name: 'Test Host', is_active: true }],
+          error: null
+        })),
+        update: jest.fn().mockReturnValue({
+          eq: jest.fn().mockResolvedValue({ data: null, error: new Error('Failed to update instructor') })
+        })
+      })
+    });
+
+    render(<PilatesTimetableManager service={mockService as any} onServiceUpdate={jest.fn()} />);
+
+    await waitFor(() => {
+      expect(mockSupabase.rpc).toHaveBeenCalled();
+    });
+
+    // Switch to Instructors tab
+    fireEvent.click(screen.getByRole('button', { name: /instructors/i }));
+
+    const editButton = await screen.findByLabelText('Edit instructor');
+    fireEvent.click(editButton);
+
+    const saveChangesButton = await screen.findByText('Save changes');
+    fireEvent.click(saveChangesButton);
+
+    await waitFor(() => {
+      expect(mockShowToast).toHaveBeenCalledWith('Failed to update instructor', 'error');
     });
   });
 });

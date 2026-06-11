@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, type Dispatch, type SetStateAction } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useModal } from '@/contexts/ModalContext';
 import { Search, Star, Clock, ArrowRight, ArrowLeft, Calendar, CheckCircle2, Sparkles, User, Scissors, SlidersHorizontal, Loader2, ChevronLeft, ChevronRight, AlertCircle, CreditCard, Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { loadStripe } from '@stripe/stripe-js';
@@ -54,6 +55,7 @@ function CheckoutForm({ user, profile, selectedService, selectedMaster, selected
   const stripe = useStripe();
   const elements = useElements();
   const supabase = createClient();
+  const { showAlert } = useModal();
   const [savedCards, setSavedCards] = useState<SavedCard[]>([]);
   const [loadingCards, setLoadingCards] = useState(true);
   const [selectedPm, setSelectedPm] = useState<string>('new');
@@ -134,14 +136,14 @@ function CheckoutForm({ user, profile, selectedService, selectedMaster, selected
     if (!isPilates && !selectedMaster) return;
     const appointmentStartDate = isPilates ? null : getAppointmentDateTime(selectedDate, selectedTime);
     if (!isPilates && !appointmentStartDate) {
-      alert('Please choose a valid future date and time before booking.');
+      await showAlert('Please choose a valid future date and time before booking.', 'Booking Verification');
       return;
     }
     const bookingMasterId = selectedPilatesSession?.host?.profile_id || selectedPilatesSession?.owner_id || selectedMaster?.id;
     const bookingHostName = selectedPilatesSession?.host?.display_name || selectedMaster?.full_name || 'Pilates host';
     if (!bookingMasterId) return;
     if (bookingMasterId === user.id) {
-      alert('You cannot book an appointment with yourself.');
+      await showAlert('You cannot book an appointment with yourself.', 'Booking Verification');
       return;
     }
     setSubmitting(true);
@@ -178,7 +180,7 @@ function CheckoutForm({ user, profile, selectedService, selectedMaster, selected
       if (bookingError.context && typeof bookingError.context.json === 'function') {
         try { const errData = await bookingError.context.json(); if (errData && errData.error) msg = errData.error; } catch {}
       }
-      alert(msg);
+      await showAlert(msg, 'Booking Error');
     } finally {
       setSubmitting(false);
     }

@@ -1,22 +1,146 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 import { 
   Calendar, Clock, User, ChevronRight, ArrowRight, X,
   Shield, ShieldAlert, Sparkles, MessageSquare, Check, AlertTriangle,
   HelpCircle, CheckCircle, Info, DollarSign, CalendarDays,
-  UserCheck, AlertCircle, CalendarRange, Clock3, Loader2, Trash2
+  UserCheck, AlertCircle, CalendarRange, Clock3, Loader2, Trash2,
+  ChevronLeft, ArrowLeft, Settings
 } from 'lucide-react';
 import Link from 'next/link';
 
 type TabValue = 'upcoming' | 'past' | 'cancelled';
 
+interface MasterAvailability {
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
+  is_available: boolean;
+}
+
+interface BlockedSlot {
+  start_time: string;
+  end_time: string;
+}
+
+interface PilatesHost {
+  id: string;
+  display_name: string;
+  profile_id: string | null;
+}
+
+interface PilatesBooking {
+  id: string;
+  status: string;
+}
+
+interface PilatesSession {
+  id: string;
+  service_id: string;
+  owner_id: string;
+  starts_at: string;
+  ends_at: string;
+  capacity: number;
+  status: string;
+  level: string;
+  host: PilatesHost | null;
+  pilates_session_bookings: PilatesBooking[] | null;
+}
+
+const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/;
+const DEFAULT_AVAILABILITY_START = '09:00';
+const DEFAULT_AVAILABILITY_END = '19:00';
+
+const normalizeTimeString = (value: string | null | undefined) => {
+  if (!value) return '';
+  const trimmed = value.slice(0, 5);
+  return TIME_PATTERN.test(trimmed) ? trimmed : '';
+};
+
+const generateTimeSlotsForRange = (start: string, end: string) => {
+  const startNorm = normalizeTimeString(start) || DEFAULT_AVAILABILITY_START;
+  const endNorm = normalizeTimeString(end) || DEFAULT_AVAILABILITY_END;
+  const [startHour, startMin] = startNorm.split(':').map(Number);
+  const [endHour, endMin] = endNorm.split(':').map(Number);
+  const slots: string[] = [];
+  let hour = startHour;
+  let minute = startMin;
+  while (hour < endHour || (hour === endHour && minute < endMin)) {
+    slots.push(`${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`);
+    minute += 30;
+    if (minute >= 60) {
+      minute = 0;
+      hour += 1;
+    }
+  }
+  return slots;
+};
+
+const getStartOfToday = () => {
+  const today = new Date();
+  return new Date(today.getFullYear(), today.getMonth(), today.getDate());
+};
+
+const toDateKey = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const getDateFromKey = (dateKey: string) => {
+  if (!DATE_KEY_PATTERN.test(dateKey)) return null;
+  const [year, month, day] = dateKey.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
+  return date;
+};
+
+const isSelectableDateKey = (dateKey: string) => {
+  const date = getDateFromKey(dateKey);
+  return Boolean(date && date >= getStartOfToday());
+};
+
+const getAppointmentDateTime = (dateKey: string, time: string) => {
+  if (!isSelectableDateKey(dateKey) || !TIME_PATTERN.test(time)) return null;
+  const date = getDateFromKey(dateKey);
+  if (!date) return null;
+  const [hours, minutes] = time.split(':').map(Number);
+  date.setHours(hours, minutes, 0, 0);
+  if (Number.isNaN(date.getTime()) || date.getTime() <= Date.now()) return null;
+  return date;
+};
+
+const buildCalendarWeeks = (month: Date) => {
+  const firstDay = new Date(month.getFullYear(), month.getMonth(), 1);
+  const startDay = new Date(firstDay);
+  startDay.setDate(firstDay.getDate() - firstDay.getDay());
+
+  return Array.from({ length: 6 }, (_, weekIndex) =>
+    Array.from({ length: 7 }, (_, dayIndex) => {
+      const date = new Date(startDay);
+      date.setDate(startDay.getDate() + weekIndex * 7 + dayIndex);
+      return date;
+    })
+  );
+};
+
+const formatDateLabel = (dateKey: string) => {
+  const date = getDateFromKey(dateKey);
+  if (!date) return dateKey;
+  return date.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+};
+
 interface Appointment {
   id: string;
   client_id: string;
   master_id: string;
+  service_id: string;
   start_time: string;
   end_time: string;
   status: string;
@@ -40,7 +164,7 @@ interface Appointment {
   service_duration_minutes: number | null;
   payment_hold_amount: number | null;
   service?: { name: string; base_price?: number; duration_minutes?: number; description?: string } | null;
-  master?: { id: string; full_name: string; avatar_url: string | null; specialties: string[] | null } | null;
+  master?: { id: string; full_name: string; avatar_url: string | null; specialties: string[] | null; push_token: string | null } | null;
   client?: { id: string; full_name: string; avatar_url: string | null; email: string; phone: string | null } | null;
 }
 
@@ -117,19 +241,36 @@ export default function AppointmentsPage() {
   const [lateMinutesInput, setLateMinutesInput] = useState('15');
   const [showLateInputForm, setShowLateInputForm] = useState(false);
 
+  // Client Rescheduling States
+  const [showClientReschedule, setShowClientReschedule] = useState(false);
+  const [clientRescheduleDate, setClientRescheduleDate] = useState<string>('');
+  const [clientRescheduleTime, setClientRescheduleTime] = useState<string>('');
+  const [clientRescheduleCalendarMonth, setClientRescheduleCalendarMonth] = useState<Date>(() => {
+    const today = new Date();
+    return new Date(today.getFullYear(), today.getMonth(), 1);
+  });
+  const [clientRescheduleMasterAvailability, setClientRescheduleMasterAvailability] = useState<MasterAvailability[]>([]);
+  const [clientRescheduleBlockedSlots, setClientRescheduleBlockedSlots] = useState<BlockedSlot[]>([]);
+  const [clientRescheduleBookedSlotKeys, setClientRescheduleBookedSlotKeys] = useState<string[]>([]);
+  const [clientIsFetchingSlots, setClientIsFetchingSlots] = useState(false);
+  const [clientReschedulePilatesSessions, setClientReschedulePilatesSessions] = useState<PilatesSession[]>([]);
+  const [clientLoadingPilates, setClientLoadingPilates] = useState(false);
+  const [clientSelectedPilatesSessionId, setClientSelectedPilatesSessionId] = useState<string | null>(null);
+  const [clientSubmittingReschedule, setClientSubmittingReschedule] = useState(false);
+
   const fetchAppointments = async () => {
     if (!user) { setLoading(false); return; }
     try {
       let query = supabase
         .from('appointments')
         .select(`
-          id, client_id, master_id, start_time, end_time, status, notes, service_name, service_category,
+          id, client_id, master_id, service_id, start_time, end_time, status, notes, service_name, service_category,
           price, deposit_amount, deposit_paid, client_confirmed, confirmation_deadline,
           requires_confirmation, proposed_start_time, proposed_end_time, reschedule_initiated_by,
           cancellation_fee_amount, cancellation_reason, no_show_charge_amount, no_show_processed_at,
           stripe_payment_intent_id, service_duration_minutes, payment_hold_amount,
           service:services(name, base_price, duration_minutes, description),
-          master:profiles!appointments_master_id_fkey(id, full_name, avatar_url, specialties),
+          master:profiles!appointments_master_id_fkey(id, full_name, avatar_url, specialties, push_token),
           client:profiles!appointments_client_id_fkey(id, full_name, avatar_url, email, phone)
         `);
 
@@ -170,6 +311,10 @@ export default function AppointmentsPage() {
     setShowNoShowModal(false);
     setShowRescheduleForm(false);
     setShowLateInputForm(false);
+    setShowClientReschedule(false);
+    setClientRescheduleDate('');
+    setClientRescheduleTime('');
+    setClientSelectedPilatesSessionId(null);
 
     try {
       // 1. Fetch confirmations
@@ -404,6 +549,245 @@ export default function AppointmentsPage() {
       fetchAppointments();
     } catch (err: any) {
       showToast(err.message || 'Failed to submit response', 'error');
+    }
+  };
+
+  const clientSelectedDayAvailability = useMemo(() => {
+    if (!clientRescheduleDate) return null;
+    const date = getDateFromKey(clientRescheduleDate);
+    if (!date) return null;
+    const dayOfWeek = date.getDay();
+    return (
+      clientRescheduleMasterAvailability.find((a) => a.day_of_week === dayOfWeek && a.is_available) || null
+    );
+  }, [clientRescheduleDate, clientRescheduleMasterAvailability]);
+
+  const clientTimeSlots = useMemo(() => {
+    const isPilates = selectedAppointment?.service_category === 'Pilates';
+    if (isPilates) return [];
+    if (!clientSelectedDayAvailability) return [];
+    return generateTimeSlotsForRange(
+      clientSelectedDayAvailability.start_time,
+      clientSelectedDayAvailability.end_time
+    );
+  }, [selectedAppointment, clientSelectedDayAvailability]);
+
+  const isClientTimeSlotDisabled = (time: string) => {
+    if (!clientRescheduleDate || clientIsFetchingSlots) return true;
+    const appointmentDate = getAppointmentDateTime(clientRescheduleDate, time);
+    if (!appointmentDate) return true;
+    if (clientRescheduleBookedSlotKeys.includes(time)) return true;
+    for (const blocked of clientRescheduleBlockedSlots) {
+      const blockStart = new Date(blocked.start_time);
+      const blockEnd = new Date(blocked.end_time);
+      if (appointmentDate >= blockStart && appointmentDate < blockEnd) return true;
+    }
+    return false;
+  };
+
+  // Fetch booked slots when date selection changes
+  useEffect(() => {
+    if (!showClientReschedule || !selectedAppointment || !clientRescheduleDate || selectedAppointment.service_category === 'Pilates') {
+      setClientRescheduleBookedSlotKeys([]);
+      return;
+    }
+    let cancelled = false;
+    const fetchBookedForReschedule = async () => {
+      setClientIsFetchingSlots(true);
+      try {
+        const { data } = await supabase
+          .from('appointments')
+          .select('start_time')
+          .eq('master_id', selectedAppointment.master_id)
+          .neq('id', selectedAppointment.id)
+          .gte('start_time', `${clientRescheduleDate}T00:00:00`)
+          .lt('start_time', `${clientRescheduleDate}T23:59:59`)
+          .in('status', ['pending', 'confirmed']);
+        if (cancelled) return;
+        
+        const keys = ((data as { start_time: string }[]) || []).map((apt) => {
+          const d = new Date(apt.start_time);
+          return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+        });
+        setClientRescheduleBookedSlotKeys(keys);
+      } catch (err) {
+        if (!cancelled) console.error('Error fetching reschedule booked slots:', err);
+      } finally {
+        if (!cancelled) setClientIsFetchingSlots(false);
+      }
+    };
+    fetchBookedForReschedule();
+    return () => {
+      cancelled = true;
+    };
+  }, [showClientReschedule, selectedAppointment, clientRescheduleDate, supabase]);
+
+  const handleInitClientReschedule = async (apt: Appointment) => {
+    setShowClientReschedule(true);
+    setClientRescheduleDate('');
+    setClientRescheduleTime('');
+    setClientSelectedPilatesSessionId(null);
+    setClientRescheduleMasterAvailability([]);
+    setClientRescheduleBlockedSlots([]);
+    setClientRescheduleBookedSlotKeys([]);
+    setClientReschedulePilatesSessions([]);
+
+    const isPilates = apt.service_category === 'Pilates';
+    
+    if (isPilates) {
+      setClientLoadingPilates(true);
+      try {
+        const startDate = new Date().toISOString().slice(0, 10);
+        const endDate = new Date(Date.now() + 35 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+        
+        await supabase.rpc('ensure_pilates_sessions', {
+          p_service_id: apt.service_id,
+          p_start_date: startDate,
+          p_end_date: endDate,
+        });
+
+        const { data, error } = await supabase
+          .from('pilates_class_sessions')
+          .select('*, host:pilates_hosts(*), pilates_session_bookings(id, status)')
+          .eq('service_id', apt.service_id)
+          .gte('starts_at', new Date().toISOString())
+          .lt('starts_at', new Date(Date.now() + 35 * 24 * 60 * 60 * 1000).toISOString())
+          .eq('status', 'scheduled')
+          .order('starts_at');
+
+        if (error) throw error;
+        setClientReschedulePilatesSessions((data as unknown as PilatesSession[]) || []);
+      } catch (err) {
+        console.error('Error loading Pilates reschedule sessions:', err);
+      } finally {
+        setClientLoadingPilates(false);
+      }
+    } else {
+      try {
+        const [availabilityRes, blockedRes] = await Promise.all([
+          supabase
+            .from('master_availability')
+            .select('day_of_week, start_time, end_time, is_available')
+            .eq('master_id', apt.master_id),
+          supabase
+            .from('blocked_slots')
+            .select('start_time, end_time')
+            .eq('master_id', apt.master_id),
+        ]);
+        setClientRescheduleMasterAvailability((availabilityRes.data as MasterAvailability[]) || []);
+        setClientRescheduleBlockedSlots((blockedRes.data as BlockedSlot[]) || []);
+      } catch (err) {
+        console.error('Error loading master reschedule schedule:', err);
+      }
+    }
+  };
+
+  const clientSelectedReschedulePilatesSession = useMemo(
+    () => clientReschedulePilatesSessions.find((session) => session.id === clientSelectedPilatesSessionId) ?? null,
+    [clientReschedulePilatesSessions, clientSelectedPilatesSessionId]
+  );
+
+  const getClientRescheduleSpotsLeft = (session: PilatesSession) => {
+    const bookedCount = session.pilates_session_bookings?.filter((booking) => booking.status === 'booked').length || 0;
+    return Math.max(0, session.capacity - bookedCount);
+  };
+
+  const clientGroupedPilatesSessions = useMemo(() => {
+    return clientReschedulePilatesSessions.reduce<Record<string, PilatesSession[]>>((acc, session) => {
+      const key = new Date(session.starts_at).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+      acc[key] = [...(acc[key] || []), session];
+      return acc;
+    }, {});
+  }, [clientReschedulePilatesSessions]);
+
+  const confirmClientReschedule = async () => {
+    if (!selectedAppointment) return;
+    const isPilates = selectedAppointment.service_category === 'Pilates';
+
+    if (isPilates) {
+      if (!clientSelectedPilatesSessionId) {
+        showToast('Please select a Pilates class session', 'error');
+        return;
+      }
+    } else {
+      if (!clientRescheduleDate || !clientRescheduleTime) {
+        showToast('Please select a new date and time', 'error');
+        return;
+      }
+    }
+
+    setClientSubmittingReschedule(true);
+    try {
+      let newStartTime: Date;
+      let newEndTime: Date;
+
+      if (isPilates && clientSelectedReschedulePilatesSession) {
+        newStartTime = new Date(clientSelectedReschedulePilatesSession.starts_at);
+        newEndTime = new Date(clientSelectedReschedulePilatesSession.ends_at);
+      } else {
+        const [hours, minutes] = clientRescheduleTime.split(':').map(Number);
+        const parsedDate = getDateFromKey(clientRescheduleDate);
+        if (!parsedDate) throw new Error('Invalid date selected');
+        newStartTime = parsedDate;
+        newStartTime.setHours(hours, minutes, 0, 0);
+        
+        const duration = selectedAppointment.service_duration_minutes ?? selectedAppointment.service?.duration_minutes ?? 60;
+        newEndTime = new Date(newStartTime.getTime() + duration * 60000);
+      }
+
+      const { error } = await supabase
+        .from('appointments')
+        .update({
+          start_time: newStartTime.toISOString(),
+          end_time: newEndTime.toISOString(),
+          status: 'confirmed',
+          proposed_start_time: null,
+          proposed_end_time: null,
+          reschedule_initiated_by: null,
+          status_updated_at: new Date().toISOString()
+        })
+        .eq('id', selectedAppointment.id);
+
+      if (error) throw error;
+
+      if (isPilates && clientSelectedPilatesSessionId) {
+        const { error: bookingError } = await supabase
+          .from('pilates_session_bookings')
+          .update({ session_id: clientSelectedPilatesSessionId })
+          .eq('appointment_id', selectedAppointment.id);
+        if (bookingError) throw bookingError;
+      }
+
+      // Push notification
+      const masterPushToken = selectedAppointment.master?.push_token;
+      if (masterPushToken) {
+        const oldTime = new Date(selectedAppointment.start_time);
+        const formatStrStr = (d: Date) => d.toLocaleString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+        const message = `${user?.user_metadata?.full_name || 'Client'} rescheduled their appointment from ${formatStrStr(oldTime)} to ${formatStrStr(newStartTime)}.`;
+        
+        try {
+          await supabase.functions.invoke('send-push-notification', {
+            body: {
+              to: masterPushToken,
+              sound: 'default',
+              title: 'Appointment Rescheduled',
+              body: message,
+              data: { appointmentId: selectedAppointment.id },
+            }
+          });
+        } catch (e) {
+          console.error('Failed to send reschedule notification:', e);
+        }
+      }
+
+      showToast('Your appointment has been successfully rescheduled.', 'success');
+      setShowClientReschedule(false);
+      setSelectedAppointment(null);
+      fetchAppointments();
+    } catch (error: any) {
+      showToast(error.message || 'Failed to reschedule appointment', 'error');
+    } finally {
+      setClientSubmittingReschedule(false);
     }
   };
 
@@ -706,7 +1090,257 @@ export default function AppointmentsPage() {
                 <p className="text-sm text-gray-500 font-semibold">Retrieving policy settings...</p>
               </div>
             ) : (
-              <div className="flex-1 space-y-6">
+              <div className="flex-1 flex flex-col min-h-0">
+                {showClientReschedule ? (
+                  <div className="flex-1 flex flex-col space-y-4">
+                    <button 
+                      onClick={() => setShowClientReschedule(false)}
+                      className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 font-bold mb-2 cursor-pointer transition-colors"
+                    >
+                      <ArrowLeft size={14} /> Back to Details
+                    </button>
+
+                    <div className="flex-1 space-y-4">
+                      {selectedAppointment.service_category === 'Pilates' ? (
+                        <div className="rounded-2xl border border-gray-100 bg-gray-50/50 p-4 space-y-4">
+                          <h4 className="text-sm font-black text-gray-800">Select Pilates Session</h4>
+                          {clientLoadingPilates ? (
+                            <div className="flex items-center justify-center gap-2 py-12 text-gray-400">
+                              <Loader2 size={18} className="animate-spin" /> Loading classes...
+                            </div>
+                          ) : clientReschedulePilatesSessions.length === 0 ? (
+                            <p className="text-center text-gray-400 py-12 text-xs font-semibold">No Pilates classes are available.</p>
+                          ) : (
+                            <div className="space-y-4 max-h-[350px] overflow-y-auto pr-1">
+                              {Object.entries(clientGroupedPilatesSessions).map(([dateLabel, sessions]) => (
+                                <div key={dateLabel} className="space-y-2">
+                                  <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{dateLabel}</p>
+                                  <div className="grid grid-cols-1 gap-2">
+                                    {sessions.map((session) => {
+                                      const spotsLeft = getClientRescheduleSpotsLeft(session);
+                                      const isCurrentDate = selectedAppointment ? toDateKey(new Date(session.starts_at)) === toDateKey(new Date(selectedAppointment.start_time)) : false;
+                                      const isFull = spotsLeft <= 0;
+                                      const isSelected = clientSelectedPilatesSessionId === session.id;
+                                      const isDisabled = isFull || isCurrentDate;
+                                      return (
+                                        <button
+                                          key={session.id}
+                                          disabled={isDisabled}
+                                          onClick={() => {
+                                            setClientSelectedPilatesSessionId(session.id);
+                                            const startsAt = new Date(session.starts_at);
+                                            setClientRescheduleDate(toDateKey(startsAt));
+                                            setClientRescheduleTime(startsAt.toTimeString().slice(0, 5));
+                                          }}
+                                          className={`text-left rounded-xl border p-3 transition-all w-full ${
+                                            isSelected 
+                                              ? 'border-emerald-500 bg-emerald-50 shadow-xs scale-[1.01]' 
+                                              : isCurrentDate
+                                                ? 'border-violet-300 bg-violet-50/50 opacity-60 cursor-not-allowed'
+                                                : isFull 
+                                                  ? 'border-gray-200 bg-gray-50 opacity-50 cursor-not-allowed' 
+                                                  : 'border-violet-100 bg-white hover:-translate-y-0.5 hover:shadow-sm'
+                                          }`}
+                                        >
+                                          <div className="flex items-center justify-between gap-2">
+                                            <span className="text-sm font-bold text-gray-800">{new Date(session.starts_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                            <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${isCurrentDate ? 'bg-violet-100 text-violet-700' : isFull ? 'bg-gray-200 text-gray-500' : 'bg-emerald-100 text-emerald-700'}`}>
+                                              {isCurrentDate ? 'Current' : isFull ? 'Full' : `${spotsLeft} spots`}
+                                            </span>
+                                          </div>
+                                          <p className="mt-1 text-xs font-semibold text-violet-700">{session.host?.display_name || 'Pilates host'}</p>
+                                          <p className="text-[10px] text-gray-400">{session.level} · {Math.round((new Date(session.ends_at).getTime() - new Date(session.starts_at).getTime()) / 60000)} min</p>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        // Standard Reschedule Calendar
+                        <div className="space-y-4">
+                          {/* Selected Info */}
+                          <div className="flex justify-between items-center bg-gray-50 rounded-xl p-3 border border-gray-100">
+                            <div>
+                              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">New Date & Time</p>
+                              <p className="text-xs font-bold text-gray-800 mt-0.5">
+                                {clientRescheduleDate ? formatDateLabel(clientRescheduleDate) : 'Select a date'}
+                                {clientRescheduleTime ? ` at ${clientRescheduleTime}` : ''}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Calendar Container */}
+                          <div className="rounded-2xl border border-gray-100 bg-white p-3 shadow-xs">
+                            <div className="flex items-center justify-between mb-3 px-1">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const newMonth = new Date(clientRescheduleCalendarMonth.getFullYear(), clientRescheduleCalendarMonth.getMonth() - 1, 1);
+                                  const today = new Date();
+                                  const minMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+                                  if (newMonth.getTime() >= minMonth.getTime()) {
+                                    setClientRescheduleCalendarMonth(newMonth);
+                                  }
+                                }}
+                                disabled={(() => {
+                                  const today = new Date();
+                                  const minMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+                                  return clientRescheduleCalendarMonth.getTime() <= minMonth.getTime();
+                                })()}
+                                className="w-8 h-8 rounded-full bg-gray-50 text-gray-600 shadow-xs hover:bg-pink-50 hover:text-pink-600 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
+                              >
+                                <ChevronLeft size={16} />
+                              </button>
+                              <div className="text-center">
+                                <p className="text-sm font-extrabold text-gray-800">
+                                  {clientRescheduleCalendarMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setClientRescheduleCalendarMonth(new Date(clientRescheduleCalendarMonth.getFullYear(), clientRescheduleCalendarMonth.getMonth() + 1, 1));
+                                }}
+                                className="w-8 h-8 rounded-full bg-gray-50 text-gray-600 shadow-xs hover:bg-violet-50 hover:text-violet-600 flex items-center justify-center transition-colors"
+                              >
+                                <ChevronRight size={16} />
+                              </button>
+                            </div>
+
+                            <table className="w-full table-fixed border-separate border-spacing-0.5">
+                              <thead>
+                                <tr>
+                                  {WEEKDAY_LABELS.map((day) => (
+                                    <th key={day} className="pb-1.5 text-center text-[10px] font-extrabold uppercase tracking-wider text-gray-400">
+                                      {day}
+                                    </th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {buildCalendarWeeks(clientRescheduleCalendarMonth).map((week, weekIndex) => (
+                                  <tr key={weekIndex}>
+                                    {week.map((date) => {
+                                      const dateKey = toDateKey(date);
+                                      const isCurrentMonth = date.getMonth() === clientRescheduleCalendarMonth.getMonth();
+                                      const isToday = dateKey === toDateKey(new Date());
+                                      const isSelected = clientRescheduleDate === dateKey;
+                                      const isCurrentDate = selectedAppointment ? dateKey === toDateKey(new Date(selectedAppointment.start_time)) : false;
+                                      const isSelectable = isCurrentMonth && isSelectableDateKey(dateKey) && !isCurrentDate;
+
+                                      return (
+                                        <td key={dateKey} className="p-0.5 align-middle">
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              if (isSelectable) {
+                                                setClientRescheduleDate(dateKey);
+                                                setClientRescheduleTime('');
+                                              }
+                                            }}
+                                            disabled={!isSelectable}
+                                            className={`relative w-full aspect-square rounded-xl text-xs font-bold transition-all ${
+                                              isSelected
+                                                ? 'bg-gradient-to-br from-pink-500 to-violet-600 text-white shadow-xs scale-105'
+                                                : isCurrentDate
+                                                  ? 'border border-violet-500 bg-violet-50/50 text-violet-600 cursor-not-allowed opacity-50'
+                                                  : isSelectable
+                                                    ? 'bg-white text-gray-800 hover:bg-pink-50/50 hover:text-pink-600'
+                                                    : 'bg-transparent text-gray-300 cursor-not-allowed'
+                                            }`}
+                                          >
+                                            <span>{date.getDate()}</span>
+                                            {isToday && (
+                                              <span className={`absolute bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full ${isSelected ? 'bg-white' : 'bg-pink-500'}`} />
+                                            )}
+                                            {isCurrentDate && (
+                                              <span className="absolute top-0.5 right-1 text-[8px] font-black uppercase text-violet-700">Curr</span>
+                                            )}
+                                          </button>
+                                        </td>
+                                      );
+                                    })}
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+
+                          {/* Time Slots */}
+                          <div className="space-y-2">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Available Times</p>
+                            {!clientRescheduleDate ? (
+                              <div className="py-6 flex items-center justify-center border border-dashed border-gray-200 bg-gray-50/50 rounded-xl">
+                                <p className="text-xs text-gray-400 font-medium">Select a date from the calendar first.</p>
+                              </div>
+                            ) : clientIsFetchingSlots ? (
+                              <div className="py-6 flex items-center justify-center gap-2 text-gray-400">
+                                <Loader2 size={16} className="animate-spin" /> Loading times...
+                              </div>
+                            ) : clientTimeSlots.length === 0 ? (
+                              <div className="py-6 flex items-center justify-center border border-dashed border-amber-200 bg-amber-50/30 rounded-xl">
+                                <p className="text-xs text-amber-800/80 font-semibold">Specialist has no working hours on this day.</p>
+                              </div>
+                            ) : (
+                              <div className="grid grid-cols-4 gap-2 max-h-[160px] overflow-y-auto pr-1">
+                                {clientTimeSlots.map((time) => {
+                                  const isSelected = clientRescheduleTime === time;
+                                  const isDisabled = isClientTimeSlotDisabled(time);
+                                  return (
+                                    <button
+                                      key={time}
+                                      type="button"
+                                      onClick={() => {
+                                        if (!isDisabled) setClientRescheduleTime(time);
+                                      }}
+                                      disabled={isDisabled}
+                                      className={`py-2 rounded-xl text-xs font-bold transition-all border ${
+                                        isSelected
+                                          ? 'bg-gradient-to-br from-pink-500 to-violet-600 text-white shadow-xs border-transparent'
+                                          : isDisabled
+                                            ? 'bg-gray-100/60 text-gray-300 border-transparent cursor-not-allowed'
+                                            : 'bg-white text-gray-700 border-gray-200 hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700'
+                                      }`}
+                                    >
+                                      {time}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="pt-4 border-t border-gray-100 flex gap-3">
+                      <button 
+                        onClick={() => setShowClientReschedule(false)}
+                        className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-700 font-bold hover:bg-gray-50 text-sm cursor-pointer transition-all text-center"
+                      >
+                        Cancel
+                      </button>
+                      <button 
+                        onClick={confirmClientReschedule}
+                        disabled={clientSubmittingReschedule || (selectedAppointment.service_category === 'Pilates' ? !clientSelectedPilatesSessionId : (!clientRescheduleDate || !clientRescheduleTime))}
+                        className="flex-1 py-3 rounded-xl bg-gradient-to-r from-violet-500 to-pink-500 hover:from-violet-600 hover:to-pink-600 text-white font-bold text-sm cursor-pointer shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+                      >
+                        {clientSubmittingReschedule ? (
+                          <>
+                            <Loader2 className="animate-spin" size={16} /> Rescheduling...
+                          </>
+                        ) : (
+                          <>Confirm Reschedule</>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex-1 space-y-6">
                 
                 {/* Visual Card details */}
                 <div className="bg-gradient-to-br from-pink-50/50 to-violet-50/50 rounded-2xl p-5 border border-pink-100/50 space-y-4">
@@ -948,7 +1582,14 @@ export default function AppointmentsPage() {
                   {/* Master Propose Reschedule Actions */}
                   {role === 'master' && !['cancelled', 'completed', 'no_show'].includes(selectedAppointment.status) && (
                     <div className="space-y-3">
-                      {!showRescheduleForm ? (
+                      {selectedAppointment.service_category === 'Pilates' ? (
+                        <Link
+                          href={`/dashboard/services/pilates/${selectedAppointment.service_id}`}
+                          className="w-full py-3 rounded-xl bg-violet-600 text-white font-bold hover:bg-violet-700 text-sm cursor-pointer transition-all flex items-center justify-center gap-2"
+                        >
+                          <Settings size={16} /> Studio Configuration
+                        </Link>
+                      ) : !showRescheduleForm ? (
                         <button 
                           onClick={() => { setShowRescheduleForm(true); setShowLateInputForm(false); }}
                           className="w-full py-3 rounded-xl border border-violet-200 text-violet-700 font-bold hover:bg-violet-50 text-sm cursor-pointer transition-all flex items-center justify-center gap-2"
@@ -1069,16 +1710,24 @@ export default function AppointmentsPage() {
                     </div>
                   )}
 
-                  {/* Client Cancel Booking Trigger */}
+                  {/* Client Cancel / Reschedule Booking Trigger */}
                   {role !== 'master' && !['cancelled', 'completed', 'no_show'].includes(selectedAppointment.status) && (
                     <div className="space-y-3">
                       {!showCancelConfirm ? (
-                        <button 
-                          onClick={() => setShowCancelConfirm(true)}
-                          className="w-full py-3 rounded-xl border border-rose-200 text-rose-500 font-bold hover:bg-rose-50 text-sm cursor-pointer transition-all flex items-center justify-center gap-1.5"
-                        >
-                          <Trash2 size={16} /> Cancel Appointment
-                        </button>
+                        <div className="grid grid-cols-2 gap-3">
+                          <button 
+                            onClick={() => handleInitClientReschedule(selectedAppointment)}
+                            className="py-3 rounded-xl bg-gradient-to-r from-violet-500 to-pink-500 hover:from-violet-600 hover:to-pink-600 text-white font-bold text-sm cursor-pointer transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                          >
+                            <CalendarRange size={16} /> Reschedule
+                          </button>
+                          <button 
+                            onClick={() => setShowCancelConfirm(true)}
+                            className="py-3 rounded-xl border border-rose-200 text-rose-500 font-bold hover:bg-rose-50 text-sm cursor-pointer transition-all flex items-center justify-center gap-1.5"
+                          >
+                            <Trash2 size={16} /> Cancel
+                          </button>
+                        </div>
                       ) : (
                         <div className="p-4 rounded-2xl border border-rose-200 bg-rose-50/50 space-y-3 animate-slide-up">
                           <div className="flex gap-2 items-start text-rose-800">
@@ -1116,9 +1765,10 @@ export default function AppointmentsPage() {
                   )}
 
                 </div>
-
               </div>
             )}
+          </div>
+        )}
 
           </div>
         </div>

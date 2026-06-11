@@ -7,6 +7,7 @@ import { CreditCard, Plus, Trash2, Star, Loader2, X, Shield } from 'lucide-react
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/components/Toast';
+import { useModal } from '@/contexts/ModalContext';
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY as string);
 
@@ -47,6 +48,7 @@ function PaymentMethodsManagerInner() {
   const supabase = createClient();
   const { profile, refreshProfile } = useAuth();
   const { showToast } = useToast();
+  const { showConfirm } = useModal();
 
   const [cards, setCards] = useState<SavedCard[]>([]);
   const [loading, setLoading] = useState(true);
@@ -133,7 +135,7 @@ function PaymentMethodsManagerInner() {
   };
 
   const handleDelete = async (pmId: string) => {
-    if (!confirm('Remove this card? This cannot be undone.')) return;
+    if (!(await showConfirm('Remove this card? This cannot be undone.', 'Remove Card', 'Remove', 'Cancel', 'danger'))) return;
     setDeletingCard(pmId);
     try {
       const { error } = await supabase.functions.invoke('delete-payment-method', {

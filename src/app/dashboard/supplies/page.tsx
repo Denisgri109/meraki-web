@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/Toast';
+import { useModal } from '@/contexts/ModalContext';
 import {
   Boxes, Plus, Search, AlertTriangle, TrendingDown, Package,
   X, History, Trash2, Pencil, Link2, Calculator, RefreshCw,
@@ -80,6 +81,7 @@ export default function SuppliesPage() {
   const supabase = useMemo(() => createClient(), []);
   const { user, role } = useAuth();
   const { showToast } = useToast();
+  const { showConfirm } = useModal();
 
   const isOwner = role === 'owner';
 
@@ -314,7 +316,7 @@ export default function SuppliesPage() {
   };
 
   const deleteSupply = async (s: Supply) => {
-    if (!window.confirm(`Delete "${s.name}"? This cannot be undone.`)) return;
+    if (!(await showConfirm(`Delete "${s.name}"? This cannot be undone.`, 'Delete Supply', 'Delete', 'Cancel', 'danger'))) return;
     try {
       const del = isOwner
         ? await supabase.from('owner_supplies').delete().eq('id', s.id)
@@ -412,7 +414,7 @@ export default function SuppliesPage() {
   };
 
   const unlinkSupply = async (linkId: string) => {
-    if (!window.confirm('Unlink this supply from the service?')) return;
+    if (!(await showConfirm('Unlink this supply from the service?', 'Unlink Supply', 'Unlink', 'Cancel', 'danger'))) return;
     try {
       const del = isOwner
         ? await supabase.from('owner_service_supplies').delete().eq('id', linkId)

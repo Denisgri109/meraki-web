@@ -1,10 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CalendarDays, Clock, Cog, Info, Loader2, MapPin, Plus, Save, Scissors, ShieldAlert, Sparkles, UserPlus, Users, X } from 'lucide-react';
+import { CalendarDays, Clock, Cog, Info, Loader2, MapPin, Pencil, Plus, Save, Scissors, ShieldAlert, Sparkles, Trash2, UserPlus, Users, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/Toast';
+import { useModal } from '@/contexts/ModalContext';
 import type { Tables, TablesInsert } from '@/types/database';
 
 type Service = Tables<'services'>;
@@ -66,6 +67,7 @@ export function PilatesTimetableManager({ service, onServiceUpdate }: PilatesTim
   const [activeTab, setActiveTab] = useState<TabId>('schedule');
   const { user } = useAuth();
   const { showToast } = useToast();
+  const { showConfirm } = useModal();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [hosts, setHosts] = useState<PilatesHost[]>([]);
@@ -86,6 +88,22 @@ export function PilatesTimetableManager({ service, onServiceUpdate }: PilatesTim
   });
   const [settingsForm, setSettingsForm] = useState(defaultSettings);
   const [editingSession, setEditingSession] = useState<PilatesSession | null>(null);
+  const [editingTemplate, setEditingTemplate] = useState<PilatesTemplate | null>(null);
+  const [editTemplateForm, setEditTemplateForm] = useState({
+    day_of_week: 1,
+    start_time: '18:00',
+    host_id: '',
+    capacity: '6',
+    duration_minutes: '50',
+    level: 'All levels',
+    starts_on: todayDate(),
+    notes: '',
+  });
+  const [editingHost, setEditingHost] = useState<PilatesHost | null>(null);
+  const [editHostForm, setEditHostForm] = useState({
+    display_name: '',
+    is_active: true,
+  });
   const [sessionForm, setSessionForm] = useState({ host_id: '', capacity: '6', level: 'All levels', status: 'scheduled', notes: '' });
   const [serviceForm, setServiceForm] = useState({
     name: service.name,
@@ -331,6 +349,141 @@ export function PilatesTimetableManager({ service, onServiceUpdate }: PilatesTim
       setSaving(false);
     }
   };
+  
+  const deleteTemplate = async (id: string) => {
+    const confirmed = await showConfirm(
+      'Are you sure you want to delete this weekly class slot? This will stop future sessions from being generated.',
+      'Delete Weekly Slot',
+      'Delete',
+      'Cancel',
+      'danger'
+    );
+    if (!confirmed) return;
+
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from('pilates_schedule_templates')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      showToast('Weekly class slot deleted', 'success');
+      await loadData();
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Failed to delete weekly class slot', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const openEditTemplate = (template: PilatesTemplate) => {
+    setEditingTemplate(template);
+    setEditTemplateForm({
+      day_of_week: template.day_of_week,
+      start_time: template.start_time.slice(0, 5),
+      host_id: template.host_id || '',
+      capacity: String(template.capacity),
+      duration_minutes: String(template.duration_minutes),
+      level: template.level,
+      starts_on: template.starts_on || todayDate(),
+      notes: template.notes || '',
+    });
+  };
+
+  const saveTemplate = async () => {
+    if (!editingTemplate) return;
+    if (!editTemplateForm.host_id) {
+      showToast('Choose a host for this class slot', 'error');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from('pilates_schedule_templates')
+        .update({
+          host_id: editTemplateForm.host_id,
+          day_of_week: Number(editTemplateForm.day_of_week),
+          start_time: editTemplateForm.start_time,
+          capacity: Number(editTemplateForm.capacity),
+          duration_minutes: Number(editTemplateForm.duration_minutes),
+          level: editTemplateForm.level,
+          starts_on: editTemplateForm.starts_on,
+          notes: editTemplateForm.notes.trim() || null,
+        })
+        .eq('id', editingTemplate.id);
+      if (error) throw error;
+      showToast('Weekly class slot updated', 'success');
+      setEditingTemplate(null);
+      await loadData();
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Failed to update weekly class slot', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deleteHost = async (id: string) => {
+    const confirmed = await showConfirm(
+      'Are you sure you want to delete this instructor? They will be removed from all assigned slots and sessions.',
+      'Delete Instructor',
+      'Delete',
+      'Cancel',
+      'danger'
+    );
+    if (!confirmed) return;
+
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from('pilates_hosts')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      showToast('Instructor deleted', 'success');
+      await loadData();
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Failed to delete instructor', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const openEditHost = (host: PilatesHost) => {
+    setEditingHost(host);
+    setEditHostForm({
+      display_name: host.display_name,
+      is_active: host.is_active,
+    });
+  };
+
+  const saveHost = async () => {
+    if (!editingHost) return;
+    const displayName = editHostForm.display_name.trim();
+    if (!displayName) {
+      showToast('Instructor name is required', 'error');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from('pilates_hosts')
+        .update({
+          display_name: displayName,
+          is_active: editHostForm.is_active,
+        })
+        .eq('id', editingHost.id);
+      if (error) throw error;
+      showToast('Instructor updated', 'success');
+      setEditingHost(null);
+      await loadData();
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Failed to update instructor', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const openSessionEditor = (session: PilatesSession) => {
     setEditingSession(session);
@@ -356,8 +509,12 @@ export function PilatesTimetableManager({ service, onServiceUpdate }: PilatesTim
 
     // Booked session protection: confirm before cancelling with active bookings
     if (sessionForm.status === 'cancelled' && editingSession.status !== 'cancelled' && booked > 0) {
-      const confirmed = window.confirm(
-        `This session has ${booked} active booking${booked === 1 ? '' : 's'}. Cancelling will affect ${booked === 1 ? 'this client' : 'these clients'}. Are you sure?`
+      const confirmed = await showConfirm(
+        `This session has ${booked} active booking${booked === 1 ? '' : 's'}. Cancelling will affect ${booked === 1 ? 'this client' : 'these clients'}. Are you sure?`,
+        'Cancel Session',
+        'Yes, Cancel Session',
+        'Keep Session',
+        'danger'
       );
       if (!confirmed) return;
     }
@@ -561,6 +718,20 @@ export function PilatesTimetableManager({ service, onServiceUpdate }: PilatesTim
                             </button>
                           </div>
                           {template.notes && <p className="mt-3 rounded-xl bg-[var(--color-surface-light)] p-2 text-[11px] italic text-[var(--color-text-secondary)]">{template.notes}</p>}
+                          <div className="mt-4 flex items-center justify-between border-t border-gray-150 pt-3">
+                            <button
+                              onClick={() => openEditTemplate(template)}
+                              className="flex items-center gap-1 text-[11px] font-bold text-gray-500 hover:text-emerald-600 transition-all cursor-pointer"
+                            >
+                              <Pencil size={12} /> Edit
+                            </button>
+                            <button
+                              onClick={() => deleteTemplate(template.id)}
+                              className="flex items-center gap-1 text-[11px] font-bold text-gray-500 hover:text-red-600 transition-all cursor-pointer"
+                            >
+                              <Trash2 size={12} /> Delete
+                            </button>
+                          </div>
                         </div>
                         );
                       });
@@ -670,13 +841,34 @@ export function PilatesTimetableManager({ service, onServiceUpdate }: PilatesTim
                 ) : (
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     {hosts.map((host) => (
-                      <div key={host.id} className="glass-card flex items-center gap-3 p-4">
-                        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700 font-bold">
-                          {(host.display_name || '?').slice(0, 1).toUpperCase()}
+                      <div key={host.id} className="glass-card flex items-center justify-between gap-3 p-4">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className={`flex h-11 w-11 items-center justify-center rounded-2xl font-bold ${host.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-150 text-gray-500'}`}>
+                            {(host.display_name || '?').slice(0, 1).toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="truncate font-bold text-[var(--color-text-primary)]">
+                              {host.display_name}
+                              {!host.is_active && <span className="ml-1.5 rounded-full bg-gray-150 px-1.5 py-0.5 text-[9px] font-bold text-gray-500 uppercase tracking-wider">Inactive</span>}
+                            </p>
+                            <p className="text-[11px] text-[var(--color-text-muted)]">{host.profile_id ? 'Team member' : 'External instructor'}</p>
+                          </div>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="truncate font-bold text-[var(--color-text-primary)]">{host.display_name}</p>
-                          <p className="text-[11px] text-[var(--color-text-muted)]">{host.profile_id ? 'Team member' : 'External instructor'}</p>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            onClick={() => openEditHost(host)}
+                            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-emerald-600 transition-all cursor-pointer"
+                            aria-label="Edit instructor"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                          <button
+                            onClick={() => deleteHost(host.id)}
+                            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-red-600 transition-all cursor-pointer"
+                            aria-label="Delete instructor"
+                          >
+                            <Trash2 size={14} />
+                          </button>
                         </div>
                       </div>
                     ))}
@@ -917,6 +1109,170 @@ export function PilatesTimetableManager({ service, onServiceUpdate }: PilatesTim
                 <p className="mt-1 text-[10px] text-[var(--color-text-muted)]">Shown to booked clients</p>
               </div>
               <button onClick={saveSession} disabled={saving} className="btn-primary w-full py-3 text-sm">{saving ? 'Saving…' : 'Save changes'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {editingTemplate && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-widest text-emerald-600">Edit weekly class</p>
+                <h3 className="text-xl font-bold text-[var(--color-text-primary)]">Class Slot Details</h3>
+              </div>
+              <button onClick={() => setEditingTemplate(null)} aria-label="Close template editor"><X size={18} /></button>
+            </div>
+            <p className="-mt-2 mb-3 text-xs text-[var(--color-text-muted)]">
+              Update the settings for this recurring weekly class slot.
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-[var(--color-text-muted)]">Day of week</label>
+                <select
+                  value={editTemplateForm.day_of_week}
+                  onChange={(e) => setEditTemplateForm({ ...editTemplateForm, day_of_week: Number(e.target.value) })}
+                  className="input-glass"
+                >
+                  {DAYS.map((day) => (
+                    <option key={day.value} value={day.value}>{day.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-[var(--color-text-muted)]">Start time</label>
+                  <input
+                    type="text"
+                    value={editTemplateForm.start_time}
+                    onChange={(e) => setEditTemplateForm({ ...editTemplateForm, start_time: e.target.value })}
+                    className="input-glass"
+                    placeholder="e.g. 18:00"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-[var(--color-text-muted)]">Duration (min)</label>
+                  <input
+                    type="number"
+                    min="15"
+                    max="240"
+                    value={editTemplateForm.duration_minutes}
+                    onChange={(e) => setEditTemplateForm({ ...editTemplateForm, duration_minutes: e.target.value })}
+                    className="input-glass"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-[var(--color-text-muted)]">Instructor</label>
+                <select
+                  value={editTemplateForm.host_id}
+                  onChange={(e) => setEditTemplateForm({ ...editTemplateForm, host_id: e.target.value })}
+                  className="input-glass"
+                >
+                  <option value="">— Choose instructor —</option>
+                  {hosts.map((host) => (
+                    <option key={host.id} value={host.id}>{host.display_name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-[var(--color-text-muted)]">Capacity</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="50"
+                    value={editTemplateForm.capacity}
+                    onChange={(e) => setEditTemplateForm({ ...editTemplateForm, capacity: e.target.value })}
+                    className="input-glass"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-[var(--color-text-muted)]">Level</label>
+                  <select
+                    value={editTemplateForm.level}
+                    onChange={(e) => setEditTemplateForm({ ...editTemplateForm, level: e.target.value })}
+                    className="input-glass"
+                  >
+                    {LEVELS.map((level) => (
+                      <option key={level} value={level}>{level}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-[var(--color-text-muted)]">Starts on</label>
+                <input
+                  type="date"
+                  value={editTemplateForm.starts_on}
+                  onChange={(e) => setEditTemplateForm({ ...editTemplateForm, starts_on: e.target.value })}
+                  className="input-glass"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-[var(--color-text-muted)]">Notes (optional)</label>
+                <textarea
+                  value={editTemplateForm.notes}
+                  onChange={(e) => setEditTemplateForm({ ...editTemplateForm, notes: e.target.value })}
+                  rows={2}
+                  className="input-glass resize-none"
+                  placeholder="e.g. Focus on core strength."
+                />
+              </div>
+
+              <button onClick={saveTemplate} disabled={saving} className="btn-primary w-full py-3 text-sm">
+                {saving ? 'Saving…' : 'Save changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editingHost && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-widest text-emerald-600">Edit instructor</p>
+                <h3 className="text-xl font-bold text-[var(--color-text-primary)]">Instructor Profile</h3>
+              </div>
+              <button onClick={() => setEditingHost(null)} aria-label="Close instructor editor"><X size={18} /></button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-[var(--color-text-muted)]">Display Name</label>
+                <input
+                  type="text"
+                  value={editHostForm.display_name}
+                  onChange={(e) => setEditHostForm({ ...editHostForm, display_name: e.target.value })}
+                  className="input-glass"
+                  placeholder="e.g. Sarah Thompson"
+                />
+              </div>
+
+              <label className="flex cursor-pointer items-start gap-2 rounded-xl bg-white/70 p-3 text-xs font-semibold text-[var(--color-text-secondary)] border border-gray-100">
+                <input
+                  type="checkbox"
+                  checked={editHostForm.is_active}
+                  onChange={(e) => setEditHostForm({ ...editHostForm, is_active: e.target.checked })}
+                  className="mt-0.5"
+                />
+                <span>
+                  Active instructor
+                  <span className="block text-[10px] font-normal text-[var(--color-text-muted)]">Unchecking hides them from new class options</span>
+                </span>
+              </label>
+
+              <button onClick={saveHost} disabled={saving} className="btn-primary w-full py-3 text-sm">
+                {saving ? 'Saving…' : 'Save changes'}
+              </button>
             </div>
           </div>
         </div>

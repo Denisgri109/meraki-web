@@ -1,23 +1,26 @@
-export function parseScanCode(text: string): { type: 'stamp' | 'points' | 'invalid'; value: string } {
+export function parseScanCode(text: string): { type: 'stamp' | 'invalid'; value: string } {
   const trimmed = text.trim();
   if (!trimmed) return { type: 'invalid', value: '' };
 
+  if (trimmed.includes('loyalty/stamp')) {
+    const match = trimmed.match(/[?&]master_id=([^&]+)/);
+    if (match && match[1] && isUuid(match[1])) {
+      return { type: 'stamp', value: match[1] };
+    }
+  }
+
   if (trimmed.startsWith('stamp:')) {
     const masterId = trimmed.slice('stamp:'.length).trim();
-    if (!isUuid(masterId)) {
-      return { type: 'invalid', value: '' };
+    if (isUuid(masterId)) {
+      return { type: 'stamp', value: masterId };
     }
-    return { type: 'stamp', value: masterId };
-  } else if (trimmed.startsWith('qr:')) {
-    const code = trimmed.slice('qr:'.length).trim();
-    if (!code) {
-      return { type: 'invalid', value: '' };
-    }
-    return { type: 'points', value: code };
-  } else {
-    // Legacy/NFC plain text fallback
-    return { type: 'points', value: trimmed };
   }
+
+  if (isUuid(trimmed)) {
+    return { type: 'stamp', value: trimmed };
+  }
+
+  return { type: 'invalid', value: '' };
 }
 
 export function isUuid(s: string): boolean {

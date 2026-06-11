@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, forwardRef, useImperativeHandle } fro
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/Toast';
+import { useModal } from '@/contexts/ModalContext';
 import {
   Save, Loader2, Plus, Pencil, Trash2, Pause, Play,
   Wallet, Clock, UserX, Heart, FileText, Eye, X,
@@ -155,6 +156,7 @@ const BusinessSettingsPanel = forwardRef<BusinessSettingsPanelRef>(function Busi
   const { profile } = useAuth();
   const supabase = createClient();
   const { showToast } = useToast();
+  const { showConfirm } = useModal();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -412,7 +414,7 @@ const BusinessSettingsPanel = forwardRef<BusinessSettingsPanelRef>(function Busi
   };
 
   const deleteCampaign = async (campaign: Campaign) => {
-    if (!confirm(`Delete "${campaign.name}"? This cannot be undone.`)) return;
+    if (!(await showConfirm(`Delete "${campaign.name}"? This cannot be undone.`, 'Delete Campaign', 'Delete', 'Cancel', 'danger'))) return;
     try {
       const { error } = await supabase
         .from('aftercare_campaigns')

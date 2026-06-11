@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Package, Search, Plus, AlertTriangle, TrendingDown, Box, X, Trash2, History, Truck, Loader2 } from 'lucide-react';
 import { useToast } from '@/components/Toast';
+import { useModal } from '@/contexts/ModalContext';
 
 interface Product {
   id: string;
@@ -48,6 +49,7 @@ export default function InventoryPage() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const { showToast } = useToast();
+  const { showConfirm } = useModal();
   const [editing, setEditing] = useState<Product | null>(null);
   const [draft, setDraft] = useState<EditDraft | null>(null);
   const [saving, setSaving] = useState(false);
@@ -195,7 +197,7 @@ export default function InventoryPage() {
   };
 
   const deleteProduct = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this product?')) return;
+    if (!(await showConfirm('Are you sure you want to delete this product?', 'Delete Product', 'Delete', 'Cancel', 'danger'))) return;
     setSaving(true);
     try {
       const { error } = await supabase.from('products').delete().eq('id', id);

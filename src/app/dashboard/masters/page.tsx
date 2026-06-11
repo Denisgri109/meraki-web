@@ -6,6 +6,7 @@ import { Users, Search, MapPin, Mail, Phone, MoreVertical, Eye, UserPlus, Check,
 import { useToast } from '@/components/Toast';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { useModal } from '@/contexts/ModalContext';
 
 interface Master {
   id: string;
@@ -37,6 +38,7 @@ export default function MastersPage() {
   const { showToast } = useToast();
   const router = useRouter();
   const { user } = useAuth();
+  const { showConfirm } = useModal();
   
   const [activeTab, setActiveTab] = useState<'active' | 'applications'>('active');
   const [masters, setMasters] = useState<Master[]>([]);
@@ -86,7 +88,7 @@ export default function MastersPage() {
   );
 
   const handleRemoveMaster = async (id: string, name: string | null) => {
-    if (!window.confirm(`Are you sure you want to deactivate ${name || 'this master'}?`)) {
+    if (!(await showConfirm(`Are you sure you want to deactivate ${name || 'this master'}?`, 'Deactivate Master', 'Deactivate', 'Cancel', 'danger'))) {
       return;
     }
     try {

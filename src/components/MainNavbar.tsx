@@ -17,7 +17,6 @@ import {
 const clientNav = [
   { href: '/dashboard', label: 'Home', icon: Home },
   { href: '/dashboard/booking', label: 'Book', icon: Calendar },
-  { href: '/dashboard/discover', label: 'Discover', icon: Search },
   { href: '/dashboard/shop', label: 'Shop', icon: ShoppingBag },
   { href: '/dashboard/orders', label: 'Orders', icon: Package },
   { href: '/dashboard/academy', label: 'Academy', icon: GraduationCap },
@@ -29,6 +28,7 @@ const ownerNav = [
   { href: '/dashboard', label: 'Home', icon: Home },
   { href: '/dashboard/appointments', label: 'Bookings', icon: CalendarCheck },
   { href: '/dashboard/finance', label: 'Finance', icon: DollarSign },
+  { href: '/dashboard/services', label: 'Services', icon: Scissors },
   { href: '/dashboard/orders', label: 'Orders', icon: ShoppingBag },
   { href: '/dashboard/inventory', label: 'Inventory', icon: Package },
   { href: '/dashboard/supplies', label: 'Supplies', icon: Boxes },
@@ -36,7 +36,6 @@ const ownerNav = [
   { href: '/dashboard/loyalty', label: 'Rewards', icon: Gift },
   { href: '/dashboard/consultations', label: 'Consults', icon: ClipboardList },
   { href: '/dashboard/notifications', label: 'Notifications', icon: Megaphone },
-  { href: '/dashboard/discover', label: 'Discover', icon: Search },
 ];
 
 const masterNav = [
