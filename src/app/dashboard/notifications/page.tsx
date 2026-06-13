@@ -22,7 +22,6 @@ interface NotificationLogEntry {
   delivered: boolean;
   error_message: string | null;
   appointment_id: string | null;
-  campaign_id: string | null;
   user_name?: string;
 }
 
@@ -112,7 +111,6 @@ function NotificationsContent({ userId }: { userId: string }) {
         delivered: n.delivered as boolean,
         error_message: n.error_message as string | null,
         appointment_id: n.appointment_id as string | null,
-        campaign_id: n.campaign_id as string | null,
         user_name: (n.profiles as unknown as { full_name: string } | null)?.full_name || 'Unknown',
       }));
 

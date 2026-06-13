@@ -7,6 +7,7 @@ import { useToast } from '@/components/Toast';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useModal } from '@/contexts/ModalContext';
+import { validateFullName, validateEmail } from '@/lib/validation';
 
 interface Master {
   id: string;
@@ -110,6 +111,11 @@ export default function MastersPage() {
   
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
+    const nameVal = validateFullName(inviteName);
+    if (!nameVal.valid) { showToast(nameVal.error || 'Invalid name', 'error'); return; }
+    const emailVal = validateEmail(inviteEmail);
+    if (!emailVal.valid) { showToast(emailVal.error || 'Invalid email', 'error'); return; }
+
     try {
       const { data, error } = await supabase.functions.invoke('invite-master', {
         body: { email: inviteEmail, full_name: inviteName },

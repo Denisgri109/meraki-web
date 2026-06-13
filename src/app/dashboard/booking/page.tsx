@@ -342,7 +342,7 @@ const generateTimeSlotsForRange = (start: string, end: string) => {
   const slots: string[] = [];
   let hour = startHour;
   let minute = startMin;
-  while (hour < endHour || (hour === endHour && minute < endMin)) {
+  while (hour < endHour || (hour === endHour && minute <= endMin)) {
     slots.push(`${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`);
     minute += 30;
     if (minute >= 60) {

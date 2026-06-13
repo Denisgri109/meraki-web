@@ -18,6 +18,7 @@ import {
   normalizePhone,
   parsePhoneNumber,
   SUPPORTED_COUNTRIES,
+  validateFullName,
 } from '@/lib/validation';
 import CountryCodeDropdown from '@/components/CountryCodeDropdown';
 
@@ -107,6 +108,11 @@ export default function SettingsPage() {
   const [city, setCity] = useState<string>(profileCity || '');
   const [phone, setPhone] = useState('');
   const [phoneCountryCode, setPhoneCountryCode] = useState('IE');
+  const [currency, setCurrency] = useState<string>(
+    (profile as Record<string, unknown> | null)?.currency_code as string ||
+    (profile as Record<string, unknown> | null)?.currency as string ||
+    'EUR'
+  );
 
   useEffect(() => {
     if (profile?.phone) {
@@ -117,7 +123,12 @@ export default function SettingsPage() {
       setPhone('');
       setPhoneCountryCode('IE');
     }
-  }, [profile?.phone]);
+    
+    if (profile) {
+      const p = profile as Record<string, unknown>;
+      setCurrency((p.currency_code as string) || (p.currency as string) || 'EUR');
+    }
+  }, [profile]);
 
   const [cityLatitude, setCityLatitude] = useState<string | null>(null);
   const [cityLongitude, setCityLongitude] = useState<string | null>(null);
@@ -345,6 +356,14 @@ export default function SettingsPage() {
     const formData = new FormData(event.currentTarget);
     setSaving(true);
 
+    const fullName = String(formData.get('fullName') || '');
+    const nameVal = validateFullName(fullName);
+    if (!nameVal.valid) {
+      showToast(nameVal.error || 'Invalid full name', 'error');
+      setSaving(false);
+      return;
+    }
+
     if (phone.trim()) {
       const phoneRes = validatePhone(phone, phoneCountryCode);
       if (!phoneRes.valid) {
@@ -360,8 +379,10 @@ export default function SettingsPage() {
     }
 
     const updates: Record<string, unknown> = {
-      full_name: String(formData.get('fullName') || ''),
+      full_name: fullName.trim(),
       phone: normalizedPhone,
+      currency,
+      currency_code: currency,
       bio: String(formData.get('bio') || ''),
       city: city.trim() || null,
       country: country.trim() || null,
@@ -751,6 +772,23 @@ export default function SettingsPage() {
                       />
                     </div>
                   </div>
+                </div>
+                <div>
+                  <label className="label-upper">Currency</label>
+                  <select
+                    value={currency}
+                    onChange={(e) => setCurrency(e.target.value)}
+                    className="input-glass w-full"
+                  >
+                    <option value="EUR">€ EUR - Euro</option>
+                    <option value="USD">$ USD - US Dollar</option>
+                    <option value="GBP">£ GBP - British Pound</option>
+                    <option value="CAD">$ CAD - Canadian Dollar</option>
+                    <option value="AUD">$ AUD - Australian Dollar</option>
+                    <option value="CHF">Fr CHF - Swiss Franc</option>
+                    <option value="JPY">¥ JPY - Japanese Yen</option>
+                    <option value="Other">Other</option>
+                  </select>
                 </div>
                 <LocationPicker
                   country={country}

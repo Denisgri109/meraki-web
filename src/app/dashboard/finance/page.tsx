@@ -156,6 +156,7 @@ function getStatusBadge(status: string) {
 export default function FinancePage() {
   const { user, profile, role } = useAuth();
   const supabase = createClient();
+  const currency = (profile?.currency_code as string | undefined) || (profile?.currency as string | undefined) || 'EUR';
   const { showToast } = useToast();
 
   const [activeTab, setActiveTab] = useState<TabValue>('overview');
@@ -395,7 +396,7 @@ export default function FinancePage() {
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      showToast(`Refund of ${amountCents ? formatCurrency(parseFloat(refundAmount)) : 'full amount'} processed`, 'success');
+      showToast(`Refund of ${amountCents ? formatCurrency(parseFloat(refundAmount), currency) : 'full amount'} processed`, 'success');
       setRefundModalPayment(null);
       setRefundAmount('');
       loadData();
@@ -511,16 +512,16 @@ export default function FinancePage() {
         <div className="space-y-6">
           {/* Stats grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard icon={DollarSign} gradient="from-emerald-100 to-teal-100" iconColor="text-emerald-600" label="Total Revenue" value={formatCurrency(stats.totalRevenue)} sub={`${shopPayments.length + bookingPayments.length} transactions`} />
-            <StatCard icon={ShoppingBag} gradient="from-pink-100 to-rose-100" iconColor="text-pink-600" label="Shop Sales" value={formatCurrency(stats.shopTotal)} sub={`${shopPayments.filter(p=>p.status==='succeeded').length} orders`} />
-            <StatCard icon={CreditCard} gradient="from-sky-100 to-cyan-100" iconColor="text-sky-600" label="Booking Revenue" value={formatCurrency(stats.bookingTotal)} sub={`${bookingPayments.filter(p=>p.status==='succeeded').length} bookings`} />
-            <StatCard icon={GraduationCap} gradient="from-violet-100 to-purple-100" iconColor="text-violet-600" label="Academy Revenue" value={formatCurrency(stats.academyTotal)} sub={`${academyEnrollments} enrollments`} />
+            <StatCard icon={DollarSign} gradient="from-emerald-100 to-teal-100" iconColor="text-emerald-600" label="Total Revenue" value={formatCurrency(stats.totalRevenue, currency)} sub={`${shopPayments.length + bookingPayments.length} transactions`} />
+            <StatCard icon={ShoppingBag} gradient="from-pink-100 to-rose-100" iconColor="text-pink-600" label="Shop Sales" value={formatCurrency(stats.shopTotal, currency)} sub={`${shopPayments.filter(p=>p.status==='succeeded').length} orders`} />
+            <StatCard icon={CreditCard} gradient="from-sky-100 to-cyan-100" iconColor="text-sky-600" label="Booking Revenue" value={formatCurrency(stats.bookingTotal, currency)} sub={`${bookingPayments.filter(p=>p.status==='succeeded').length} bookings`} />
+            <StatCard icon={GraduationCap} gradient="from-violet-100 to-purple-100" iconColor="text-violet-600" label="Academy Revenue" value={formatCurrency(stats.academyTotal, currency)} sub={`${academyEnrollments} enrollments`} />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <StatCard icon={Percent} gradient="from-amber-100 to-orange-100" iconColor="text-amber-600" label="Total Commission" value={formatCurrency(stats.totalCommission)} sub="From master services" />
-            <StatCard icon={ArrowDownRight} gradient="from-red-100 to-rose-100" iconColor="text-red-500" label="Total Refunded" value={formatCurrency(stats.totalRefunded)} sub="Refunds processed" />
-            <StatCard icon={TrendingUp} gradient="from-emerald-100 to-teal-100" iconColor="text-emerald-600" label="Net Revenue" value={formatCurrency(stats.netRevenue)} sub="After refunds" />
+            <StatCard icon={Percent} gradient="from-amber-100 to-orange-100" iconColor="text-amber-600" label="Total Commission" value={formatCurrency(stats.totalCommission, currency)} sub="From master services" />
+            <StatCard icon={ArrowDownRight} gradient="from-red-100 to-rose-100" iconColor="text-red-500" label="Total Refunded" value={formatCurrency(stats.totalRefunded, currency)} sub="Refunds processed" />
+            <StatCard icon={TrendingUp} gradient="from-emerald-100 to-teal-100" iconColor="text-emerald-600" label="Net Revenue" value={formatCurrency(stats.netRevenue, currency)} sub="After refunds" />
           </div>
 
           {/* Quick Actions */}
@@ -557,7 +558,7 @@ export default function FinancePage() {
               <p className="text-xs text-[var(--color-text-muted)]">{shopPayments.length} transactions in period</p>
             </div>
             <div className="ml-auto text-right">
-              <p className="text-2xl font-bold text-[var(--color-text-primary)]">{formatCurrency(stats.shopTotal)}</p>
+              <p className="text-2xl font-bold text-[var(--color-text-primary)]">{formatCurrency(stats.shopTotal, currency)}</p>
               <p className="text-xs text-[var(--color-text-muted)]">Total shop revenue</p>
             </div>
           </div>
@@ -591,7 +592,7 @@ export default function FinancePage() {
               <p className="text-xs text-[var(--color-text-muted)]">From course enrollments</p>
             </div>
             <div className="ml-auto text-right">
-              <p className="text-2xl font-bold text-[var(--color-text-primary)]">{formatCurrency(academyRevenue)}</p>
+              <p className="text-2xl font-bold text-[var(--color-text-primary)]">{formatCurrency(academyRevenue, currency)}</p>
               <p className="text-xs text-[var(--color-text-muted)]">{academyEnrollments} enrollments</p>
             </div>
           </div>
@@ -619,7 +620,7 @@ export default function FinancePage() {
               <p className="text-xs text-[var(--color-text-muted)]">Platform commission from master services</p>
             </div>
             <div className="ml-auto text-right">
-              <p className="text-2xl font-bold text-[var(--color-text-primary)]">{formatCurrency(stats.totalCommission)}</p>
+              <p className="text-2xl font-bold text-[var(--color-text-primary)]">{formatCurrency(stats.totalCommission, currency)}</p>
               <p className="text-xs text-[var(--color-text-muted)]">Total earned</p>
             </div>
           </div>
@@ -655,10 +656,10 @@ export default function FinancePage() {
                         <p className="text-[10px] text-[var(--color-text-muted)]">{mc.booking_count} booking{mc.booking_count !== 1 ? 's' : ''}</p>
                       </div>
                     </div>
-                    <p className="text-sm font-medium text-[var(--color-text-primary)] text-right">{formatCurrency(mc.total_revenue)}</p>
+                    <p className="text-sm font-medium text-[var(--color-text-primary)] text-right">{formatCurrency(mc.total_revenue, currency)}</p>
                     <p className="text-sm text-[var(--color-text-secondary)] text-right">{(mc.commission_rate * 100).toFixed(0)}%</p>
-                    <p className="text-sm font-bold text-amber-600 text-right">{formatCurrency(mc.commission_amount)}</p>
-                    <p className="text-sm font-medium text-emerald-600 text-right">{formatCurrency(mc.net_to_master)}</p>
+                    <p className="text-sm font-bold text-amber-600 text-right">{formatCurrency(mc.commission_amount, currency)}</p>
+                    <p className="text-sm font-medium text-emerald-600 text-right">{formatCurrency(mc.net_to_master, currency)}</p>
                   </div>
                 ))}
               </div>
@@ -833,13 +834,13 @@ export default function FinancePage() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-              <ReportRow label="Shop Sales" value={formatCurrency(stats.shopTotal)} />
-              <ReportRow label="Booking Revenue" value={formatCurrency(stats.bookingTotal)} />
-              <ReportRow label="Academy Revenue" value={formatCurrency(stats.academyTotal)} />
-              <ReportRow label="Total Revenue" value={formatCurrency(stats.totalRevenue)} bold />
-              <ReportRow label="Commission Earned" value={formatCurrency(stats.totalCommission)} />
-              <ReportRow label="Total Refunded" value={`-${formatCurrency(stats.totalRefunded)}`} negative />
-              <ReportRow label="Net Revenue" value={formatCurrency(stats.netRevenue)} bold />
+              <ReportRow label="Shop Sales" value={formatCurrency(stats.shopTotal, currency)} />
+              <ReportRow label="Booking Revenue" value={formatCurrency(stats.bookingTotal, currency)} />
+              <ReportRow label="Academy Revenue" value={formatCurrency(stats.academyTotal, currency)} />
+              <ReportRow label="Total Revenue" value={formatCurrency(stats.totalRevenue, currency)} bold />
+              <ReportRow label="Commission Earned" value={formatCurrency(stats.totalCommission, currency)} />
+              <ReportRow label="Total Refunded" value={`-${formatCurrency(stats.totalRefunded, currency)}`} negative />
+              <ReportRow label="Net Revenue" value={formatCurrency(stats.netRevenue, currency)} bold />
               <ReportRow label="Academy Enrollments" value={String(academyEnrollments)} />
             </div>
 
@@ -922,7 +923,7 @@ export default function FinancePage() {
           <div className="glass-card w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
             <h3 className="font-bold text-lg text-[var(--color-text-primary)] mb-1">Process Refund</h3>
             <p className="text-sm text-[var(--color-text-secondary)] mb-4">
-              {refundModalPayment.description} — {formatCurrency(refundModalPayment.amount)}
+              {refundModalPayment.description} — {formatCurrency(refundModalPayment.amount, currency)}
             </p>
 
             <div className="space-y-4">
@@ -942,7 +943,7 @@ export default function FinancePage() {
                   />
                 </div>
                 <p className="text-[10px] text-[var(--color-text-muted)] mt-1">
-                  Max: {formatCurrency(refundModalPayment.amount)}
+                  Max: {formatCurrency(refundModalPayment.amount, currency)}
                 </p>
               </div>
 
@@ -965,7 +966,7 @@ export default function FinancePage() {
                   className="flex-1 px-4 py-2.5 rounded-xl bg-red-500 text-white text-sm font-semibold hover:bg-red-600 transition-colors flex items-center justify-center gap-2 cursor-pointer"
                 >
                   {refundProcessing ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
-                  {refundAmount ? `Refund ${formatCurrency(parseFloat(refundAmount) || 0)}` : 'Full Refund'}
+                  {refundAmount ? `Refund ${formatCurrency(parseFloat(refundAmount) || 0, currency)}` : 'Full Refund'}
                 </button>
               </div>
             </div>
@@ -1042,7 +1043,7 @@ function PaymentsList({ payments, loading, getLabel, getSubLabel, emptyIcon: Emp
           </div>
           <div className="text-right shrink-0">
             <p className={`text-sm font-bold ${p.status === 'refunded' ? 'text-red-500' : 'text-[var(--color-text-primary)]'}`}>
-              {formatCurrency(p.amount)}
+              {formatCurrency(p.amount, p.currency || 'EUR')}
             </p>
             <span className={`inline-block mt-1 text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full border ${getStatusBadge(p.status)}`}>
               {p.status === 'succeeded' ? 'Paid' : p.status === 'refunded' ? 'Refunded' : p.status}

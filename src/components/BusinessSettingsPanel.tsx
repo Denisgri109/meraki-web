@@ -32,19 +32,6 @@ interface BusinessSettings {
 }
 
 
-interface Campaign {
-  id: string;
-  name: string;
-  message: string;
-  campaign_type: string;
-  is_recurring: boolean;
-  days_after_appointment: number | null;
-  service_category: string | null;
-  start_date: string | null;
-  end_date: string | null;
-  is_active: boolean;
-}
-
 // ─── Constants ──────────────────────────────────────────────────────────────
 
 const DEFAULT_SETTINGS: BusinessSettings = {
@@ -76,15 +63,6 @@ const RESPONSE_TIMEOUT_OPTIONS = [
 
 
 const DEPOSIT_PERCENT_OPTIONS = [10, 20, 30, 50, 100];
-
-const AFTERCARE_DAY_OPTIONS = [7, 14, 21, 30, 45, 60, 90];
-
-const CAMPAIGN_TYPES = [
-  { value: 'aftercare', label: 'Aftercare Reminder', emoji: '\u{1F486}', desc: 'Sent X days after appointment' },
-  { value: 'promotion', label: 'Promotion', emoji: '\u{1F389}', desc: 'Special offer for clients' },
-  { value: 'vacation', label: 'Vacation Notice', emoji: '\u{1F3D6}\uFE0F', desc: "Let clients know you're away" },
-  { value: 'announcement', label: 'Announcement', emoji: '\u{1F4E2}', desc: 'General update for clients' },
-];
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -168,21 +146,6 @@ const BusinessSettingsPanel = forwardRef<BusinessSettingsPanelRef>(function Busi
   // Deposit derived state
   const depositEnabled = settings.deposit_percentage > 0;
 
-  // ─── Aftercare Campaigns ──────────────────────────────────────────────────
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [campaignEditorOpen, setCampaignEditorOpen] = useState(false);
-  const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
-  const [campForm, setCampForm] = useState({
-    name: '',
-    message: '',
-    campaign_type: 'aftercare' as string,
-    is_recurring: true,
-    days_after_appointment: 30,
-    start_date: '',
-    end_date: '',
-  });
-  const [savingCampaign, setSavingCampaign] = useState(false);
-
   // ─── Load Settings ────────────────────────────────────────────────────────
 
   const loadAll = useCallback(async () => {
@@ -221,15 +184,6 @@ const BusinessSettingsPanel = forwardRef<BusinessSettingsPanelRef>(function Busi
           .upsert({ master_id: profile.id }, { onConflict: 'master_id' });
       }
 
-
-      // Load aftercare campaigns
-      const { data: camps } = await supabase
-        .from('aftercare_campaigns')
-        .select('*')
-        .eq('master_id', profile.id)
-        .order('created_at', { ascending: false });
-
-      setCampaigns((camps as Campaign[]) || []);
     } catch (err) {
       console.error('Error loading business settings:', err);
     } finally {
@@ -306,125 +260,6 @@ const BusinessSettingsPanel = forwardRef<BusinessSettingsPanelRef>(function Busi
         deposit_percentage: 0,
         deposit_amount: 0,
       }));
-    }
-  };
-
-  // ─── Campaign CRUD ────────────────────────────────────────────────────────
-
-  const openCampaignEditor = (campaign?: Campaign) => {
-    if (campaign) {
-      setEditingCampaign(campaign);
-      setCampForm({
-        name: campaign.name,
-        message: campaign.message,
-        campaign_type: campaign.campaign_type,
-        is_recurring: campaign.is_recurring,
-        days_after_appointment: campaign.days_after_appointment ?? 30,
-        start_date: campaign.start_date || '',
-        end_date: campaign.end_date || '',
-      });
-    } else {
-      setEditingCampaign(null);
-      setCampForm({
-        name: '',
-        message: '',
-        campaign_type: 'aftercare',
-        is_recurring: true,
-        days_after_appointment: 30,
-        start_date: '',
-        end_date: '',
-      });
-    }
-    setCampaignEditorOpen(true);
-  };
-
-  const handleSaveCampaign = async () => {
-    if (!profile?.id) return;
-    if (!campForm.name.trim() || !campForm.message.trim()) {
-      showToast('Campaign name and message are required', 'error');
-      return;
-    }
-    setSavingCampaign(true);
-    try {
-      const payload = {
-        master_id: profile.id,
-        name: campForm.name.trim(),
-        message: campForm.message.trim(),
-        campaign_type: campForm.campaign_type,
-        is_recurring: campForm.campaign_type === 'aftercare' ? campForm.is_recurring : false,
-        days_after_appointment: campForm.campaign_type === 'aftercare' ? campForm.days_after_appointment : null,
-        start_date: ['vacation', 'promotion'].includes(campForm.campaign_type) && campForm.start_date ? campForm.start_date : null,
-        end_date: ['vacation', 'promotion'].includes(campForm.campaign_type) && campForm.end_date ? campForm.end_date : null,
-        is_active: true,
-      };
-
-      if (editingCampaign) {
-        const { error } = await supabase
-          .from('aftercare_campaigns')
-          .update({
-            name: payload.name,
-            message: payload.message,
-            campaign_type: payload.campaign_type,
-            is_recurring: payload.is_recurring,
-            days_after_appointment: payload.days_after_appointment,
-            start_date: payload.start_date,
-            end_date: payload.end_date,
-            is_active: payload.is_active,
-          })
-          .eq('id', editingCampaign.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from('aftercare_campaigns')
-          .insert({
-            master_id: payload.master_id,
-            name: payload.name,
-            message: payload.message,
-            campaign_type: payload.campaign_type,
-            is_recurring: payload.is_recurring,
-            days_after_appointment: payload.days_after_appointment,
-            start_date: payload.start_date,
-            end_date: payload.end_date,
-            is_active: payload.is_active,
-          });
-        if (error) throw error;
-      }
-
-      showToast(editingCampaign ? 'Campaign updated!' : 'Campaign created!', 'success');
-      setCampaignEditorOpen(false);
-      await loadAll();
-    } catch (err) {
-      showToast(getErrorMessage(err, 'Failed to save campaign'), 'error');
-    } finally {
-      setSavingCampaign(false);
-    }
-  };
-
-  const toggleCampaignActive = async (campaign: Campaign) => {
-    try {
-      const { error } = await supabase
-        .from('aftercare_campaigns')
-        .update({ is_active: !campaign.is_active })
-        .eq('id', campaign.id);
-      if (error) throw error;
-      await loadAll();
-    } catch (err) {
-      showToast(getErrorMessage(err, 'Failed to update campaign'), 'error');
-    }
-  };
-
-  const deleteCampaign = async (campaign: Campaign) => {
-    if (!(await showConfirm(`Delete "${campaign.name}"? This cannot be undone.`, 'Delete Campaign', 'Delete', 'Cancel', 'danger'))) return;
-    try {
-      const { error } = await supabase
-        .from('aftercare_campaigns')
-        .delete()
-        .eq('id', campaign.id);
-      if (error) throw error;
-      showToast('Campaign deleted', 'success');
-      await loadAll();
-    } catch (err) {
-      showToast(getErrorMessage(err, 'Failed to delete campaign'), 'error');
     }
   };
 
@@ -573,203 +408,6 @@ const BusinessSettingsPanel = forwardRef<BusinessSettingsPanelRef>(function Busi
         {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
         {saving ? 'Saving...' : 'Save Business Settings'}
       </button>
-
-      {/* ═══ Aftercare Campaigns ═══ */}
-      <SectionCard icon={Heart} title="Aftercare Campaigns" description="Create aftercare reminders, promotions, or vacation notices for your clients.">
-        {/* Campaign List */}
-        {campaigns.length === 0 && !campaignEditorOpen && (
-          <div className="text-center py-8">
-            <Megaphone size={36} className="mx-auto text-[var(--color-text-muted)] mb-3" />
-            <p className="font-semibold text-sm text-[var(--color-text-primary)] mb-1">No Campaigns Yet</p>
-            <p className="text-xs text-[var(--color-text-muted)] mb-4">Create aftercare reminders, promotions, or vacation notices</p>
-          </div>
-        )}
-
-        {campaigns.map((c) => (
-          <div key={c.id} className={`p-4 rounded-[var(--radius-lg)] border border-[var(--color-border-light)] bg-[var(--color-surface-light)] mb-3 ${!c.is_active ? 'opacity-50' : ''}`}>
-            <div className="flex items-start gap-3">
-              <span className="text-2xl">{CAMPAIGN_TYPES.find((t) => t.value === c.campaign_type)?.emoji || '\u{1F4E2}'}</span>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="font-semibold text-sm text-[var(--color-text-primary)] truncate">{c.name}</p>
-                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md ${c.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-600'}`}>
-                    {c.is_active ? 'Active' : 'Paused'}
-                  </span>
-                </div>
-                <p className="text-xs text-[var(--color-text-muted)]">
-                  {CAMPAIGN_TYPES.find((t) => t.value === c.campaign_type)?.label}
-                </p>
-                <p className="text-xs text-[var(--color-text-secondary)] mt-1 line-clamp-2">{c.message}</p>
-                {c.campaign_type === 'aftercare' && (
-                  <p className="text-[11px] text-[var(--color-text-muted)] mt-1">
-                    {c.days_after_appointment} days after appointment{c.is_recurring ? ' \u00B7 Recurring' : ''}
-                  </p>
-                )}
-                {['vacation', 'promotion'].includes(c.campaign_type) && c.start_date && (
-                  <p className="text-[11px] text-[var(--color-text-muted)] mt-1">
-                    {c.start_date} \u2014 {c.end_date || 'ongoing'}
-                  </p>
-                )}
-              </div>
-            </div>
-            <div className="flex gap-3 mt-3 pt-3 border-t border-[var(--color-border-light)]">
-              <button onClick={() => openCampaignEditor(c)} className="flex items-center gap-1 text-xs font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] cursor-pointer">
-                <Pencil size={13} /> Edit
-              </button>
-              <button onClick={() => toggleCampaignActive(c)} className="flex items-center gap-1 text-xs font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] cursor-pointer">
-                {c.is_active ? <><Pause size={13} /> Pause</> : <><Play size={13} /> Activate</>}
-              </button>
-              <button onClick={() => deleteCampaign(c)} className="flex items-center gap-1 text-xs font-medium text-red-500 hover:text-red-700 cursor-pointer">
-                <Trash2 size={13} /> Delete
-              </button>
-            </div>
-          </div>
-        ))}
-
-        {/* New Campaign Button */}
-        {!campaignEditorOpen && (
-          <button
-            onClick={() => openCampaignEditor()}
-            className="w-full p-3 rounded-[var(--radius-lg)] border border-dashed border-[var(--color-border-light)] hover:border-[var(--color-primary)] text-sm font-medium text-[var(--color-primary)] cursor-pointer flex items-center justify-center gap-2 transition-colors"
-          >
-            <Plus size={16} /> New Campaign
-          </button>
-        )}
-
-        {/* Campaign Editor */}
-        {campaignEditorOpen && (
-          <div className="mt-4 p-5 rounded-[var(--radius-lg)] border border-[var(--color-primary)] bg-white animate-fade-in">
-            <div className="flex items-center justify-between mb-4">
-              <h4 className="font-semibold text-sm text-[var(--color-text-primary)]">
-                {editingCampaign ? 'Edit Campaign' : 'New Campaign'}
-              </h4>
-              <button onClick={() => setCampaignEditorOpen(false)} className="p-1 hover:bg-black/5 rounded-full cursor-pointer">
-                <X size={16} />
-              </button>
-            </div>
-
-            {/* Campaign Type */}
-            <div className="mb-4">
-              <label className="label-upper">Campaign Type</label>
-              <div className="grid grid-cols-2 gap-2">
-                {CAMPAIGN_TYPES.map((t) => (
-                  <button
-                    key={t.value}
-                    onClick={() => setCampForm((f) => ({ ...f, campaign_type: t.value }))}
-                    className={`p-3 rounded-[var(--radius-lg)] border text-left transition-all cursor-pointer ${
-                      campForm.campaign_type === t.value
-                        ? 'border-[var(--color-primary)] bg-amber-50'
-                        : 'border-[var(--color-border-light)] bg-[var(--color-surface-light)] hover:border-[var(--color-primary)]'
-                    }`}
-                  >
-                    <span className="text-lg">{t.emoji}</span>
-                    <p className="text-xs font-semibold text-[var(--color-text-primary)] mt-1">{t.label}</p>
-                    <p className="text-[10px] text-[var(--color-text-muted)]">{t.desc}</p>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Name */}
-            <div className="mb-4">
-              <label className="label-upper">Campaign Name *</label>
-              <input
-                type="text"
-                value={campForm.name}
-                onChange={(e) => setCampForm((f) => ({ ...f, name: e.target.value }))}
-                className="input-glass"
-                placeholder="e.g., Brow Touch-up Reminder"
-              />
-            </div>
-
-            {/* Message */}
-            <div className="mb-4">
-              <label className="label-upper">Message *</label>
-              <textarea
-                value={campForm.message}
-                onChange={(e) => setCampForm((f) => ({ ...f, message: e.target.value }))}
-                className="input-glass resize-none"
-                rows={3}
-                placeholder="Hi {name}! It's time for your touch-up appointment..."
-              />
-              <p className="text-[10px] text-[var(--color-text-muted)] mt-1">Use {'{name}'} for client&apos;s name</p>
-            </div>
-
-            {/* Aftercare timing */}
-            {campForm.campaign_type === 'aftercare' && (
-              <>
-                <div className="mb-4">
-                  <label className="label-upper">Send After (days)</label>
-                  <div className="flex gap-2 flex-wrap">
-                    {AFTERCARE_DAY_OPTIONS.map((d) => (
-                      <button
-                        key={d}
-                        onClick={() => setCampForm((f) => ({ ...f, days_after_appointment: d }))}
-                        className={`px-3 py-1.5 rounded-[var(--radius-md)] text-xs font-semibold border transition-all cursor-pointer ${
-                          campForm.days_after_appointment === d
-                            ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
-                            : 'bg-[var(--color-surface-light)] text-[var(--color-text-secondary)] border-[var(--color-border-light)]'
-                        }`}
-                      >
-                        {d}d
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="mb-4">
-                  <Toggle
-                    checked={campForm.is_recurring}
-                    onChange={(v) => setCampForm((f) => ({ ...f, is_recurring: v }))}
-                    label="Recurring"
-                    description="Send after every completed appointment"
-                  />
-                </div>
-              </>
-            )}
-
-            {/* Date range for vacation/promotion */}
-            {['vacation', 'promotion'].includes(campForm.campaign_type) && (
-              <div className="mb-4 grid grid-cols-2 gap-3">
-                <div>
-                  <label className="label-upper">Start Date</label>
-                  <input
-                    type="date"
-                    value={campForm.start_date}
-                    onChange={(e) => setCampForm((f) => ({ ...f, start_date: e.target.value }))}
-                    className="input-glass text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="label-upper">End Date</label>
-                  <input
-                    type="date"
-                    value={campForm.end_date}
-                    onChange={(e) => setCampForm((f) => ({ ...f, end_date: e.target.value }))}
-                    className="input-glass text-sm"
-                  />
-                </div>
-              </div>
-            )}
-
-            <div className="flex gap-2">
-              <button
-                onClick={handleSaveCampaign}
-                disabled={savingCampaign}
-                className="btn-primary flex items-center gap-2 px-5 py-2.5 text-sm cursor-pointer"
-              >
-                {savingCampaign ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                {savingCampaign ? 'Saving...' : editingCampaign ? 'Update Campaign' : 'Create Campaign'}
-              </button>
-              <button
-                onClick={() => setCampaignEditorOpen(false)}
-                className="px-5 py-2.5 text-sm rounded-[var(--radius-lg)] border border-[var(--color-border-light)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-light)] cursor-pointer transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
-      </SectionCard>
 
       {/* ═══ T&C Modal ═══ */}
       {tcModalOpen && (

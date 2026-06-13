@@ -11,6 +11,7 @@ import {
   DollarSign, Settings2, Percent, BadgePoundSterling,
 } from 'lucide-react';
 import type { Tables, TablesInsert } from '@/types/database';
+import { validateServiceName, validatePrice } from '@/lib/validation';
 
 type Service = Tables<'services'>;
 type MasterServiceRow = Tables<'master_services'>;
@@ -163,15 +164,16 @@ export default function ServicesPage() {
     setConfigSaving(svc.id);
     try {
       const cfg = await ensureConfig(svc.id);
-      const customPrice = configForm.custom_price.trim() ? Number(configForm.custom_price) : null;
+      let customPrice = null;
+      if (configForm.custom_price.trim()) {
+        const pVal = validatePrice(configForm.custom_price);
+        if (!pVal.valid) { showToast(pVal.error || 'Invalid custom price', 'error'); return; }
+        customPrice = Number(configForm.custom_price);
+      }
       const customDuration = configForm.custom_duration.trim() ? Number(configForm.custom_duration) : null;
       const depType = configForm.deposit_override_type === 'none' ? null : configForm.deposit_override_type;
       const depValue = depType && configForm.deposit_override_value.trim() ? Number(configForm.deposit_override_value) : null;
 
-      if (customPrice !== null && (isNaN(customPrice) || customPrice < 0)) {
-        showToast('Invalid custom price', 'error');
-        return;
-      }
       if (customDuration !== null && (isNaN(customDuration) || customDuration <= 0)) {
         showToast('Invalid custom duration', 'error');
         return;
@@ -279,8 +281,12 @@ export default function ServicesPage() {
   };
 
   const handleSave = async () => {
-    if (!form.name.trim()) { showToast('Please enter a service name', 'error'); return; }
-    if (!form.base_price || isNaN(Number(form.base_price)) || Number(form.base_price) <= 0) { showToast('Please enter a valid price', 'error'); return; }
+    const nameVal = validateServiceName(form.name);
+    if (!nameVal.valid) { showToast(nameVal.error || 'Invalid service name', 'error'); return; }
+    
+    const priceVal = validatePrice(form.base_price);
+    if (!priceVal.valid) { showToast(priceVal.error || 'Invalid price', 'error'); return; }
+    
     if (!form.duration_minutes || isNaN(Number(form.duration_minutes)) || Number(form.duration_minutes) <= 0) { showToast('Please enter a valid duration', 'error'); return; }
     if (form.category === 'Pilates' && !isOwner) { showToast('Only owners can create Pilates services', 'error'); return; }
 

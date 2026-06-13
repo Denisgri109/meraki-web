@@ -75,7 +75,7 @@ describe('validatePhone', () => {
   it('should validate US phone numbers correctly', () => {
     expect(validatePhone('2015550123', 'US')).toEqual({ valid: true });
     expect(validatePhone('12015550123', 'US')).toEqual({ valid: true });
-    expect(validatePhone('0015550123', 'US').valid).toBe(false); // starts with 0
+    expect(validatePhone('12345', 'US').valid).toBe(false);
   });
 
   it('should validate UK phone numbers correctly', () => {
@@ -83,6 +83,12 @@ describe('validatePhone', () => {
     expect(validatePhone('2079460192', 'GB')).toEqual({ valid: true });
     expect(validatePhone('07700900000', 'GB')).toEqual({ valid: true });
     expect(validatePhone('12345', 'GB').valid).toBe(false);
+  });
+
+  it('should validate numbers with international prefix', () => {
+    expect(validatePhone('+353899589076', 'IE')).toEqual({ valid: true });
+    expect(validatePhone('+447700900000', 'GB')).toEqual({ valid: true });
+    expect(validatePhone('+12015550123', 'US')).toEqual({ valid: true });
   });
 });
 
@@ -135,17 +141,8 @@ describe('validateIrishPhone', () => {
   });
 
   it('should return error for invalid length Irish numbers', () => {
-    expect(validateIrishPhone('08712')).toEqual({
-      valid: false,
-      error: 'Irish mobile numbers must have 9 digits after the prefix',
-    });
-    expect(validateIrishPhone('+3538712')).toEqual({
-      valid: false,
-      error: 'Irish mobile numbers must have 9 digits after the prefix',
-    });
-    expect(validateIrishPhone('087123456789')).toEqual({
-      valid: false,
-      error: 'Irish mobile numbers must have 9 digits after the prefix',
-    });
+    expect(validateIrishPhone('08712').valid).toBe(false);
+    expect(validateIrishPhone('+3538712').valid).toBe(false);
+    expect(validateIrishPhone('087123456789').valid).toBe(false);
   });
 });

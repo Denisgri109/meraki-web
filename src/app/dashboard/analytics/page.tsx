@@ -22,7 +22,7 @@ function formatRelative(dateStr: string) {
 export default function AnalyticsPage() {
   const supabase = createClient();
   const { profile } = useAuth();
-  const currency = (profile?.currency as string | undefined) || 'EUR';
+  const currency = (profile?.currency_code as string | undefined) || (profile?.currency as string | undefined) || 'EUR';
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState({
     totalRevenue: 0,

@@ -249,7 +249,7 @@ export default function StaffDashboard() {
   }, [user?.id, isOwner]);
 
   const firstName = profile?.full_name?.split(' ')[0] || (isOwner ? 'Owner' : 'Master');
-  const currency = (profile?.currency as string | undefined) || 'EUR';
+  const currency = (profile?.currency_code as string | undefined) || (profile?.currency as string | undefined) || 'EUR';
 
   const businessActions = isOwner
     ? [
@@ -265,10 +265,12 @@ export default function StaffDashboard() {
         { href: '/dashboard/settings', icon: Settings, label: 'Settings', color: '#94A3B8' },
       ]
     : [
+        { href: '/dashboard/consultations', icon: MessageSquare, label: 'Consultations', color: '#8B5CF6' },
         { href: '/dashboard/services', icon: Calendar, label: 'Services', color: '#60A5FA' },
         { href: '/dashboard/availability', icon: Clock, label: 'Availability', color: '#F472B6' },
         { href: '/dashboard/appointments', icon: Calendar, label: 'Appointments', color: '#EE2B5B' },
         { href: '/dashboard/loyalty', icon: Gift, label: 'Loyalty', color: '#FBBF24' },
+        { href: '/dashboard/earnings', icon: TrendingUp, label: 'Earnings', color: '#F59E0B' },
         { href: '/dashboard/academy', icon: GraduationCap, label: 'Academy', color: '#06B6D4' },
         { href: '/dashboard/settings', icon: Settings, label: 'Settings', color: '#94A3B8' },
       ];
@@ -430,7 +432,7 @@ export default function StaffDashboard() {
       {/* Business Control */}
       <section className="mb-10">
         <h2 className="text-xs font-bold tracking-[0.2em] uppercase text-[var(--color-text-muted)] mb-4">
-          {isOwner ? 'Business Control' : 'Manage'}
+          Business Control
         </h2>
         <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3">
           {businessActions.map((a) => {
