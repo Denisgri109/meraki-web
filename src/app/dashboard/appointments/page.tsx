@@ -572,15 +572,22 @@ export default function AppointmentsPage() {
     );
   }, [selectedAppointment, clientSelectedDayAvailability]);
 
+  const parsedClientBlockedSlots = useMemo(() => {
+    return clientRescheduleBlockedSlots.map(blocked => ({
+      start: new Date(blocked.start_time).getTime(),
+      end: new Date(blocked.end_time).getTime()
+    }));
+  }, [clientRescheduleBlockedSlots]);
+
   const isClientTimeSlotDisabled = (time: string) => {
     if (!clientRescheduleDate || clientIsFetchingSlots) return true;
     const appointmentDate = getAppointmentDateTime(clientRescheduleDate, time);
     if (!appointmentDate) return true;
     if (clientRescheduleBookedSlotKeys.includes(time)) return true;
-    for (const blocked of clientRescheduleBlockedSlots) {
-      const blockStart = new Date(blocked.start_time);
-      const blockEnd = new Date(blocked.end_time);
-      if (appointmentDate >= blockStart && appointmentDate < blockEnd) return true;
+
+    const appointmentTime = appointmentDate.getTime();
+    for (const blocked of parsedClientBlockedSlots) {
+      if (appointmentTime >= blocked.start && appointmentTime < blocked.end) return true;
     }
     return false;
   };
