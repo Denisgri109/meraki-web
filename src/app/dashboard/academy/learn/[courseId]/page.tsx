@@ -85,7 +85,7 @@ export default function LearnCoursePage() {
       setLessons(allLessons);
 
       const progMap = new Map<string, LessonProgress>();
-      (progRes.data || []).forEach((p: any) => { progMap.set(p.lesson_id, p); });
+      (progRes.data || []).forEach((p: LessonProgress) => { progMap.set(p.lesson_id, p); });
       setProgress(progMap);
 
       // Set active lesson to first incomplete or first lesson
@@ -129,7 +129,7 @@ export default function LearnCoursePage() {
       .eq('lesson_id', activeLesson.id)
       .order('created_at')
       .then(({ data }) => {
-        setQaMessages((data || []).map((m: any) => ({ ...m, sender_name: m.sender?.full_name })));
+        setQaMessages((data || []).map((m: QAMessage & { sender?: { full_name: string } }) => ({ ...m, sender_name: m.sender?.full_name })));
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeLesson?.id, user?.id]);
@@ -221,7 +221,7 @@ export default function LearnCoursePage() {
       // Refresh
       const { data } = await supabase.from('homework_submissions').select('*').eq('lesson_id', activeLesson.id).eq('student_id', user.id).maybeSingle();
       setHwSubmission(data as HomeworkSubmission | null);
-    } catch (err: any) { showToast(err.message || 'Failed', 'error'); }
+    } catch (err: unknown) { showToast(err instanceof Error ? err.message : 'Failed', 'error'); }
     finally { setHwSubmitting(false); }
   };
 
@@ -245,9 +245,9 @@ export default function LearnCoursePage() {
         .select('*, sender:profiles!lesson_qa_messages_sender_id_fkey(full_name)')
         .eq('lesson_id', activeLesson.id)
         .order('created_at');
-      setQaMessages((data || []).map((m: any) => ({ ...m, sender_name: m.sender?.full_name })));
+      setQaMessages((data || []).map((m: QAMessage & { sender?: { full_name: string } }) => ({ ...m, sender_name: m.sender?.full_name })));
       setTimeout(() => qaEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
-    } catch (err: any) { showToast(err.message || 'Failed', 'error'); }
+    } catch (err: unknown) { showToast(err instanceof Error ? err.message : 'Failed', 'error'); }
     finally { setQaSending(false); }
   };
 
