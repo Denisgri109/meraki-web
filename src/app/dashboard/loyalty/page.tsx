@@ -52,14 +52,15 @@ function formatRewardValue(credit: UserCredit) {
 
 function partitionCredits(credits: UserCredit[]) {
   const now = Date.now();
-  const active: UserCredit[] = [];
-  const expired: UserCredit[] = [];
-  for (const c of credits) {
-    const isExpired = c.is_used || (c.expires_at != null && new Date(c.expires_at).getTime() <= now);
-    if (isExpired) expired.push(c);
-    else active.push(c);
-  }
-  return { activeCredits: active, expiredCredits: expired };
+  return credits.reduce(
+    (acc, c) => {
+      const isExpired = c.is_used || (c.expires_at != null && Date.parse(c.expires_at) <= now);
+      if (isExpired) acc.expiredCredits.push(c);
+      else acc.activeCredits.push(c);
+      return acc;
+    },
+    { activeCredits: [] as UserCredit[], expiredCredits: [] as UserCredit[] }
+  );
 }
 
 function stampCardRewardText(card: StampCard) {
