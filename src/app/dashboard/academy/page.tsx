@@ -12,6 +12,11 @@ import {
 import { useRouter } from 'next/navigation';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
+interface CourseRow extends Course {
+  course_enrollments?: { count: number }[];
+  lessons?: { count: number }[];
+}
+
 interface Course {
   id: string;
   title: string;
@@ -78,7 +83,7 @@ function OwnerAcademyView() {
 
       if (error) { console.error('[Academy] courses:', error); return; }
 
-      const mapped = (data || []).map((c: any) => ({
+      const mapped = (data || []).map((c: CourseRow) => ({
         ...c,
         enrollment_count: c.course_enrollments?.[0]?.count || 0,
         lesson_count: c.lessons?.[0]?.count || 0,
@@ -87,7 +92,7 @@ function OwnerAcademyView() {
 
       // Stats
       let totalEnrollments = 0;
-      mapped.forEach((c: any) => { totalEnrollments += c.enrollment_count || 0; });
+      mapped.forEach((c: Course) => { totalEnrollments += c.enrollment_count || 0; });
 
       const { count: hwCount } = await supabase
         .from('homework_submissions')
@@ -464,7 +469,7 @@ function ClientAcademyView() {
           : Promise.resolve({ data: [] }),
       ]);
 
-      const mapped = (coursesRes.data || []).map((c: any) => ({
+      const mapped = (coursesRes.data || []).map((c: CourseRow) => ({
         ...c,
         enrollment_count: c.course_enrollments?.[0]?.count || 0,
         lesson_count: c.lessons?.[0]?.count || 0,
@@ -472,7 +477,7 @@ function ClientAcademyView() {
       setCourses(mapped as Course[]);
 
       const ids = new Set<string>();
-      ((enrollmentsRes as any).data || []).forEach((e: any) => { if (e.course_id) ids.add(e.course_id); });
+      (enrollmentsRes?.data || []).forEach((e: { course_id?: string | null }) => { if (e.course_id) ids.add(e.course_id); });
       setEnrolledIds(ids);
     } catch (err) {
       console.error('[Academy] browse error:', err);
@@ -492,11 +497,11 @@ function ClientAcademyView() {
         .eq('student_id', user.id)
         .order('enrolled_at', { ascending: false });
 
-      const enrollments = (data || []) as any[];
+      const enrollments = (data || []) as (Enrollment & { course: Course })[];
       const courseIds = enrollments.map((r) => r.course?.id).filter(Boolean);
 
       // Pre-fetch all lessons for these courses
-      let lessonsData: any[] = [];
+      let lessonsData: { id: string; course_id: string }[] = [];
       if (courseIds.length > 0) {
         const { data: lessonsRes } = await supabase
           .from('lessons')
@@ -519,7 +524,7 @@ function ClientAcademyView() {
       const lessonIds = Object.keys(lessonToCourseMap);
 
       // Pre-fetch all completed progress for these lessons
-      let progressData: any[] = [];
+      let progressData: { lesson_id: string }[] = [];
       if (lessonIds.length > 0) {
         const { data: progressRes } = await supabase
           .from('lesson_progress')
