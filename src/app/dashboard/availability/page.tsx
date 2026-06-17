@@ -66,7 +66,13 @@ function getMonthGrid(year: number, month: number) {
 function sameDay(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
+const slotLabelCache = new Map<string, string[]>();
+
 function genSlotLabels(sh: number, sm: number, eh: number, em: number) {
+  const cacheKey = `${sh}:${sm}-${eh}:${em}`;
+  const cached = slotLabelCache.get(cacheKey);
+  if (cached) return cached;
+
   const out: string[] = [];
   let h = sh, m = sm;
   while (h < eh || (h === eh && m < em)) {
@@ -74,6 +80,7 @@ function genSlotLabels(sh: number, sm: number, eh: number, em: number) {
     m += 30;
     if (m >= 60) { m = 0; h++; }
   }
+  slotLabelCache.set(cacheKey, out);
   return out;
 }
 
