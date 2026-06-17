@@ -416,7 +416,7 @@ export default function FinancePage() {
       if (error) throw error;
       if (data?.url) {
         const parsedUrl = new URL(data.url);
-        if (parsedUrl.hostname.endsWith('.stripe.com') || parsedUrl.hostname === 'stripe.com') {
+        if (parsedUrl.protocol === 'https:' && (parsedUrl.hostname === 'stripe.com' || parsedUrl.hostname.endsWith('.stripe.com'))) {
           window.open(data.url, '_blank');
         } else {
           throw new Error('Invalid URL');
@@ -438,7 +438,7 @@ export default function FinancePage() {
       if (error) throw error;
       if (data?.url) {
         const parsedUrl = new URL(data.url);
-        if (parsedUrl.hostname.endsWith('.stripe.com') || parsedUrl.hostname === 'stripe.com') {
+        if (parsedUrl.protocol === 'https:' && (parsedUrl.hostname === 'stripe.com' || parsedUrl.hostname.endsWith('.stripe.com'))) {
           window.open(data.url, '_blank');
         } else {
           throw new Error('Invalid URL');

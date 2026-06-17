@@ -288,7 +288,7 @@ export default function EarningsPage() {
       const isValidStripeUrl = (url: string) => {
         try {
           const parsedUrl = new URL(url);
-          return parsedUrl.hostname === 'stripe.com' || parsedUrl.hostname.endsWith('.stripe.com');
+          return parsedUrl.protocol === 'https:' && (parsedUrl.hostname === 'stripe.com' || parsedUrl.hostname.endsWith('.stripe.com'));
         } catch {
           return false;
         }
@@ -317,7 +317,7 @@ export default function EarningsPage() {
       const isValidStripeUrl = (url: string) => {
         try {
           const parsedUrl = new URL(url);
-          return parsedUrl.hostname === 'stripe.com' || parsedUrl.hostname.endsWith('.stripe.com');
+          return parsedUrl.protocol === 'https:' && (parsedUrl.hostname === 'stripe.com' || parsedUrl.hostname.endsWith('.stripe.com'));
         } catch {
           return false;
         }

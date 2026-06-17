@@ -501,7 +501,7 @@ export default function SettingsPage() {
 
       if (data?.url) {
         const urlObj = new URL(data.url);
-        if (urlObj.hostname.endsWith('.stripe.com')) {
+        if (urlObj.protocol === 'https:' && urlObj.hostname === 'billing.stripe.com') {
           window.location.href = data.url;
         } else {
           throw new Error('Security Error: Invalid billing portal URL domain.');
