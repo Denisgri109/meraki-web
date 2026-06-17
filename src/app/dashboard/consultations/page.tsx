@@ -1053,10 +1053,8 @@ export default function ConsultationsPage() {
           {tabs.map((tab) => {
             const isActive = activeTab === tab;
             let badge = 0;
-            if (isMasterOrOwner) {
-              if (tab === 'Photo Reviews') badge = pendingPhotoCount;
-              if (tab === 'Booking Reviews') badge = pendingBookingCount;
-            }
+            if (isMasterOrOwner && tab === 'Photo Reviews') badge = pendingPhotoCount;
+            if (isMasterOrOwner && tab === 'Booking Reviews') badge = pendingBookingCount;
             return (
               <button
                 key={tab}
