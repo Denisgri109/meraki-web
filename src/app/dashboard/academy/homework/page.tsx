@@ -28,6 +28,19 @@ interface Submission {
   student_email?: string;
 }
 
+interface LessonData {
+  id: string;
+  title: string;
+  course_id: string;
+}
+
+interface RawSubmission extends Omit<Submission, 'lesson_title' | 'course_title' | 'student_name' | 'student_email'> {
+  student?: {
+    full_name?: string;
+    email?: string;
+  };
+}
+
 type FilterStatus = 'all' | 'pending' | 'reviewed';
 
 export default function HomeworkInboxPage() {
@@ -69,8 +82,8 @@ export default function HomeworkInboxPage() {
         .select('id, title, course_id')
         .in('course_id', courseIds);
 
-      const lessonMap = new Map((lessonsData || []).map((l: any) => [l.id, { title: l.title, course_id: l.course_id }]));
-      const lessonIds = (lessonsData || []).map((l: any) => l.id);
+      const lessonMap = new Map((lessonsData || []).map((l: LessonData) => [l.id, { title: l.title, course_id: l.course_id }]));
+      const lessonIds = (lessonsData || []).map((l: LessonData) => l.id);
 
       if (lessonIds.length === 0) { setSubmissions([]); setLoading(false); return; }
 
@@ -81,8 +94,8 @@ export default function HomeworkInboxPage() {
         .in('lesson_id', lessonIds)
         .order('created_at', { ascending: false });
 
-      const mapped: Submission[] = (subs || []).map((s: any) => {
-        const lessonInfo = lessonMap.get(s.lesson_id);
+      const mapped: Submission[] = (subs || []).map((s: RawSubmission) => {
+        const lessonInfo = lessonMap.get(s.lesson_id) as { title: string; course_id: string } | undefined;
         return {
           ...s,
           lesson_title: lessonInfo?.title || 'Unknown Lesson',
@@ -129,8 +142,8 @@ export default function HomeworkInboxPage() {
       showToast('Feedback sent', 'success');
       setReviewing(null);
       fetchSubmissions();
-    } catch (err: any) {
-      showToast(err.message || 'Failed', 'error');
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : 'Failed', 'error');
     } finally {
       setSending(false);
     }
