@@ -262,6 +262,22 @@ export default function LearnCoursePage() {
     return null;
   };
 
+  const renderVideoPlayer = (videoUrl: string | null) => {
+    if (!videoUrl) {
+      return (
+        <div className="w-full h-full bg-gradient-to-br from-blue-900 to-cyan-900 flex items-center justify-center">
+          <FileText size={48} className="text-white/30" />
+        </div>
+      );
+    }
+
+    const embedUrl = getVideoEmbed(videoUrl);
+    if (embedUrl) {
+      return <iframe src={embedUrl} className="w-full h-full" allowFullScreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" />;
+    }
+    return <video src={videoUrl} controls className="w-full h-full" />;
+  };
+
   // ── Progress stats ──
   const completedCount = lessons.filter((l) => progress.get(l.id)?.completed_at).length;
   const progressPct = lessons.length > 0 ? Math.round((completedCount / lessons.length) * 100) : 0;
@@ -309,21 +325,7 @@ export default function LearnCoursePage() {
         <div className="flex-1 min-w-0">
           {/* Video / Thumbnail */}
           <div className="aspect-video rounded-2xl overflow-hidden bg-black mb-6 shadow-xl">
-            {activeLesson.video_url ? (
-              (() => {
-                const embedUrl = getVideoEmbed(activeLesson.video_url);
-                if (embedUrl) {
-                  return <iframe src={embedUrl} className="w-full h-full" allowFullScreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" />;
-                }
-                return (
-                  <video src={activeLesson.video_url} controls className="w-full h-full" />
-                );
-              })()
-            ) : (
-              <div className="w-full h-full bg-gradient-to-br from-blue-900 to-cyan-900 flex items-center justify-center">
-                <FileText size={48} className="text-white/30" />
-              </div>
-            )}
+            {renderVideoPlayer(activeLesson.video_url)}
           </div>
 
           {/* Lesson Info */}
