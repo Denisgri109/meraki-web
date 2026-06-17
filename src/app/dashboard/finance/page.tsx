@@ -299,21 +299,22 @@ export default function FinancePage() {
           if (!info) return;
           const existing = masterMap.get(info.master_id);
           const commRate = info.commission_rate;
-          const commAmount = p.amount * commRate;
+          const amountInCurrency = p.amount / 100;
+          const commAmount = amountInCurrency * commRate;
           if (existing) {
-            existing.total_revenue += p.amount;
+            existing.total_revenue += amountInCurrency;
             existing.commission_amount += commAmount;
-            existing.net_to_master += (p.amount - commAmount);
+            existing.net_to_master += (amountInCurrency - commAmount);
             existing.booking_count += 1;
           } else {
             masterMap.set(info.master_id, {
               master_id: info.master_id,
               master_name: info.master_name || 'Unknown',
               avatar_url: null,
-              total_revenue: p.amount,
+              total_revenue: amountInCurrency,
               commission_rate: commRate,
               commission_amount: commAmount,
-              net_to_master: p.amount - commAmount,
+              net_to_master: amountInCurrency - commAmount,
               booking_count: 1,
             });
           }
@@ -344,7 +345,7 @@ export default function FinancePage() {
           const apptInfo = p.appointment_id ? aMap.get(p.appointment_id) : null;
           return {
             id: p.id,
-            amount: p.amount,
+            amount: p.amount / 100,
             currency: p.currency || 'EUR',
             status: p.status,
             stripe_payment_intent_id: p.stripe_payment_intent_id,
@@ -366,10 +367,10 @@ export default function FinancePage() {
 
   // ─── Computed stats ─────────────────────────────────────────────
   const stats = useMemo(() => {
-    const shopTotal = shopPayments.filter(p => p.status === 'succeeded').reduce((s, p) => s + p.amount, 0);
-    const bookingTotal = bookingPayments.filter(p => p.status === 'succeeded').reduce((s, p) => s + p.amount, 0);
+    const shopTotal = shopPayments.filter(p => p.status === 'succeeded').reduce((s, p) => s + (p.amount / 100), 0);
+    const bookingTotal = bookingPayments.filter(p => p.status === 'succeeded').reduce((s, p) => s + (p.amount / 100), 0);
     const totalCommission = masterCommissions.reduce((s, m) => s + m.commission_amount, 0);
-    const totalRefunded = [...shopPayments, ...bookingPayments].filter(p => p.status === 'refunded').reduce((s, p) => s + p.amount, 0);
+    const totalRefunded = [...shopPayments, ...bookingPayments].filter(p => p.status === 'refunded').reduce((s, p) => s + (p.amount / 100), 0);
     return {
       shopTotal,
       bookingTotal,
@@ -793,7 +794,7 @@ export default function FinancePage() {
                         {p.client_name && `${p.client_name} · `}{formatDateTime(p.created_at)}
                       </p>
                     </div>
-                    <p className="text-sm font-bold text-[var(--color-text-primary)]">{formatCurrency(p.amount)}</p>
+                    <p className="text-sm font-bold text-[var(--color-text-primary)]">{formatCurrency(p.amount, p.currency || currency)}</p>
                     <button
                       onClick={() => { setRefundModalPayment(p); setRefundAmount(''); }}
                       className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-red-200 text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
@@ -857,7 +858,7 @@ export default function FinancePage() {
                         formatDate(p.created_at),
                         p.order_id ? 'Shop' : 'Booking',
                         appt?.service_name || (order ? `Order #${p.order_id?.slice(0, 8)}` : (p.description || 'Payment')),
-                        p.amount.toFixed(2),
+                        (p.amount / 100).toFixed(2),
                         p.status,
                         appt?.client_name || order?.user_name || '',
                       ];
@@ -1043,7 +1044,7 @@ function PaymentsList({ payments, loading, getLabel, getSubLabel, emptyIcon: Emp
           </div>
           <div className="text-right shrink-0">
             <p className={`text-sm font-bold ${p.status === 'refunded' ? 'text-red-500' : 'text-[var(--color-text-primary)]'}`}>
-              {formatCurrency(p.amount, p.currency || 'EUR')}
+              {formatCurrency(p.amount / 100, p.currency || 'EUR')}
             </p>
             <span className={`inline-block mt-1 text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full border ${getStatusBadge(p.status)}`}>
               {p.status === 'succeeded' ? 'Paid' : p.status === 'refunded' ? 'Refunded' : p.status}
