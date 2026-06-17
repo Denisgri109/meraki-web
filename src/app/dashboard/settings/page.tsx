@@ -616,6 +616,30 @@ export default function SettingsPage() {
   };
 
   // ─── Unified Save All ─────────────────────────────────────────────────────
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setPhone(val);
+
+    // Early return if not a potential country code prefix
+    if (!val.startsWith('+') && !val.startsWith('00')) return;
+
+    const parsed = parsePhoneNumber(val);
+    if (!parsed.countryCode) return;
+
+    setPhoneCountryCode(parsed.countryCode);
+    setPhone(parsed.localNumber);
+  };
+
+  const handlePhoneBlur = () => {
+    if (!phone.trim()) return;
+
+    const v = validatePhone(phone, phoneCountryCode);
+    if (v.valid) {
+      setPhone(formatPhone(phone, phoneCountryCode));
+    }
+  };
+
   const handleSaveAll = async () => {
     setSavingAll(true);
     try {
@@ -749,24 +773,8 @@ export default function SettingsPage() {
                       <input
                         type="tel"
                         value={phone}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setPhone(val);
-                          // Auto-detect country code from prefix if pasted/typed
-                          if (val.startsWith('+') || val.startsWith('00')) {
-                            const parsed = parsePhoneNumber(val);
-                            if (parsed.countryCode) {
-                              setPhoneCountryCode(parsed.countryCode);
-                              setPhone(parsed.localNumber);
-                            }
-                          }
-                        }}
-                        onBlur={() => {
-                          if (phone.trim()) {
-                            const v = validatePhone(phone, phoneCountryCode);
-                            if (v.valid) setPhone(formatPhone(phone, phoneCountryCode));
-                          }
-                        }}
+                        onChange={handlePhoneChange}
+                        onBlur={handlePhoneBlur}
                         className="input-glass w-full"
                         placeholder={SUPPORTED_COUNTRIES.find(c => c.code === phoneCountryCode)?.placeholder || "Enter phone"}
                       />
