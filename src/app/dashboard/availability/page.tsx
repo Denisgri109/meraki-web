@@ -280,15 +280,32 @@ export default function AvailabilityPage() {
   const selDaySlots = useMemo(() => {
     if (!selectedDay || !selDaySched || !selDayAvail) return [];
     const result: { time: string; status: 'available' | 'booked' | 'blocked'; label?: string }[] = [];
+
+    // Precompute timestamps to avoid recreating Date objects in the loop
+    const parsedBlocks = selDayBlocks.map(b => ({
+      ...b,
+      startMs: new Date(b.start_time).getTime(),
+      endMs: new Date(b.end_time).getTime()
+    }));
+
+    const parsedApts = selDayApts.map(a => ({
+      ...a,
+      startMs: new Date(a.start_time).getTime(),
+      endMs: new Date(a.end_time).getTime()
+    }));
+
     for (const slot of selDaySched.slots) {
       const [sh, sm] = slot.start.split(':').map(Number);
       const [eh, em] = slot.end.split(':').map(Number);
       for (const tl of genSlotLabels(sh, sm, eh, em)) {
         const [h, m] = tl.split(':').map(Number);
         const ss = new Date(selectedDay); ss.setHours(h, m, 0, 0);
-        const blocked = selDayBlocks.find(b => ss >= new Date(b.start_time) && ss < new Date(b.end_time));
+        const ssMs = ss.getTime();
+
+        const blocked = parsedBlocks.find(b => ssMs >= b.startMs && ssMs < b.endMs);
         if (blocked) { result.push({ time: tl, status: 'blocked', label: blocked.reason || 'Blocked' }); continue; }
-        const booked = selDayApts.find(a => ss >= new Date(a.start_time) && ss < new Date(a.end_time));
+
+        const booked = parsedApts.find(a => ssMs >= a.startMs && ssMs < a.endMs);
         if (booked) {
           const cn = (booked.profiles as { full_name: string } | null)?.full_name || 'Client';
           const sn = (booked.services as { name: string } | null)?.name || 'Appointment';
