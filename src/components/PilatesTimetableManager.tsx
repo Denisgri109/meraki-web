@@ -238,6 +238,18 @@ export function PilatesTimetableManager({ service, onServiceUpdate }: PilatesTim
     }
   };
 
+  const toggleOperatingDay = (dayValue: number) => {
+    const current = new Set(settingsForm.operating_days);
+    if (current.has(dayValue) && current.size === 1) return;
+
+    if (current.has(dayValue)) {
+      current.delete(dayValue);
+    } else {
+      current.add(dayValue);
+    }
+    setSettingsForm({ ...settingsForm, operating_days: [...current].sort((a, b) => a - b) });
+  };
+
   const saveSettings = async () => {
     if (!user?.id) return;
     setSaving(true);
@@ -986,16 +998,7 @@ export function PilatesTimetableManager({ service, onServiceUpdate }: PilatesTim
                         <button
                           key={day.value}
                           type="button"
-                          onClick={() => {
-                            const current = new Set(settingsForm.operating_days);
-                            if (current.has(day.value)) {
-                              if (current.size === 1) return;
-                              current.delete(day.value);
-                            } else {
-                              current.add(day.value);
-                            }
-                            setSettingsForm({ ...settingsForm, operating_days: [...current].sort((a, b) => a - b) });
-                          }}
+                          onClick={() => toggleOperatingDay(day.value)}
                           className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer border ${
                             isOn
                               ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
