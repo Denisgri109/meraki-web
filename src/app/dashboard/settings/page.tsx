@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/components/Toast';
 import { useModal } from '@/contexts/ModalContext';
 import { Settings, User, Shield, Save, Loader2, Camera, CreditCard, Mail, Dumbbell, AlertTriangle, X, Briefcase, Image as ImageIcon, Trash2, Plus, ExternalLink, MapPin, Crosshair } from 'lucide-react';
+import pLimit from 'p-limit';
 import BusinessSettingsPanel from '@/components/BusinessSettingsPanel';
 import type { BusinessSettingsPanelRef } from '@/components/BusinessSettingsPanel';
 import PaymentMethodsManager from '@/components/PaymentMethodsManager';
@@ -257,8 +258,9 @@ export default function SettingsPage() {
 
     setUploadingPortfolio(true);
     try {
-      // 1. Upload files concurrently
-      const uploadPromises = validFiles.map(async (file) => {
+      // 1. Upload files concurrently with a limit to prevent memory/network spikes
+      const limit = pLimit(3);
+      const uploadPromises = validFiles.map((file) => limit(async () => {
         const fileExt = file.name.split('.').pop()?.toLowerCase() || 'jpg';
         const fileName = `${profile.id}/${Date.now()}_${crypto.randomUUID()}.${fileExt}`;
 
@@ -273,7 +275,7 @@ export default function SettingsPage() {
 
         const { data: urlData } = supabase.storage.from('portfolios').getPublicUrl(fileName);
         return urlData.publicUrl;
-      });
+      }));
 
       const uploadResults = await Promise.all(uploadPromises);
       const successfulUrls = uploadResults.filter((url): url is string => url !== null);
