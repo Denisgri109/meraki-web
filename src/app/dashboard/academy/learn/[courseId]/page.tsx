@@ -221,7 +221,7 @@ export default function LearnCoursePage() {
       // Refresh
       const { data } = await supabase.from('homework_submissions').select('*').eq('lesson_id', activeLesson.id).eq('student_id', user.id).maybeSingle();
       setHwSubmission(data as HomeworkSubmission | null);
-    } catch (err: any) { showToast(err.message || 'Failed', 'error'); }
+    } catch (err: unknown) { showToast((err instanceof Error ? err.message : '') || 'Failed', 'error'); }
     finally { setHwSubmitting(false); }
   };
 
@@ -247,7 +247,7 @@ export default function LearnCoursePage() {
         .order('created_at');
       setQaMessages((data || []).map((m: any) => ({ ...m, sender_name: m.sender?.full_name })));
       setTimeout(() => qaEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
-    } catch (err: any) { showToast(err.message || 'Failed', 'error'); }
+    } catch (err: unknown) { showToast((err instanceof Error ? err.message : '') || 'Failed', 'error'); }
     finally { setQaSending(false); }
   };
 
