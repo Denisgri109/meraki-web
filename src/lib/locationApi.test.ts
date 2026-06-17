@@ -99,6 +99,70 @@ describe('filterCountries', () => {
   it('returns empty array when no matches found', () => {
     expect(filterCountries(mockCountries, 'xyz')).toHaveLength(0);
   });
+
+  it('matches iso2 and name simultaneously across different countries', () => {
+    // 'fr' matches France by iso2 and could hypothetically match something else by name if added
+    const extraMockCountries = [
+      ...mockCountries,
+      { name: 'San Francisco', iso2: 'US' }, // 'fr' is in San Francisco
+    ] as Country[];
+    const result = filterCountries(extraMockCountries, 'fr');
+    expect(result).toHaveLength(2);
+    expect(result.map(c => c.name)).toEqual(['France', 'San Francisco']);
+  });
+
+  it('matches exact iso2 with surrounding spaces', () => {
+    const result = filterCountries(mockCountries, '  FR  ');
+    expect(result).toHaveLength(1);
+    expect(result[0].name).toBe('France');
+  });
+
+  it('ensures partial iso2 queries do not match iso2 (only name)', () => {
+    // 'U' is in 'United States' and 'United Kingdom' but not 'France'
+    // It should match US and GB by name.
+    const resultU = filterCountries(mockCountries, 'u');
+    expect(resultU).toHaveLength(2);
+    expect(resultU.map(c => c.iso2)).toEqual(['US', 'GB']);
+
+    // Custom country where partial iso2 is not in name.
+    const customCountries = [
+      { name: 'Nippon', iso2: 'JP' } // 'J' is not in 'Nippon'
+    ] as Country[];
+
+    // Query 'J' - should NOT match Nippon because 'J' is not in name and 'J' !== 'JP'
+    const resultJ = filterCountries(customCountries, 'j');
+    expect(resultJ).toHaveLength(0);
+  });
+
+  it('matches names with accented/special characters', () => {
+    const specialCountries = [
+      { name: "Côte d'Ivoire", iso2: 'CI' },
+      { name: 'Åland Islands', iso2: 'AX' },
+      { name: 'São Tomé and Príncipe', iso2: 'ST' },
+    ] as Country[];
+
+    expect(filterCountries(specialCountries, 'Côte')).toHaveLength(1);
+    expect(filterCountries(specialCountries, 'åland')).toHaveLength(1);
+    expect(filterCountries(specialCountries, 'tomé')).toHaveLength(1);
+  });
+
+  it('ensures regular expression literals do not throw and match literal strings', () => {
+    const regexCountries = [
+      { name: 'Country.*Name', iso2: 'XX' },
+      { name: 'Country?Name', iso2: 'XY' },
+      { name: 'Normal Country', iso2: 'ZZ' },
+    ] as Country[];
+
+    // Searching for '.*' should literally match 'Country.*Name'
+    const resultDotStar = filterCountries(regexCountries, '.*');
+    expect(resultDotStar).toHaveLength(1);
+    expect(resultDotStar[0].iso2).toBe('XX');
+
+    // Searching for '?' should match 'Country?Name'
+    const resultQuestion = filterCountries(regexCountries, '?');
+    expect(resultQuestion).toHaveLength(1);
+    expect(resultQuestion[0].iso2).toBe('XY');
+  });
 });
 
 describe('filterCities', () => {
