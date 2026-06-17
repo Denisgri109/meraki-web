@@ -1,4 +1,7 @@
-import { useState } from 'react';
+const fs = require('fs');
+const code = fs.readFileSync('src/app/dashboard/discover/components/ProfessionalsGrid.tsx', 'utf-8');
+
+const newCode = `import { useState } from 'react';
 import { Users, Search, Heart, MapPin, ArrowRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/components/Toast';
@@ -79,7 +82,7 @@ export function ProfessionalsGrid({ loading, filtered, search, userCountry }: Pr
             idx={idx}
             isFavorite={favorites.has(master.id)}
             onToggleFavorite={handleToggleFavorite}
-            onClick={() => router.push(`/dashboard/booking?masterId=${master.id}`)}
+            onClick={() => router.push(\`/dashboard/booking?masterId=\${master.id}\`)}
           />
         ))}
       </div>
@@ -112,7 +115,7 @@ function ProfessionalCard({ master, idx, isFavorite, onToggleFavorite, onClick }
   return (
     <div
       onClick={onClick}
-      className={`glass-card p-6 hover:shadow-xl hover:-translate-y-2 transition-all duration-300 cursor-pointer group relative animate-scale-in stagger-${Math.min(idx + 1, 6)}`}
+      className={\`glass-card p-6 hover:shadow-xl hover:-translate-y-2 transition-all duration-300 cursor-pointer group relative animate-scale-in stagger-\${Math.min(idx + 1, 6)}\`}
       style={{ animationFillMode: 'both' }}
     >
       {/* Favorite Heart */}
@@ -148,7 +151,7 @@ function ProfessionalCard({ master, idx, isFavorite, onToggleFavorite, onClick }
           {master.city && (
             <div className="flex items-center gap-1">
               <MapPin size={12} className="text-violet-400" />
-              <span>{master.city}{master.country ? `, ${master.country}` : ''}</span>
+              <span>{master.city}{master.country ? \`, \${master.country}\` : ''}</span>
             </div>
           )}
           {master.state && (
@@ -164,3 +167,6 @@ function ProfessionalCard({ master, idx, isFavorite, onToggleFavorite, onClick }
     </div>
   );
 }
+`;
+
+fs.writeFileSync('src/app/dashboard/discover/components/ProfessionalsGrid.tsx', newCode);
