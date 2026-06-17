@@ -117,6 +117,9 @@ const headers: HeadersInit = { 'X-CSCAPI-KEY': API_KEY };
 
 /* ─── API Functions ──────────────────────────────────────────── */
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const inFlightRequests = new Map<string, Promise<any>>();
+
 /**
  * Helper to fetch location data and handle common errors safely.
  * Returns null on error, and T[] on success (which can be empty).
@@ -145,15 +148,26 @@ async function fetchLocationData<T>(url: string, errorContext: string): Promise<
 
 /** Get all countries (cached). */
 export async function getAllCountries(): Promise<Country[]> {
-  const cached = cacheGet<Country[]>('countries');
+  const cacheKey = 'countries';
+  const cached = cacheGet<Country[]>(cacheKey);
   if (cached) return cached;
 
-  const data = await fetchLocationData<Country>(`${API_BASE_URL}/countries`, 'countries');
-  if (data !== null) {
-    cacheSet('countries', data);
-    return data;
+  if (inFlightRequests.has(cacheKey)) {
+    return inFlightRequests.get(cacheKey)!;
   }
-  return [];
+
+  const promise = fetchLocationData<Country>(`${API_BASE_URL}/countries`, 'countries').then(data => {
+    if (data !== null) {
+      cacheSet(cacheKey, data);
+      return data;
+    }
+    return [];
+  }).finally(() => {
+    inFlightRequests.delete(cacheKey);
+  });
+
+  inFlightRequests.set(cacheKey, promise);
+  return promise;
 }
 
 /** Get all cities in a country (cached per countryCode). */
@@ -162,12 +176,22 @@ export async function getCitiesOfCountry(countryCode: string): Promise<City[]> {
   const cached = cacheGet<City[]>(cacheKey);
   if (cached) return cached;
 
-  const data = await fetchLocationData<City>(`${API_BASE_URL}/countries/${countryCode}/cities`, `cities for ${countryCode}`);
-  if (data !== null) {
-    cacheSet(cacheKey, data);
-    return data;
+  if (inFlightRequests.has(cacheKey)) {
+    return inFlightRequests.get(cacheKey)!;
   }
-  return [];
+
+  const promise = fetchLocationData<City>(`${API_BASE_URL}/countries/${countryCode}/cities`, `cities for ${countryCode}`).then(data => {
+    if (data !== null) {
+      cacheSet(cacheKey, data);
+      return data;
+    }
+    return [];
+  }).finally(() => {
+    inFlightRequests.delete(cacheKey);
+  });
+
+  inFlightRequests.set(cacheKey, promise);
+  return promise;
 }
 
 /** Get all states in a country (cached). */
@@ -176,12 +200,22 @@ export async function getStatesOfCountry(countryCode: string): Promise<State[]> 
   const cached = cacheGet<State[]>(cacheKey);
   if (cached) return cached;
 
-  const data = await fetchLocationData<State>(`${API_BASE_URL}/countries/${countryCode}/states`, `states for ${countryCode}`);
-  if (data !== null) {
-    cacheSet(cacheKey, data);
-    return data;
+  if (inFlightRequests.has(cacheKey)) {
+    return inFlightRequests.get(cacheKey)!;
   }
-  return [];
+
+  const promise = fetchLocationData<State>(`${API_BASE_URL}/countries/${countryCode}/states`, `states for ${countryCode}`).then(data => {
+    if (data !== null) {
+      cacheSet(cacheKey, data);
+      return data;
+    }
+    return [];
+  }).finally(() => {
+    inFlightRequests.delete(cacheKey);
+  });
+
+  inFlightRequests.set(cacheKey, promise);
+  return promise;
 }
 
 /** Get all cities in a state (cached). */
@@ -190,12 +224,22 @@ export async function getCitiesOfState(countryCode: string, stateCode: string): 
   const cached = cacheGet<City[]>(cacheKey);
   if (cached) return cached;
 
-  const data = await fetchLocationData<City>(`${API_BASE_URL}/countries/${countryCode}/states/${stateCode}/cities`, `cities for state ${stateCode}`);
-  if (data !== null) {
-    cacheSet(cacheKey, data);
-    return data;
+  if (inFlightRequests.has(cacheKey)) {
+    return inFlightRequests.get(cacheKey)!;
   }
-  return [];
+
+  const promise = fetchLocationData<City>(`${API_BASE_URL}/countries/${countryCode}/states/${stateCode}/cities`, `cities for state ${stateCode}`).then(data => {
+    if (data !== null) {
+      cacheSet(cacheKey, data);
+      return data;
+    }
+    return [];
+  }).finally(() => {
+    inFlightRequests.delete(cacheKey);
+  });
+
+  inFlightRequests.set(cacheKey, promise);
+  return promise;
 }
 
 /* ─── Client-side search helpers ─────────────────────────────── */
