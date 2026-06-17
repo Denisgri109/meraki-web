@@ -42,6 +42,25 @@ describe('validateFullName', () => {
 });
 
 describe('parsePhoneNumber', () => {
+
+  it('should reject invalid characters', () => {
+    expect(parsePhoneNumber('<script>alert(1)</script>123')).toEqual({
+      countryCode: 'IE',
+      localNumber: '',
+    });
+    expect(parsePhoneNumber('invalid_phone')).toEqual({
+      countryCode: 'IE',
+      localNumber: '',
+    });
+  });
+
+  it('should reject strings that are too long', () => {
+    const longString = '1'.repeat(51);
+    expect(parsePhoneNumber(longString)).toEqual({
+      countryCode: 'IE',
+      localNumber: '',
+    });
+  });
   it('should parse country calling codes correctly', () => {
     expect(parsePhoneNumber('+353871234567')).toEqual({
       countryCode: 'IE',
@@ -66,6 +85,25 @@ describe('parsePhoneNumber', () => {
 });
 
 describe('validatePhone', () => {
+
+  it('should reject numbers with invalid characters', () => {
+    expect(validatePhone('<script>alert(1)</script>123', 'IE')).toEqual({
+      valid: false,
+      error: 'Phone number contains invalid characters or is too long',
+    });
+    expect(validatePhone('abc1234567', 'IE')).toEqual({
+      valid: false,
+      error: 'Phone number contains invalid characters or is too long',
+    });
+  });
+
+  it('should reject strings that are too long', () => {
+    const longString = '1'.repeat(51);
+    expect(validatePhone(longString, 'IE')).toEqual({
+      valid: false,
+      error: 'Phone number contains invalid characters or is too long',
+    });
+  });
   it('should validate Irish phone numbers correctly', () => {
     expect(validatePhone('871234567', 'IE')).toEqual({ valid: true });
     expect(validatePhone('0871234567', 'IE')).toEqual({ valid: true });
