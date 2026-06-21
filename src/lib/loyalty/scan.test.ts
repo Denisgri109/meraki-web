@@ -26,19 +26,14 @@ describe('scan utils', () => {
       expect(result).toEqual({ type: 'invalid', value: '' });
     });
 
-    it('parses valid points qr code', () => {
+    it('returns invalid for points qr code since its unsupported', () => {
       const result = parseScanCode('qr: some-code-123');
-      expect(result).toEqual({ type: 'points', value: 'some-code-123' });
-    });
-
-    it('returns invalid for empty points qr code', () => {
-      const result = parseScanCode('qr:   ');
       expect(result).toEqual({ type: 'invalid', value: '' });
     });
 
-    it('falls back to points for plain text', () => {
+    it('returns invalid for plain text', () => {
       const result = parseScanCode('plain-text-code');
-      expect(result).toEqual({ type: 'points', value: 'plain-text-code' });
+      expect(result).toEqual({ type: 'invalid', value: '' });
     });
 
     it('returns invalid for empty text', () => {
