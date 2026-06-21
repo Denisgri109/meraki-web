@@ -36,9 +36,9 @@ interface LessonData {
 
 interface RawSubmission extends Omit<Submission, 'lesson_title' | 'course_title' | 'student_name' | 'student_email'> {
   student?: {
-    full_name?: string;
-    email?: string;
-  };
+    full_name?: string | null;
+    email?: string | null;
+  } | null;
 }
 
 type FilterStatus = 'all' | 'pending' | 'reviewed';
