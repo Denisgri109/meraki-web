@@ -247,14 +247,25 @@ export default function LoyaltyScanPage() {
       setNfcReading(true);
       reader.onreading = (event: { message: { records: Array<{ recordType: string; data: ArrayBuffer; encoding?: string }> }; serialNumber: string }) => {
         const decoder = new TextDecoder();
-        for (const record of event.message.records) {
-          if (record.recordType === 'text' || record.recordType === 'url') {
-            const text = decoder.decode(record.data);
-            // strip URL prefix if it's a URL pointing to our scheme
-            const stripped = text.replace(/^https?:\/\/[^?#]*[?#]?(?:meraki=)?/, '');
-            void processDecodedText(stripped || text);
+        let index = 0;
+        const records = event.message.records;
+
+        function processChunk() {
+          const end = Math.min(index + 10, records.length);
+          for (; index < end; index++) {
+            const record = records[index];
+            if (record.recordType === 'text' || record.recordType === 'url') {
+              const text = decoder.decode(record.data);
+              // strip URL prefix if it's a URL pointing to our scheme
+              const stripped = text.replace(/^https?:\/\/[^?#]*[?#]?(?:meraki=)?/, '');
+              void processDecodedText(stripped || text);
+            }
+          }
+          if (index < records.length) {
+            setTimeout(processChunk, 0);
           }
         }
+        processChunk();
       };
       reader.onreadingerror = () => {
         showToast('NFC read error', 'error');
