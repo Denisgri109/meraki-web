@@ -100,66 +100,69 @@ export default function ChatPage() {
         // 1. Update sidebar first for immediate feedback
         setConversations(prev => {
           const updated = prev.map(c => {
-            if (c.id === newMsg.conversation_id) {
-              let displayMsg = newMsg.content;
-              if (!displayMsg && newMsg.media_type) {
-                displayMsg = newMsg.media_type === 'video' ? '🎥 Video' : '📷 Image';
-              }
-              const isActive = c.id === activeConversationRef.current;
-              const bumpUnread = !isMine && !isActive;
-              return {
-                ...c,
-                last_message: displayMsg || null,
-                last_message_at: newMsg.created_at,
-                unread_count: bumpUnread ? (c.unread_count || 0) + 1 : c.unread_count,
-              };
+            if (c.id !== newMsg.conversation_id) {
+              return c;
             }
-            return c;
+
+            let displayMsg = newMsg.content;
+            if (!displayMsg && newMsg.media_type) {
+              displayMsg = newMsg.media_type === 'video' ? '🎥 Video' : '📷 Image';
+            }
+            const isActive = c.id === activeConversationRef.current;
+            const bumpUnread = !isMine && !isActive;
+            return {
+              ...c,
+              last_message: displayMsg || null,
+              last_message_at: newMsg.created_at,
+              unread_count: bumpUnread ? (c.unread_count || 0) + 1 : c.unread_count,
+            };
           });
           return updated.sort((a, b) => new Date(b.last_message_at || 0).getTime() - new Date(a.last_message_at || 0).getTime());
         });
 
         // 2. Append to chat if the active conversation matches
-        if (newMsg.conversation_id === activeConversationRef.current) {
-          // If it's a reply, we need to enrich it with the reply_to data
-          // Realtime payloads don't include joins.
-          const enrichedMsg = { ...newMsg };
-          if (newMsg.reply_to_id && !newMsg.reply_to) {
-            const { data: replyData } = await supabase
-              .from('messages')
-              .select('content, sender_id, media_type')
-              .eq('id', newMsg.reply_to_id)
-              .single();
-            if (replyData && replyData.sender_id) {
-              enrichedMsg.reply_to = {
-                content: replyData.content,
-                sender_id: replyData.sender_id,
-                media_type: replyData.media_type
-              };
-            }
+        if (newMsg.conversation_id !== activeConversationRef.current) {
+          return;
+        }
+
+        // If it's a reply, we need to enrich it with the reply_to data
+        // Realtime payloads don't include joins.
+        const enrichedMsg = { ...newMsg };
+        if (newMsg.reply_to_id && !newMsg.reply_to) {
+          const { data: replyData } = await supabase
+            .from('messages')
+            .select('content, sender_id, media_type')
+            .eq('id', newMsg.reply_to_id)
+            .single();
+          if (replyData && replyData.sender_id) {
+            enrichedMsg.reply_to = {
+              content: replyData.content,
+              sender_id: replyData.sender_id,
+              media_type: replyData.media_type
+            };
           }
+        }
 
-          setMessages((prev) => {
-            if (prev.find(m => m.id === enrichedMsg.id)) {
-              // If already there (e.g. from optimistic update), ensure it has the reply data
-              return prev.map(m => m.id === enrichedMsg.id ? { ...m, ...enrichedMsg } : m);
-            }
-            return [...prev, enrichedMsg].sort((a, b) =>
-              new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-            );
-          });
-
-          setTimeout(() => {
-            if (chatContainerRef.current) {
-              chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
-            }
-          }, 100);
-
-          if (!isMine && !newMsg.is_read) {
-            supabase
-              .rpc('mark_conversation_read', { p_conversation_id: newMsg.conversation_id })
-              .then(() => refreshNotifications());
+        setMessages((prev) => {
+          if (prev.find(m => m.id === enrichedMsg.id)) {
+            // If already there (e.g. from optimistic update), ensure it has the reply data
+            return prev.map(m => m.id === enrichedMsg.id ? { ...m, ...enrichedMsg } : m);
           }
+          return [...prev, enrichedMsg].sort((a, b) =>
+            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          );
+        });
+
+        setTimeout(() => {
+          if (chatContainerRef.current) {
+            chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+          }
+        }, 100);
+
+        if (!isMine && !newMsg.is_read) {
+          supabase
+            .rpc('mark_conversation_read', { p_conversation_id: newMsg.conversation_id })
+            .then(() => refreshNotifications());
         }
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages' }, (payload) => {
@@ -176,10 +179,10 @@ export default function ChatPage() {
         if (updated.is_deleted) {
           setConversations(prev =>
             prev.map(c => {
-              if (c.id === updated.conversation_id && c.last_message === updated.content) {
-                return { ...c, last_message: 'Message deleted' };
+              if (c.id !== updated.conversation_id || c.last_message !== updated.content) {
+                return c;
               }
-              return c;
+              return { ...c, last_message: 'Message deleted' };
             })
           );
         }
