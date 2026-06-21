@@ -22,7 +22,7 @@ interface Lesson {
 }
 interface LessonProgress { lesson_id: string; progress_percent: number | null; completed_at: string | null; last_position_seconds: number | null; }
 interface HomeworkSubmission { id: string; lesson_id: string; student_id: string; photo_url: string | null; notes: string | null; status: string | null; feedback: string | null; reviewed_at: string | null; created_at: string | null; }
-interface QAMessage { id: string; lesson_id: string; course_id: string; sender_id: string; content: string; is_question: boolean; parent_message_id: string | null; created_at: string | null; sender_name?: string; }
+interface QAMessage { id: string; lesson_id: string; course_id: string; sender_id: string; content: string | null; is_question: boolean | null; parent_message_id: string | null; created_at: string | null; sender_name?: string; }
 
 export default function LearnCoursePage() {
   const { courseId } = useParams<{ courseId: string }>();
@@ -129,7 +129,7 @@ export default function LearnCoursePage() {
       .eq('lesson_id', activeLesson.id)
       .order('created_at')
       .then(({ data }) => {
-        setQaMessages((data || []).map((m: QAMessage & { sender?: { full_name: string } }) => ({ ...m, sender_name: m.sender?.full_name })));
+        setQaMessages((data || []).map((m: { sender?: { full_name: string | null } | null } & Omit<QAMessage, 'sender_name'>) => ({ ...m, sender_name: m.sender?.full_name ?? undefined } as QAMessage)));
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeLesson?.id, user?.id]);
@@ -245,7 +245,7 @@ export default function LearnCoursePage() {
         .select('*, sender:profiles!lesson_qa_messages_sender_id_fkey(full_name)')
         .eq('lesson_id', activeLesson.id)
         .order('created_at');
-      setQaMessages((data || []).map((m: QAMessage & { sender?: { full_name: string } }) => ({ ...m, sender_name: m.sender?.full_name })));
+      setQaMessages((data || []).map((m: { sender?: { full_name: string | null } | null } & Omit<QAMessage, 'sender_name'>) => ({ ...m, sender_name: m.sender?.full_name ?? undefined } as QAMessage)));
       setTimeout(() => qaEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
     } catch (err: unknown) { showToast((err instanceof Error ? err.message : '') || 'Failed', 'error'); }
     finally { setQaSending(false); }
