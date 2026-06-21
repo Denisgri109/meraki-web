@@ -41,6 +41,11 @@ interface Enrollment {
   course?: Course;
 }
 
+interface RawCourseData extends Course {
+  course_enrollments?: { count: number }[];
+  lessons?: { count: number }[];
+}
+
 // ─── Main Page ──────────────────────────────────────────────────────────────
 export default function AcademyPage() {
   const { role } = useAuth();
@@ -83,7 +88,7 @@ function OwnerAcademyView() {
 
       if (error) { console.error('[Academy] courses:', error); return; }
 
-      const mapped = (data || []).map((c: CourseRow) => ({
+      const mapped = (data || []).map((c: RawCourseData) => ({
         ...c,
         enrollment_count: c.course_enrollments?.[0]?.count || 0,
         lesson_count: c.lessons?.[0]?.count || 0,
@@ -92,7 +97,7 @@ function OwnerAcademyView() {
 
       // Stats
       let totalEnrollments = 0;
-      mapped.forEach((c: Course) => { totalEnrollments += c.enrollment_count || 0; });
+      mapped.forEach((c) => { totalEnrollments += c.enrollment_count || 0; });
 
       const { count: hwCount } = await supabase
         .from('homework_submissions')
@@ -469,7 +474,7 @@ function ClientAcademyView() {
           : Promise.resolve({ data: [] }),
       ]);
 
-      const mapped = (coursesRes.data || []).map((c: CourseRow) => ({
+      const mapped = (coursesRes.data || []).map((c: RawCourseData) => ({
         ...c,
         enrollment_count: c.course_enrollments?.[0]?.count || 0,
         lesson_count: c.lessons?.[0]?.count || 0,
