@@ -4,8 +4,28 @@ import {
   validatePhone,
   normalizePhone,
   formatPhone,
-  parsePhoneNumber
+  parsePhoneNumber,
+  cleanPhoneNumber
 } from './validation';
+
+describe('cleanPhoneNumber', () => {
+  it('should strip out all non-digit characters', () => {
+    expect(cleanPhoneNumber('+353 (87) 123-4567')).toBe('353871234567');
+    expect(cleanPhoneNumber('00 353 87 123 45 67')).toBe('00353871234567');
+  });
+
+  it('should handle an already clean string', () => {
+    expect(cleanPhoneNumber('1234567890')).toBe('1234567890');
+  });
+
+  it('should handle a string with only non-digits', () => {
+    expect(cleanPhoneNumber('abc () - +')).toBe('');
+  });
+
+  it('should handle an empty string', () => {
+    expect(cleanPhoneNumber('')).toBe('');
+  });
+});
 
 describe('validateFullName', () => {
   it('should return valid true for a valid full name', () => {
