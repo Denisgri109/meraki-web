@@ -85,14 +85,16 @@ describe('PilatesTimetableManager error handling', () => {
             then: jest.fn((resolve) => resolve({ data: [], error: null })),
         };
 
-        if (overrides[table]) {
-             if (typeof overrides[table] === 'function') {
-                  return overrides[table](mockChain);
-             }
-             return { ...mockChain, ...overrides[table] };
+        const override = overrides[table];
+        if (!override) {
+            return mockChain;
         }
 
-        return mockChain;
+        if (typeof override === 'function') {
+             return override(mockChain);
+        }
+
+        return { ...mockChain, ...override };
     });
   };
 
