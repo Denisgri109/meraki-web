@@ -19,10 +19,19 @@ export async function GET(request: NextRequest) {
   const next = searchParams.get('next') ?? '/dashboard';
 
   // Build a safe `next` URL — only allow same-origin paths
-  // Prevent open redirects via protocol-relative URLs (e.g., //evil.com or /\evil.com)
-  const isSafeRedirect = next.startsWith('/') && !next.startsWith('//') && !next.startsWith('/\\');
-  const safeNext = isSafeRedirect ? next : '/dashboard';
-  const redirectTo = new URL(safeNext, origin);
+  // Prevent open redirects via parsed URL validation
+  let redirectTo: URL;
+  try {
+    const parsedNext = new URL(next, origin);
+    // Ensure the redirect is to the same origin
+    if (parsedNext.origin === origin) {
+      redirectTo = parsedNext;
+    } else {
+      redirectTo = new URL('/dashboard', origin);
+    }
+  } catch {
+    redirectTo = new URL('/dashboard', origin);
+  }
 
   const supabase = await createClient();
 
