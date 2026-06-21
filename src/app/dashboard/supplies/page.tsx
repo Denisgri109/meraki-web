@@ -77,6 +77,16 @@ const fmtDate = (iso: string | null | undefined) => {
   return d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 };
 
+const getStockStatus = (quantity: number, threshold: number) => {
+  if (quantity === 0) {
+    return { label: 'Out', cls: 'text-red-500' };
+  }
+  if (quantity <= threshold) {
+    return { label: 'Low', cls: 'text-amber-500' };
+  }
+  return { label: '', cls: 'text-[var(--color-text-primary)]' };
+};
+
 export default function SuppliesPage() {
   const supabase = useMemo(() => createClient(), []);
   const { user, role } = useAuth();
@@ -186,6 +196,14 @@ export default function SuppliesPage() {
     supplies.forEach((s) => m.set(s.id, s));
     return m;
   }, [supplies]);
+
+  const availableSuppliesForLinking = useMemo(() => {
+    if (!linkingService) return [];
+    const linkedIds = new Set(
+      serviceLinks.filter((l) => l.service_id === linkingService.id).map((l) => l.supply_id),
+    );
+    return supplies.filter((s) => !linkedIds.has(s.id));
+  }, [supplies, serviceLinks, linkingService]);
 
   const serviceCost = useCallback(
     (serviceId: string) => {
@@ -399,12 +417,14 @@ export default function SuppliesPage() {
       if (error) {
         if (error.message.toLowerCase().includes('duplicate')) {
           showToast('Already linked', 'error');
-        } else throw error;
-      } else {
-        showToast('Linked', 'success');
-        closeLinkModal();
-        await fetchAll();
+          return;
+        }
+        throw error;
       }
+
+      showToast('Linked', 'success');
+      closeLinkModal();
+      await fetchAll();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to link';
       showToast(msg, 'error');
@@ -572,12 +592,7 @@ export default function SuppliesPage() {
               </div>
               {filtered.map((s) => {
                 const threshold = s.low_stock_threshold ?? 5;
-                const status =
-                  s.quantity === 0
-                    ? { label: 'Out', cls: 'text-red-500' }
-                    : s.quantity <= threshold
-                    ? { label: 'Low', cls: 'text-amber-500' }
-                    : { label: '', cls: 'text-[var(--color-text-primary)]' };
+                const status = getStockStatus(s.quantity, threshold);
                 return (
                   <div
                     key={s.id}
@@ -982,97 +997,88 @@ export default function SuppliesPage() {
               </button>
             </div>
 
-            {(() => {
-              const linkedIds = new Set(
-                serviceLinks.filter((l) => l.service_id === linkingService.id).map((l) => l.supply_id),
-              );
-              const available = supplies.filter((s) => !linkedIds.has(s.id));
-              if (available.length === 0) {
-                return (
-                  <p className="py-8 text-center text-sm text-[var(--color-text-muted)]">
-                    All supplies already linked. Add new supplies first.
-                  </p>
-                );
-              }
-              return (
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-2">
-                      Supply
-                    </label>
-                    <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                      {available.map((s) => (
-                        <button
-                          key={s.id}
-                          type="button"
-                          onClick={() => setLinkSupplyId(s.id)}
-                          className={`w-full text-left p-3 rounded-lg cursor-pointer transition-colors ${
-                            linkSupplyId === s.id
-                              ? 'bg-[var(--color-brand-pink-dark)] text-white'
-                              : 'bg-[var(--color-surface-light)] hover:bg-[var(--color-brand-pink-light)]'
+            {availableSuppliesForLinking.length === 0 ? (
+              <p className="py-8 text-center text-sm text-[var(--color-text-muted)]">
+                All supplies already linked. Add new supplies first.
+              </p>
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-2">
+                    Supply
+                  </label>
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                    {availableSuppliesForLinking.map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => setLinkSupplyId(s.id)}
+                        className={`w-full text-left p-3 rounded-lg cursor-pointer transition-colors ${
+                          linkSupplyId === s.id
+                            ? 'bg-[var(--color-brand-pink-dark)] text-white'
+                            : 'bg-[var(--color-surface-light)] hover:bg-[var(--color-brand-pink-light)]'
+                        }`}
+                      >
+                        <p className="text-sm font-medium">{s.name}</p>
+                        <p
+                          className={`text-xs ${
+                            linkSupplyId === s.id ? 'text-white/80' : 'text-[var(--color-text-muted)]'
                           }`}
                         >
-                          <p className="text-sm font-medium">{s.name}</p>
-                          <p
-                            className={`text-xs ${
-                              linkSupplyId === s.id ? 'text-white/80' : 'text-[var(--color-text-muted)]'
-                            }`}
-                          >
-                            {s.quantity} {s.unit} available
-                            {s.cost_per_unit != null && ` • £${fmtMoney(s.cost_per_unit)}/${s.unit}`}
-                          </p>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {linkSupplyId && (
-                    <>
-                      <div>
-                        <label className="block text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">
-                          Quantity per service
-                        </label>
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          className="input-glass"
-                          value={linkQty}
-                          onChange={(e) => setLinkQty(e.target.value)}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">
-                          Notes (optional)
-                        </label>
-                        <input
-                          className="input-glass"
-                          value={linkNotes}
-                          onChange={(e) => setLinkNotes(e.target.value)}
-                          placeholder="e.g. 1 tray for full set"
-                        />
-                      </div>
-                    </>
-                  )}
-
-                  <div className="flex items-center justify-end gap-2 pt-2">
-                    <button
-                      onClick={closeLinkModal}
-                      className="px-4 py-2 rounded-full text-sm font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-light)] cursor-pointer"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={saveLink}
-                      disabled={saving || !linkSupplyId}
-                      className="btn-primary px-5 py-2 text-sm cursor-pointer disabled:opacity-50"
-                    >
-                      {saving ? 'Linking…' : 'Link Supply'}
-                    </button>
+                          {s.quantity} {s.unit} available
+                          {s.cost_per_unit != null && ` • £${fmtMoney(s.cost_per_unit)}/${s.unit}`}
+                        </p>
+                      </button>
+                    ))}
                   </div>
                 </div>
-              );
-            })()}
+
+                {linkSupplyId && (
+                  <>
+                    <div>
+                      <label className="block text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">
+                        Quantity per service
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        className="input-glass"
+                        value={linkQty}
+                        onChange={(e) => setLinkQty(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">
+                        Notes (optional)
+                      </label>
+                      <input
+                        className="input-glass"
+                        value={linkNotes}
+                        onChange={(e) => setLinkNotes(e.target.value)}
+                        placeholder="e.g. 1 tray for full set"
+                      />
+                    </div>
+                  </>
+                )}
+
+                <div className="flex items-center justify-end gap-2 pt-2">
+                  <button
+                    onClick={closeLinkModal}
+                    className="px-4 py-2 rounded-full text-sm font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-light)] cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={saveLink}
+                    disabled={saving || !linkSupplyId}
+                    className="btn-primary px-5 py-2 text-sm cursor-pointer disabled:opacity-50"
+                  >
+                    {saving ? 'Linking…' : 'Link Supply'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
