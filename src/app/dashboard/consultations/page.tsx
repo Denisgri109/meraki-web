@@ -1027,6 +1027,13 @@ export default function ConsultationsPage() {
   const pendingPhotoCount = photoConsultations.filter(c => c.status === 'pending').length;
   const pendingBookingCount = bookingConsultations.filter(c => c.status === 'pending').length;
 
+  const getBadgeCount = (tab: string): number => {
+    if (!isMasterOrOwner) return 0;
+    if (tab === 'Photo Reviews') return pendingPhotoCount;
+    if (tab === 'Booking Reviews') return pendingBookingCount;
+    return 0;
+  };
+
   return (
     <div className="max-w-5xl mx-auto animate-fade-in px-4">
       {/* Dynamic Background Blobs locally */}
@@ -1052,9 +1059,8 @@ export default function ConsultationsPage() {
         <div className="flex gap-1.5 bg-white/50 backdrop-blur-md p-1.5 rounded-2xl border border-[var(--color-border-light)] overflow-x-auto shadow-sm">
           {tabs.map((tab) => {
             const isActive = activeTab === tab;
-            let badge = 0;
-            if (isMasterOrOwner && tab === 'Photo Reviews') badge = pendingPhotoCount;
-            if (isMasterOrOwner && tab === 'Booking Reviews') badge = pendingBookingCount;
+            const badge = getBadgeCount(tab);
+
             return (
               <button
                 key={tab}
