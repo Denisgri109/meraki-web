@@ -93,11 +93,9 @@ export default function InventoryPage() {
         .from('products')
         .getPublicUrl(fileName);
 
-      if (isEdit) {
-        if (draft) {
-          setDraft({ ...draft, image_url: urlData.publicUrl });
-        }
-      } else {
+      if (isEdit && draft) {
+        setDraft({ ...draft, image_url: urlData.publicUrl });
+      } else if (!isEdit) {
         setNewProduct(prev => ({ ...prev, image_url: urlData.publicUrl }));
       }
       showToast('Image uploaded successfully', 'success');
@@ -108,6 +106,16 @@ export default function InventoryPage() {
     } finally {
       setUploadingImage(false);
     }
+  };
+
+  const handleEditImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleImageUpload(file, true);
+  };
+
+  const handleAddImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleImageUpload(file, false);
   };
 
   const openEdit = (p: Product) => {
@@ -489,10 +497,7 @@ export default function InventoryPage() {
                             type="file"
                             accept="image/*"
                             className="sr-only"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) handleImageUpload(file, true);
-                            }}
+                            onChange={handleEditImageSelect}
                           />
                         </label>
                       </div>
@@ -635,10 +640,7 @@ export default function InventoryPage() {
                             type="file"
                             accept="image/*"
                             className="sr-only"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) handleImageUpload(file, false);
-                            }}
+                            onChange={handleAddImageSelect}
                           />
                         </label>
                       </div>
