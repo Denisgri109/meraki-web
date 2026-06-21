@@ -50,7 +50,13 @@ export function useAutoLocation() {
 
     let cancelled = false;
     (async () => {
-      const detected = await detectUserLocation();
+      let detected;
+      try {
+        detected = await detectUserLocation();
+      } catch (e) {
+        console.warn('[useAutoLocation] auto-detect failed:', e);
+        return;
+      }
       if (cancelled) return;
 
       const updates: Record<string, unknown> = {};
