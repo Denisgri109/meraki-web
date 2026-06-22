@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Package, Search, Plus, AlertTriangle, TrendingDown, Box, X, Trash2, History, Truck, Loader2 } from 'lucide-react';
+import { Package, Search, Plus, AlertTriangle, TrendingDown, Box, X, Trash2, History, Loader2 } from 'lucide-react';
 import { useToast } from '@/components/Toast';
 import { useModal } from '@/contexts/ModalContext';
 
@@ -147,14 +147,10 @@ export default function InventoryPage() {
       showToast('Name is required', 'error');
       return;
     }
-    const wholesaleNum = Number(draft.wholesale_price);
+    const wholesaleNum = priceNum;
     const thresholdNum = draft.low_stock_threshold.trim() ? Number(draft.low_stock_threshold) : null;
     if (!Number.isFinite(priceNum) || priceNum < 0) {
       showToast('Invalid retail price', 'error');
-      return;
-    }
-    if (!Number.isFinite(wholesaleNum) || wholesaleNum < 0) {
-      showToast('Invalid wholesale price', 'error');
       return;
     }
     if (thresholdNum !== null && (!Number.isFinite(thresholdNum) || thresholdNum < 0)) {
@@ -222,21 +218,17 @@ export default function InventoryPage() {
   };
 
   const handleAddProduct = async () => {
-    if (!newProduct.name || !newProduct.retail_price || !newProduct.wholesale_price) {
-      showToast('Please fill in all required fields (Name, Retail Price, Wholesale Price)', 'error');
+    if (!newProduct.name || !newProduct.retail_price) {
+      showToast('Please fill in all required fields (Name, Retail Price)', 'error');
       return;
     }
     const priceNum = Number(newProduct.retail_price);
-    const wholesaleNum = Number(newProduct.wholesale_price);
+    const wholesaleNum = priceNum;
     const stockNum = Number(newProduct.stock_count) || 0;
     const thresholdNum = newProduct.low_stock_threshold.trim() ? Number(newProduct.low_stock_threshold) : 5;
 
     if (!Number.isFinite(priceNum) || priceNum < 0) {
       showToast('Invalid retail price', 'error');
-      return;
-    }
-    if (!Number.isFinite(wholesaleNum) || wholesaleNum < 0) {
-      showToast('Invalid wholesale price', 'error');
       return;
     }
     if (!Number.isFinite(stockNum) || stockNum < 0 || !Number.isInteger(stockNum)) {
@@ -532,15 +524,9 @@ export default function InventoryPage() {
                   ))}
                 </select>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Retail Price</label>
-                  <input type="number" min="0" step="0.01" className="input-glass" value={draft.retail_price} onChange={(e) => setDraft({ ...draft, retail_price: e.target.value })} />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Wholesale Price</label>
-                  <input type="number" min="0" step="0.01" className="input-glass" value={draft.wholesale_price} onChange={(e) => setDraft({ ...draft, wholesale_price: e.target.value })} />
-                </div>
+              <div>
+                <label className="block text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Retail Price</label>
+                <input type="number" min="0" step="0.01" className="input-glass" value={draft.retail_price} onChange={(e) => setDraft({ ...draft, retail_price: e.target.value })} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -565,13 +551,6 @@ export default function InventoryPage() {
                   <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${draft.is_active ? 'translate-x-5' : 'translate-x-0.5'}`} />
                 </button>
               </label>
-              <div>
-                <label className="block text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Supplier (Mock)</label>
-                <div className="relative">
-                  <Truck size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
-                  <input className="input-glass pl-9" value={draft.supplier_name} onChange={(e) => setDraft({ ...draft, supplier_name: e.target.value })} />
-                </div>
-              </div>
               <div className="flex gap-2">
                 <button type="button" onClick={() => showToast('Stock history logging will be implemented in v2', 'info')} className="flex-1 flex justify-center items-center gap-2 p-3 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors text-sm font-semibold">
                   <History size={16} /> View History
@@ -675,15 +654,9 @@ export default function InventoryPage() {
                   ))}
                 </select>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Retail Price *</label>
-                  <input type="number" min="0" step="0.01" className="input-glass" value={newProduct.retail_price} onChange={(e) => setNewProduct({ ...newProduct, retail_price: e.target.value })} placeholder="0.00" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Wholesale Price *</label>
-                  <input type="number" min="0" step="0.01" className="input-glass" value={newProduct.wholesale_price} onChange={(e) => setNewProduct({ ...newProduct, wholesale_price: e.target.value })} placeholder="0.00" />
-                </div>
+              <div>
+                <label className="block text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Retail Price *</label>
+                <input type="number" min="0" step="0.01" className="input-glass" value={newProduct.retail_price} onChange={(e) => setNewProduct({ ...newProduct, retail_price: e.target.value })} placeholder="0.00" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -708,13 +681,6 @@ export default function InventoryPage() {
                   <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${newProduct.is_active ? 'translate-x-5' : 'translate-x-0.5'}`} />
                 </button>
               </label>
-              <div>
-                <label className="block text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Supplier (Mock)</label>
-                <div className="relative">
-                  <Truck size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
-                  <input className="input-glass pl-9" value={newProduct.supplier_name} onChange={(e) => setNewProduct({ ...newProduct, supplier_name: e.target.value })} />
-                </div>
-              </div>
             </div>
             <div className="flex items-center justify-end gap-2 mt-6">
               <button onClick={() => setShowAddModal(false)} className="px-4 py-2 rounded-full text-sm font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-light)] cursor-pointer">Cancel</button>

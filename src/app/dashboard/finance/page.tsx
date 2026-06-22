@@ -1,3 +1,6 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable react-hooks/set-state-in-effect */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -9,7 +12,8 @@ import {
   Users, CreditCard, ExternalLink, Loader2, ArrowUpRight,
   ArrowDownRight, Calendar, Filter, CheckCircle, AlertCircle,
   Wallet, BarChart3, Settings, RefreshCw, Ban, FileText,
-  ChevronDown, Percent, RotateCcw, Receipt, Download, Eye
+  ChevronDown, Percent, RotateCcw, Receipt, Download, Eye,
+  ClipboardList, X, Search
 } from 'lucide-react';
 
 // ─── Types ───────────────────────────────────────────────────────────
@@ -83,6 +87,66 @@ interface OwnerPayoutRecord {
 
 type TabValue = 'overview' | 'shop' | 'academy' | 'commissions' | 'payouts' | 'refunds' | 'reports';
 type PeriodFilter = '7d' | '30d' | '90d' | 'year' | 'all';
+
+type TabType = 'transactions' | 'orders' | 'bookings' | 'enrollments' | 'services' | 'refunds';
+
+interface PaymentItem {
+  id: string;
+  amount: number;
+  currency: string | null;
+  status: string;
+  payment_type: string;
+  description: string | null;
+  created_at: string;
+  user_name: string | null;
+}
+
+interface OrderItem {
+  id: string;
+  total: number;
+  status: string;
+  shipping_name: string | null;
+  shipping_status: string | null;
+  created_at: string;
+  user_name: string | null;
+}
+
+interface AppointmentItem {
+  id: string;
+  start_time: string;
+  status: string;
+  price: number;
+  service_name: string | null;
+  client_name: string | null;
+  master_name: string | null;
+}
+
+interface EnrollmentItem {
+  id: string;
+  enrolled_at: string;
+  progress: number;
+  student_name: string | null;
+  course_title: string | null;
+}
+
+interface MasterServiceItem {
+  id: string;
+  master_name: string | null;
+  service_name: string | null;
+  custom_price: number | null;
+  custom_duration: number | null;
+  is_available: boolean;
+}
+
+interface RefundItem {
+  id: string;
+  amount: number;
+  reason: string | null;
+  status: string | null;
+  created_at: string;
+  original_payment: string | null;
+  original_payment_amount: number | null;
+}
 
 const periodOptions: { value: PeriodFilter; label: string }[] = [
   { value: '7d', label: 'Last 7 days' },
@@ -162,6 +226,16 @@ export default function FinancePage() {
   const [activeTab, setActiveTab] = useState<TabValue>('overview');
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>('30d');
   const [loading, setLoading] = useState(true);
+
+  // Activity Review Data
+  const [reviewOrders, setReviewOrders] = useState<OrderItem[]>([]);
+  const [reviewAppointments, setReviewAppointments] = useState<AppointmentItem[]>([]);
+  const [reviewEnrollments, setReviewEnrollments] = useState<EnrollmentItem[]>([]);
+  const [reviewServices, setReviewServices] = useState<MasterServiceItem[]>([]);
+  const [reviewRefunds, setReviewRefunds] = useState<RefundItem[]>([]);
+  const [reviewActiveCategory, setReviewActiveCategory] = useState<TabType>('transactions');
+  const [reviewSearchQuery, setReviewSearchQuery] = useState('');
+  const [reviewSelectedItem, setReviewSelectedItem] = useState<{ type: TabType; data: any } | null>(null);
 
   // Data
   const [shopPayments, setShopPayments] = useState<PaymentRow[]>([]);
@@ -356,6 +430,83 @@ export default function FinancePage() {
         });
       setRefundablePayments(refundable);
 
+      // 6. Review Orders
+      let ordReviewQuery = supabase.from('orders').select('*, user:profiles!orders_user_id_fkey(full_name)').order('created_at', { ascending: false });
+      if (periodStart) ordReviewQuery = ordReviewQuery.gte('created_at', periodStart);
+      const { data: ordReviewData } = await ordReviewQuery;
+      setReviewOrders((ordReviewData || []).map((o: any) => ({
+        id: o.id,
+        total: Number(o.total),
+        status: o.status,
+        shipping_name: o.shipping_name,
+        shipping_status: o.shipping_status,
+        created_at: o.created_at,
+        user_name: o.user?.full_name || 'Anonymous'
+      })));
+
+      // 7. Review Bookings
+      let aptReviewQuery = supabase.from('appointments').select(`
+        id, start_time, status, price, service_name,
+        client:profiles!appointments_client_id_fkey(full_name),
+        master:profiles!appointments_master_id_fkey(full_name)
+      `).order('start_time', { ascending: false });
+      if (periodStart) aptReviewQuery = aptReviewQuery.gte('start_time', periodStart);
+      const { data: aptReviewData } = await aptReviewQuery;
+      setReviewAppointments((aptReviewData || []).map((a: any) => ({
+        id: a.id,
+        start_time: a.start_time,
+        status: a.status,
+        price: Number(a.price),
+        service_name: a.service_name,
+        client_name: a.client?.full_name || 'Client',
+        master_name: a.master?.full_name || 'Master'
+      })));
+
+      // 8. Review Enrollments
+      let enrReviewQuery = supabase.from('course_enrollments').select(`
+        id, enrolled_at, progress, payment_intent_id,
+        student:profiles!course_enrollments_student_id_fkey(full_name),
+        course:courses(title)
+      `).order('enrolled_at', { ascending: false });
+      if (periodStart) enrReviewQuery = enrReviewQuery.gte('enrolled_at', periodStart);
+      const { data: enrReviewData } = await enrReviewQuery;
+      setReviewEnrollments((enrReviewData || []).map((e: any) => ({
+        id: e.id,
+        enrolled_at: e.enrolled_at,
+        progress: e.progress,
+        student_name: e.student?.full_name || 'Student',
+        course_title: e.course?.title || 'Course'
+      })));
+
+      // 9. Review Services
+      const { data: msReviewData } = await supabase.from('master_services').select(`
+        id, custom_price, custom_duration, is_available,
+        master:profiles!master_services_master_id_fkey(full_name),
+        service:services(name)
+      `);
+      setReviewServices((msReviewData || []).map((ms: any) => ({
+        id: ms.id,
+        master_name: ms.master?.full_name || 'Master',
+        service_name: ms.service?.name || 'Service',
+        custom_price: ms.custom_price ? Number(ms.custom_price) : null,
+        custom_duration: ms.custom_duration,
+        is_available: ms.is_available
+      })));
+
+      // 10. Review Refunds
+      let refReviewQuery = supabase.from('refunds').select('*, payment:payments(description, amount)').order('created_at', { ascending: false });
+      if (periodStart) refReviewQuery = refReviewQuery.gte('created_at', periodStart);
+      const { data: refReviewData } = await refReviewQuery;
+      setReviewRefunds((refReviewData || []).map((r: any) => ({
+        id: r.id,
+        amount: r.amount / 100,
+        reason: r.reason,
+        status: r.status,
+        created_at: r.created_at,
+        original_payment: r.payment?.description || null,
+        original_payment_amount: r.payment?.amount ? r.payment.amount / 100 : null
+      })));
+
     } catch (err) {
       console.error('Failed to load finance data:', err);
     } finally {
@@ -382,6 +533,90 @@ export default function FinancePage() {
     };
   }, [shopPayments, bookingPayments, masterCommissions, academyRevenue]);
 
+  // Filtered List based on Search Query and Active Sub-Category in review tab
+  const filteredReviewData = useMemo(() => {
+    const q = reviewSearchQuery.toLowerCase().trim();
+    const payList = [...shopPayments, ...bookingPayments].map((p: any) => {
+      const apptInfo = p.appointment_id ? appointmentInfoMap.get(p.appointment_id) : null;
+      const oInfo = p.order_id ? orderInfoMap.get(p.order_id) : null;
+      return {
+        id: p.id,
+        amount: p.amount,
+        currency: p.currency,
+        status: p.status,
+        payment_type: p.payment_type,
+        description: p.description || (apptInfo?.service_name ? `Booking: ${apptInfo.service_name}` : oInfo ? 'Shop Order' : 'Payment'),
+        created_at: p.created_at,
+        user_name: apptInfo?.client_name || oInfo?.user_name || 'Anonymous'
+      };
+    });
+
+    switch (reviewActiveCategory) {
+      case 'transactions':
+        return payList.filter(
+          (p) =>
+            p.id.toLowerCase().includes(q) ||
+            p.description?.toLowerCase().includes(q) ||
+            p.user_name?.toLowerCase().includes(q) ||
+            p.status.toLowerCase().includes(q) ||
+            p.payment_type.toLowerCase().includes(q)
+        );
+      case 'orders':
+        return reviewOrders.filter(
+          (o) =>
+            o.id.toLowerCase().includes(q) ||
+            o.user_name?.toLowerCase().includes(q) ||
+            o.status.toLowerCase().includes(q) ||
+            o.shipping_name?.toLowerCase().includes(q) ||
+            o.shipping_status?.toLowerCase().includes(q)
+        );
+      case 'bookings':
+        return reviewAppointments.filter(
+          (a) =>
+            a.id.toLowerCase().includes(q) ||
+            a.service_name?.toLowerCase().includes(q) ||
+            a.client_name?.toLowerCase().includes(q) ||
+            a.master_name?.toLowerCase().includes(q) ||
+            a.status.toLowerCase().includes(q)
+        );
+      case 'enrollments':
+        return reviewEnrollments.filter(
+          (e) =>
+            e.id.toLowerCase().includes(q) ||
+            e.student_name?.toLowerCase().includes(q) ||
+            e.course_title?.toLowerCase().includes(q)
+        );
+      case 'services':
+        return reviewServices.filter(
+          (s) =>
+            s.id.toLowerCase().includes(q) ||
+            s.service_name?.toLowerCase().includes(q) ||
+            s.master_name?.toLowerCase().includes(q)
+        );
+      case 'refunds':
+        return reviewRefunds.filter(
+          (r) =>
+            r.id.toLowerCase().includes(q) ||
+            r.reason?.toLowerCase().includes(q) ||
+            r.original_payment?.toLowerCase().includes(q)
+        );
+      default:
+        return [];
+    }
+  }, [
+    reviewActiveCategory,
+    reviewSearchQuery,
+    shopPayments,
+    bookingPayments,
+    appointmentInfoMap,
+    orderInfoMap,
+    reviewOrders,
+    reviewAppointments,
+    reviewEnrollments,
+    reviewServices,
+    reviewRefunds
+  ]);
+
   // ─── Refund handler ─────────────────────────────────────────────
   const handleRefund = async () => {
     if (!refundModalPayment) return;
@@ -395,8 +630,39 @@ export default function FinancePage() {
           reason: refundReason,
         },
       });
-      if (error) throw error;
+      if (error) {
+        // Extract actual error message from edge function response body
+        let msg = 'Refund failed';
+        try {
+          const body = await (error as any).context?.json?.();
+          if (body?.error) msg = body.error;
+        } catch { /* use default msg */ }
+
+        // If Stripe says already refunded, fix DB status and inform user
+        if (msg.toLowerCase().includes('already been refunded')) {
+          await supabase
+            .from('payments')
+            .update({ status: 'refunded' })
+            .eq('id', refundModalPayment.id);
+          showToast('Payment was already refunded — status updated', 'success');
+          setRefundModalPayment(null);
+          setRefundAmount('');
+          loadData();
+          return;
+        }
+        throw new Error(msg);
+      }
       if (data?.error) throw new Error(data.error);
+
+      // Update payment status in DB so it no longer appears as refundable
+      const isFullRefund = !amountCents;
+      if (isFullRefund) {
+        await supabase
+          .from('payments')
+          .update({ status: 'refunded' })
+          .eq('id', refundModalPayment.id);
+      }
+
       showToast(`Refund of ${amountCents ? formatCurrency(parseFloat(refundAmount), currency) : 'full amount'} processed`, 'success');
       setRefundModalPayment(null);
       setRefundAmount('');
@@ -513,16 +779,77 @@ export default function FinancePage() {
         <div className="space-y-6">
           {/* Stats grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard icon={DollarSign} gradient="from-emerald-100 to-teal-100" iconColor="text-emerald-600" label="Total Revenue" value={formatCurrency(stats.totalRevenue, currency)} sub={`${shopPayments.length + bookingPayments.length} transactions`} />
-            <StatCard icon={ShoppingBag} gradient="from-pink-100 to-rose-100" iconColor="text-pink-600" label="Shop Sales" value={formatCurrency(stats.shopTotal, currency)} sub={`${shopPayments.filter(p=>p.status==='succeeded').length} orders`} />
-            <StatCard icon={CreditCard} gradient="from-sky-100 to-cyan-100" iconColor="text-sky-600" label="Booking Revenue" value={formatCurrency(stats.bookingTotal, currency)} sub={`${bookingPayments.filter(p=>p.status==='succeeded').length} bookings`} />
-            <StatCard icon={GraduationCap} gradient="from-violet-100 to-purple-100" iconColor="text-violet-600" label="Academy Revenue" value={formatCurrency(stats.academyTotal, currency)} sub={`${academyEnrollments} enrollments`} />
+            <StatCard
+              icon={DollarSign}
+              gradient="from-emerald-100 to-teal-100"
+              iconColor="text-emerald-600"
+              label="Total Revenue"
+              value={formatCurrency(stats.totalRevenue, currency)}
+              sub={`${shopPayments.length + bookingPayments.length} transactions`}
+              onClick={() => setReviewActiveCategory('transactions')}
+              isActive={reviewActiveCategory === 'transactions'}
+            />
+            <StatCard
+              icon={ShoppingBag}
+              gradient="from-pink-100 to-rose-100"
+              iconColor="text-pink-600"
+              label="Shop Sales"
+              value={formatCurrency(stats.shopTotal, currency)}
+              sub={`${shopPayments.filter(p=>p.status==='succeeded').length} orders`}
+              onClick={() => setReviewActiveCategory('orders')}
+              isActive={reviewActiveCategory === 'orders'}
+            />
+            <StatCard
+              icon={CreditCard}
+              gradient="from-sky-100 to-cyan-100"
+              iconColor="text-sky-600"
+              label="Booking Revenue"
+              value={formatCurrency(stats.bookingTotal, currency)}
+              sub={`${bookingPayments.filter(p=>p.status==='succeeded').length} bookings`}
+              onClick={() => setReviewActiveCategory('bookings')}
+              isActive={reviewActiveCategory === 'bookings'}
+            />
+            <StatCard
+              icon={GraduationCap}
+              gradient="from-violet-100 to-purple-100"
+              iconColor="text-violet-600"
+              label="Academy Revenue"
+              value={formatCurrency(stats.academyTotal, currency)}
+              sub={`${academyEnrollments} enrollments`}
+              onClick={() => setReviewActiveCategory('enrollments')}
+              isActive={reviewActiveCategory === 'enrollments'}
+            />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <StatCard icon={Percent} gradient="from-amber-100 to-orange-100" iconColor="text-amber-600" label="Total Commission" value={formatCurrency(stats.totalCommission, currency)} sub="From master services" />
-            <StatCard icon={ArrowDownRight} gradient="from-red-100 to-rose-100" iconColor="text-red-500" label="Total Refunded" value={formatCurrency(stats.totalRefunded, currency)} sub="Refunds processed" />
-            <StatCard icon={TrendingUp} gradient="from-emerald-100 to-teal-100" iconColor="text-emerald-600" label="Net Revenue" value={formatCurrency(stats.netRevenue, currency)} sub="After refunds" />
+            <StatCard
+              icon={Percent}
+              gradient="from-amber-100 to-orange-100"
+              iconColor="text-amber-600"
+              label="Total Commission"
+              value={formatCurrency(stats.totalCommission, currency)}
+              sub="From master services"
+              onClick={() => setReviewActiveCategory('services')}
+              isActive={reviewActiveCategory === 'services'}
+            />
+            <StatCard
+              icon={ArrowDownRight}
+              gradient="from-red-100 to-rose-100"
+              iconColor="text-red-500"
+              label="Total Refunded"
+              value={formatCurrency(stats.totalRefunded, currency)}
+              sub="Refunds processed"
+              onClick={() => setReviewActiveCategory('refunds')}
+              isActive={reviewActiveCategory === 'refunds'}
+            />
+            <StatCard
+              icon={TrendingUp}
+              gradient="from-emerald-100 to-teal-100"
+              iconColor="text-emerald-600"
+              label="Net Revenue"
+              value={formatCurrency(stats.netRevenue, currency)}
+              sub="After refunds"
+            />
           </div>
 
           {/* Quick Actions */}
@@ -542,6 +869,275 @@ export default function FinancePage() {
               <button onClick={() => setActiveTab('reports')} className="px-4 py-2 text-sm rounded-xl border border-[var(--color-border-light)] hover:bg-[var(--color-surface-light)] transition-colors flex items-center gap-2 cursor-pointer">
                 <Download size={14} /> Reports
               </button>
+            </div>
+          </div>
+
+          {/* Interactive Ledger Detail Section */}
+          <div className="space-y-4 pt-4 border-t border-[var(--color-border-light)]/60">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-lg text-[var(--color-text-primary)]">
+                {reviewActiveCategory === 'transactions' && 'Detailed Review: All Transactions'}
+                {reviewActiveCategory === 'orders' && 'Detailed Review: Shop Orders'}
+                {reviewActiveCategory === 'bookings' && 'Detailed Review: Bookings'}
+                {reviewActiveCategory === 'enrollments' && 'Detailed Review: Course Enrollments'}
+                {reviewActiveCategory === 'services' && 'Detailed Review: Master Services'}
+                {reviewActiveCategory === 'refunds' && 'Detailed Review: Processed Refunds'}
+              </h3>
+              <span className="text-xs text-[var(--color-text-muted)]">
+                {filteredReviewData.length} item{filteredReviewData.length !== 1 ? 's' : ''} found
+              </span>
+            </div>
+
+            {/* Search bar */}
+            <div className="relative">
+              <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
+              <input
+                type="text"
+                placeholder={`Search ${reviewActiveCategory}...`}
+                value={reviewSearchQuery}
+                onChange={(e) => setReviewSearchQuery(e.target.value)}
+                className="input-glass pl-10 pr-4 py-2 w-full text-sm"
+              />
+            </div>
+
+            {/* Table list */}
+            <div className="glass-card overflow-hidden">
+              {loading ? (
+                <div className="p-12 text-center">
+                  <div className="w-8 h-8 border-2 border-[var(--color-brand-pink)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                  <p className="text-sm text-[var(--color-text-muted)]">Fetching audit logs...</p>
+                </div>
+              ) : filteredReviewData.length === 0 ? (
+                <div className="p-16 text-center">
+                  <div className="w-14 h-14 rounded-2xl bg-gray-50 flex items-center justify-center mx-auto mb-3">
+                    <AlertCircle size={24} className="text-gray-300" />
+                  </div>
+                  <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">No matches found</h3>
+                  <p className="text-xs text-[var(--color-text-muted)] mt-1">Try adjusting your filters or search keywords.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm border-collapse">
+                    <thead>
+                      <tr className="border-b border-[var(--color-border-light)] bg-black/[0.01]">
+                        {reviewActiveCategory === 'transactions' && (
+                          <>
+                            <th className="p-4 font-semibold text-[var(--color-text-muted)]">Description</th>
+                            <th className="p-4 font-semibold text-[var(--color-text-muted)]">Customer</th>
+                            <th className="p-4 font-semibold text-[var(--color-text-muted)]">Type</th>
+                            <th className="p-4 font-semibold text-[var(--color-text-muted)]">Amount</th>
+                            <th className="p-4 font-semibold text-[var(--color-text-muted)]">Status</th>
+                            <th className="p-4 font-semibold text-[var(--color-text-muted)]">Date</th>
+                          </>
+                        )}
+                        {reviewActiveCategory === 'orders' && (
+                          <>
+                            <th className="p-4 font-semibold text-[var(--color-text-muted)]">Order ID</th>
+                            <th className="p-4 font-semibold text-[var(--color-text-muted)]">Customer</th>
+                            <th className="p-4 font-semibold text-[var(--color-text-muted)]">Fulfillment</th>
+                            <th className="p-4 font-semibold text-[var(--color-text-muted)]">Total</th>
+                            <th className="p-4 font-semibold text-[var(--color-text-muted)]">Status</th>
+                            <th className="p-4 font-semibold text-[var(--color-text-muted)]">Date</th>
+                          </>
+                        )}
+                        {reviewActiveCategory === 'bookings' && (
+                          <>
+                            <th className="p-4 font-semibold text-[var(--color-text-muted)]">Service</th>
+                            <th className="p-4 font-semibold text-[var(--color-text-muted)]">Client</th>
+                            <th className="p-4 font-semibold text-[var(--color-text-muted)]">Master</th>
+                            <th className="p-4 font-semibold text-[var(--color-text-muted)]">Price</th>
+                            <th className="p-4 font-semibold text-[var(--color-text-muted)]">Status</th>
+                            <th className="p-4 font-semibold text-[var(--color-text-muted)]">Start Time</th>
+                          </>
+                        )}
+                        {reviewActiveCategory === 'enrollments' && (
+                          <>
+                            <th className="p-4 font-semibold text-[var(--color-text-muted)]">Course</th>
+                            <th className="p-4 font-semibold text-[var(--color-text-muted)]">Student</th>
+                            <th className="p-4 font-semibold text-[var(--color-text-muted)]">Progress</th>
+                            <th className="p-4 font-semibold text-[var(--color-text-muted)]">Enroll Date</th>
+                          </>
+                        )}
+                        {reviewActiveCategory === 'services' && (
+                          <>
+                            <th className="p-4 font-semibold text-[var(--color-text-muted)]">Service Name</th>
+                            <th className="p-4 font-semibold text-[var(--color-text-muted)]">Master</th>
+                            <th className="p-4 font-semibold text-[var(--color-text-muted)]">Custom Price</th>
+                            <th className="p-4 font-semibold text-[var(--color-text-muted)]">Duration</th>
+                            <th className="p-4 font-semibold text-[var(--color-text-muted)]">Availability</th>
+                          </>
+                        )}
+                        {reviewActiveCategory === 'refunds' && (
+                          <>
+                            <th className="p-4 font-semibold text-[var(--color-text-muted)]">Original Payment</th>
+                            <th className="p-4 font-semibold text-[var(--color-text-muted)]">Reason</th>
+                            <th className="p-4 font-semibold text-[var(--color-text-muted)]">Orig Amount</th>
+                            <th className="p-4 font-semibold text-[var(--color-text-muted)]">Refunded</th>
+                            <th className="p-4 font-semibold text-[var(--color-text-muted)]">Status</th>
+                            <th className="p-4 font-semibold text-[var(--color-text-muted)]">Refund Date</th>
+                          </>
+                        )}
+                        <th className="p-4 text-right font-semibold text-[var(--color-text-muted)]">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[var(--color-border-light)]">
+                      {filteredReviewData.map((item: any) => (
+                        <tr key={item.id} className="hover:bg-black/[0.005] transition-colors">
+                          {/* Transactions */}
+                          {reviewActiveCategory === 'transactions' && (
+                            <>
+                              <td className="p-4 font-medium text-[var(--color-text-primary)] max-w-xs truncate">
+                                {item.description || 'Stripe Transaction'}
+                              </td>
+                              <td className="p-4 text-[var(--color-text-secondary)]">{item.user_name}</td>
+                              <td className="p-4 text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
+                                {item.payment_type}
+                              </td>
+                              <td className="p-4 font-bold text-[var(--color-text-primary)]">
+                                {formatCurrency(item.amount, item.currency?.toUpperCase())}
+                              </td>
+                              <td className="p-4">
+                                <span className={`badge inline-flex ${item.status === 'succeeded' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-600 border-red-200'}`}>
+                                  {item.status}
+                                </span>
+                              </td>
+                              <td className="p-4 text-xs text-[var(--color-text-muted)]">
+                                {formatDateTime(item.created_at)}
+                              </td>
+                            </>
+                          )}
+
+                          {/* Orders */}
+                          {reviewActiveCategory === 'orders' && (
+                            <>
+                              <td className="p-4 font-mono text-xs text-[var(--color-text-primary)]">
+                                #{item.id.substring(0, 8).toUpperCase()}
+                              </td>
+                              <td className="p-4 text-[var(--color-text-secondary)]">{item.user_name}</td>
+                              <td className="p-4">
+                                <span className={`badge inline-flex text-xs ${item.shipping_status === 'shipped' ? 'bg-blue-50 text-blue-700 border-blue-200' : item.shipping_status === 'delivered' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+                                  {item.shipping_status || 'pending'}
+                                </span>
+                              </td>
+                              <td className="p-4 font-bold text-[var(--color-text-primary)]">
+                                {formatCurrency(item.total)}
+                              </td>
+                              <td className="p-4">
+                                <span className={`badge inline-flex ${item.status === 'confirmed' || item.status === 'completed' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : item.status === 'cancelled' ? 'bg-red-50 text-red-600 border-red-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+                                  {item.status}
+                                </span>
+                              </td>
+                              <td className="p-4 text-xs text-[var(--color-text-muted)]">
+                                {formatDateTime(item.created_at)}
+                              </td>
+                            </>
+                          )}
+
+                          {/* Bookings */}
+                          {reviewActiveCategory === 'bookings' && (
+                            <>
+                              <td className="p-4 font-medium text-[var(--color-text-primary)]">
+                                {item.service_name}
+                              </td>
+                              <td className="p-4 text-[var(--color-text-secondary)]">{item.client_name}</td>
+                              <td className="p-4 text-[var(--color-text-secondary)]">{item.master_name}</td>
+                              <td className="p-4 font-bold text-[var(--color-text-primary)]">
+                                {formatCurrency(item.price)}
+                              </td>
+                              <td className="p-4">
+                                <span className={`badge inline-flex ${['confirmed', 'completed'].includes(item.status) ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : ['cancelled', 'cancelled_free', 'cancelled_charge'].includes(item.status) ? 'bg-red-50 text-red-600 border-red-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+                                  {item.status}
+                                </span>
+                              </td>
+                              <td className="p-4 text-xs text-[var(--color-text-muted)]">
+                                {formatDateTime(item.start_time)}
+                              </td>
+                            </>
+                          )}
+
+                          {/* Enrollments */}
+                          {reviewActiveCategory === 'enrollments' && (
+                            <>
+                              <td className="p-4 font-medium text-[var(--color-text-primary)]">
+                                {item.course_title}
+                              </td>
+                              <td className="p-4 text-[var(--color-text-secondary)]">{item.student_name}</td>
+                              <td className="p-4">
+                                <div className="flex items-center gap-2 max-w-[120px]">
+                                  <div className="flex-1 bg-gray-200 h-1.5 rounded-full overflow-hidden">
+                                    <div className="bg-[var(--color-primary)] h-full" style={{ width: `${item.progress}%` }} />
+                                  </div>
+                                  <span className="text-xs font-semibold text-[var(--color-text-primary)] shrink-0">{item.progress}%</span>
+                                </div>
+                              </td>
+                              <td className="p-4 text-xs text-[var(--color-text-muted)]">
+                                {formatDateTime(item.enrolled_at)}
+                              </td>
+                            </>
+                          )}
+
+                          {/* Services */}
+                          {reviewActiveCategory === 'services' && (
+                            <>
+                              <td className="p-4 font-medium text-[var(--color-text-primary)]">
+                                {item.service_name}
+                              </td>
+                              <td className="p-4 text-[var(--color-text-secondary)]">{item.master_name}</td>
+                              <td className="p-4 font-medium text-[var(--color-text-primary)]">
+                                {item.custom_price ? formatCurrency(item.custom_price) : 'Base Price'}
+                              </td>
+                              <td className="p-4 text-[var(--color-text-secondary)]">
+                                {item.custom_duration ? `${item.custom_duration} mins` : 'Base Duration'}
+                              </td>
+                              <td className="p-4">
+                                <span className={`badge inline-flex ${item.is_available ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-600 border-red-200'}`}>
+                                  {item.is_available ? 'Available' : 'Unavailable'}
+                                </span>
+                              </td>
+                            </>
+                          )}
+
+                          {/* Refunds */}
+                          {reviewActiveCategory === 'refunds' && (
+                            <>
+                              <td className="p-4 font-medium text-[var(--color-text-primary)] max-w-xs truncate">
+                                {item.original_payment || 'Original payment details'}
+                              </td>
+                              <td className="p-4 text-[var(--color-text-secondary)] max-w-xs truncate">
+                                {item.reason || 'N/A'}
+                              </td>
+                              <td className="p-4 text-[var(--color-text-muted)]">
+                                {item.original_payment_amount ? formatCurrency(item.original_payment_amount) : '—'}
+                              </td>
+                              <td className="p-4 font-bold text-red-500">
+                                {formatCurrency(item.amount)}
+                              </td>
+                              <td className="p-4">
+                                <span className="badge inline-flex bg-red-50 text-red-700 border-red-200">
+                                  {item.status || 'processed'}
+                                </span>
+                              </td>
+                              <td className="p-4 text-xs text-[var(--color-text-muted)]">
+                                {formatDateTime(item.created_at)}
+                              </td>
+                            </>
+                          )}
+
+                          <td className="p-4 text-right">
+                            <button
+                              onClick={() => setReviewSelectedItem({ type: reviewActiveCategory, data: item })}
+                              className="text-[var(--color-primary)] hover:opacity-80 p-1 bg-[var(--color-primary)]/5 rounded-lg border border-[var(--color-primary)]/10 hover:shadow-sm cursor-pointer"
+                              title="Inspect Record"
+                            >
+                              <Eye size={15} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -918,7 +1514,70 @@ export default function FinancePage() {
         </div>
       )}
 
-      {/* ─── Refund Modal ──────────────────────────────────────────── */}
+
+
+      {/* Inspect Side-Drawer / Modal */}
+      {reviewSelectedItem && (
+        <div
+          className="fixed inset-0 z-50 flex justify-end bg-black/30 backdrop-blur-sm animate-fade-in"
+          onClick={() => setReviewSelectedItem(null)}
+        >
+          <div
+            className="w-full max-w-md bg-[var(--color-background)] h-full shadow-2xl flex flex-col p-6 overflow-y-auto transform transition-transform duration-300 animate-slide-left"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-[var(--color-border-light)] pb-4 mb-6">
+              <div>
+                <h3 className="font-bold text-lg text-[var(--color-text-primary)]">
+                  Inspect {reviewSelectedItem.type.slice(0, -1)}
+                </h3>
+                <p className="text-xs text-[var(--color-text-muted)] font-mono truncate mt-0.5">
+                  ID: {reviewSelectedItem.data.id}
+                </p>
+              </div>
+              <button
+                onClick={() => setReviewSelectedItem(null)}
+                className="p-1.5 hover:bg-[var(--color-surface-light)] border border-[var(--color-border-light)] rounded-lg text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Content fields */}
+            <div className="flex-1 space-y-5">
+              {Object.entries(reviewSelectedItem.data).map(([key, value]) => {
+                if (key === 'id') return null; // Already shown in header
+                let renderedValue = String(value);
+
+                // Pretty key names
+                const formattedKey = key
+                  .replace(/_/g, ' ')
+                  .replace(/\b\w/g, (c) => c.toUpperCase());
+
+                if (key.endsWith('_at') || key === 'start_time') {
+                  renderedValue = formatDateTime(value as string);
+                } else if (key === 'price' || key === 'amount' || key === 'total' || key === 'original_payment_amount') {
+                  renderedValue = formatCurrency(Number(value));
+                } else if (typeof value === 'boolean') {
+                  renderedValue = value ? 'Yes' : 'No';
+                }
+
+                return (
+                  <div key={key} className="border-b border-[var(--color-border-light)]/50 pb-2">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-muted)]">
+                      {formattedKey}
+                    </p>
+                    <p className="text-sm font-medium text-[var(--color-text-primary)] mt-1 whitespace-pre-wrap">
+                      {renderedValue || '—'}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
       {refundModalPayment && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4" onClick={() => setRefundModalPayment(null)}>
           <div className="glass-card w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
@@ -979,11 +1638,22 @@ export default function FinancePage() {
 }
 
 // ─── Reusable components ─────────────────────────────────────────────
-function StatCard({ icon: Icon, gradient, iconColor, label, value, sub }: {
-  icon: React.ElementType; gradient: string; iconColor: string; label: string; value: string; sub: string;
+function StatCard({ icon: Icon, gradient, iconColor, label, value, sub, onClick, isActive }: {
+  icon: React.ElementType; gradient: string; iconColor: string; label: string; value: string; sub: string; onClick?: () => void; isActive?: boolean;
 }) {
   return (
-    <div className="glass-card p-5">
+    <div
+      onClick={onClick}
+      className={`glass-card p-5 transition-all ${
+        onClick
+          ? 'cursor-pointer hover:shadow-md hover:scale-[1.01] active:scale-[0.99]'
+          : ''
+      } ${
+        isActive
+          ? 'border-2 border-[var(--color-brand-pink)] ring-2 ring-[var(--color-brand-pink)]/20 shadow-md scale-[1.01]'
+          : 'border border-transparent'
+      }`}
+    >
       <div className="flex items-center gap-3 mb-3">
         <div className={`w-10 h-10 rounded-2xl bg-gradient-to-br ${gradient} flex items-center justify-center`}>
           <Icon size={20} className={iconColor} />

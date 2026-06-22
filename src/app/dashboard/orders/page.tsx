@@ -1,16 +1,28 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/components/Toast';
 import {
-  Package, Search, ChevronDown, ChevronRight, X,
+  Package, Search, ChevronDown, X,
   Truck, Clock, CheckCircle2, XCircle, AlertTriangle,
   ShoppingBag, MapPin, CreditCard, Loader2, Eye,
+  Send, MessageSquare, ExternalLink, RotateCcw,
 } from 'lucide-react';
 
 /* ─── types ─────────────────────────────────────────────── */
+interface ChatMessage {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  content: string | null;
+  created_at: string;
+  is_read: boolean;
+}
+
 interface OrderItem {
   id: string;
   product_id: string | null;
@@ -42,18 +54,19 @@ interface Order {
 }
 
 const STATUS_OPTIONS = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'] as const;
-const SHIPPING_STATUS_OPTIONS = ['pending', 'packed', 'shipped', 'in_transit', 'delivered'] as const;
+const SHIPPING_STATUS_OPTIONS = ['pending', 'processing', 'shipped', 'delivered', 'returned'] as const;
 
 const statusConfig: Record<string, { color: string; bg: string; icon: React.ElementType }> = {
   pending:    { color: 'text-amber-700',   bg: 'bg-amber-50',   icon: Clock },
   confirmed:  { color: 'text-blue-700',    bg: 'bg-blue-50',    icon: CheckCircle2 },
-  processing: { color: 'text-violet-700',  bg: 'bg-violet-50',  icon: Package },
-  shipped:    { color: 'text-cyan-700',    bg: 'bg-cyan-50',    icon: Truck },
+  processing: { color: 'text-blue-700',    bg: 'bg-blue-50',    icon: Package },
+  shipped:    { color: 'text-purple-700',  bg: 'bg-purple-50',  icon: Truck },
   delivered:  { color: 'text-emerald-700', bg: 'bg-emerald-50', icon: CheckCircle2 },
   cancelled:  { color: 'text-red-700',     bg: 'bg-red-50',     icon: XCircle },
   refunded:   { color: 'text-gray-700',    bg: 'bg-gray-100',   icon: AlertTriangle },
   packed:     { color: 'text-indigo-700',  bg: 'bg-indigo-50',  icon: Package },
   in_transit: { color: 'text-sky-700',     bg: 'bg-sky-50',     icon: Truck },
+  returned:   { color: 'text-rose-700',    bg: 'bg-rose-50',    icon: RotateCcw },
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -76,6 +89,7 @@ export default function OrdersPage() {
   const supabase = createClient();
   const { showToast } = useToast();
   const isOwner = role === 'owner';
+  const router = useRouter();
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -83,6 +97,101 @@ export default function OrdersPage() {
   const [filterStatus, setFilterStatus] = useState('all');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+
+  // Undo states
+  const [previousStatus, setPreviousStatus] = useState<string | null>(null);
+  const [showUndoBanner, setShowUndoBanner] = useState(false);
+  const [undoTimeoutId, setUndoTimeoutId] = useState<NodeJS.Timeout | null>(null);
+
+  // Confirmation states
+  const [pendingShippingStatus, setPendingShippingStatus] = useState<string | null>(null);
+
+  // Chat states
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [loadingChat, setLoadingChat] = useState(false);
+  const [sendingMessage, setSendingMessage] = useState(false);
+
+  const chatContainerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (undoTimeoutId) clearTimeout(undoTimeoutId);
+    };
+  }, [undoTimeoutId]);
+
+  // Load conversation when selectedOrder changes (Owner only)
+  useEffect(() => {
+    if (!selectedOrder || !isOwner || !user) {
+      setConversationId(null);
+      setChatMessages([]);
+      return;
+    }
+
+    const initChat = async () => {
+      setLoadingChat(true);
+      try {
+        const { data: convo } = await supabase
+          .from('conversations')
+          .select('id')
+          .eq('client_id', selectedOrder.user_id)
+          .eq('master_id', user.id)
+          .maybeSingle();
+
+        if (convo) {
+          setConversationId(convo.id);
+          const { data: msgs } = await supabase
+            .from('messages')
+            .select('*')
+            .eq('conversation_id', convo.id)
+            .order('created_at', { ascending: true });
+          
+          setChatMessages((msgs as unknown as ChatMessage[]) || []);
+        } else {
+          setConversationId(null);
+          setChatMessages([]);
+        }
+      } catch (err) {
+        console.error('Error loading chat:', err);
+      } finally {
+        setLoadingChat(false);
+      }
+    };
+
+    initChat();
+  }, [selectedOrder, isOwner, user, supabase]);
+
+  // Realtime subscription for inline chat
+  useEffect(() => {
+    if (!conversationId) return;
+
+    const channel = supabase.channel(`inline_chat_${conversationId}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'messages',
+        filter: `conversation_id=eq.${conversationId}`
+      }, (payload) => {
+        const newMsg = payload.new as unknown as ChatMessage;
+        setChatMessages(prev => {
+          if (prev.some(m => m.id === newMsg.id)) return prev;
+          return [...prev, newMsg];
+        });
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [conversationId, supabase]);
+
+  // Scroll inline chat to bottom
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  }, [chatMessages]);
 
   const fetchOrders = async () => {
     try {
@@ -122,6 +231,10 @@ export default function OrdersPage() {
   }, []);
 
   const updateOrderStatus = async (orderId: string, field: 'status' | 'shipping_status', value: string) => {
+    if (field === 'shipping_status') {
+      setPendingShippingStatus(value);
+      return;
+    }
     setUpdatingId(orderId);
     try {
       const { error } = await supabase
@@ -133,12 +246,127 @@ export default function OrdersPage() {
       if (selectedOrder?.id === orderId) {
         setSelectedOrder(prev => prev ? { ...prev, [field]: value } : null);
       }
-      showToast(`Order ${field === 'status' ? 'status' : 'shipping status'} updated`, 'success');
+      showToast(`Order status updated`, 'success');
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Failed to update', 'error');
     } finally {
       setUpdatingId(null);
     }
+  };
+
+  const handleUpdateShippingStatus = async (newStatus: string) => {
+    if (!selectedOrder) return;
+    setPendingShippingStatus(null);
+    
+    const oldStatus = selectedOrder.shipping_status || 'pending';
+    setPreviousStatus(oldStatus);
+    
+    setUpdatingId(selectedOrder.id);
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ shipping_status: newStatus, updated_at: new Date().toISOString() } as never)
+        .eq('id', selectedOrder.id);
+      
+      if (error) throw error;
+      
+      setOrders(prev => prev.map(o => o.id === selectedOrder.id ? { ...o, shipping_status: newStatus } : o));
+      setSelectedOrder(prev => prev ? { ...prev, shipping_status: newStatus } : null);
+      
+      setShowUndoBanner(true);
+      if (undoTimeoutId) clearTimeout(undoTimeoutId);
+      const timeout = setTimeout(() => {
+        setShowUndoBanner(false);
+        setPreviousStatus(null);
+      }, 8000);
+      setUndoTimeoutId(timeout);
+      
+      showToast(`Shipping status updated to ${newStatus}`, 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to update shipping status', 'error');
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const handleUndoShippingStatus = async () => {
+    if (!previousStatus || !selectedOrder) return;
+    setShowUndoBanner(false);
+    if (undoTimeoutId) clearTimeout(undoTimeoutId);
+    
+    setUpdatingId(selectedOrder.id);
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ shipping_status: previousStatus, updated_at: new Date().toISOString() } as never)
+        .eq('id', selectedOrder.id);
+      
+      if (error) throw error;
+      
+      setOrders(prev => prev.map(o => o.id === selectedOrder.id ? { ...o, shipping_status: previousStatus } : o));
+      setSelectedOrder(prev => prev ? { ...prev, shipping_status: previousStatus } : null);
+      setPreviousStatus(null);
+      showToast('Shipping status change undone', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to undo shipping status', 'error');
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (!chatInput.trim() || !selectedOrder || !user) return;
+    setSendingMessage(true);
+    try {
+      let currentConvoId = conversationId;
+
+      if (!currentConvoId) {
+        const { data: newConvo, error: convoErr } = await supabase
+          .from('conversations')
+          .insert({ client_id: selectedOrder.user_id, master_id: user.id })
+          .select()
+          .single();
+
+        if (convoErr) throw convoErr;
+        currentConvoId = newConvo.id;
+        setConversationId(newConvo.id);
+      }
+
+      const { data: newMsg, error: msgErr } = await supabase
+        .from('messages')
+        .insert({
+          conversation_id: currentConvoId,
+          sender_id: user.id,
+          content: chatInput.trim()
+        })
+        .select()
+        .single();
+
+      if (msgErr) throw msgErr;
+
+      setChatMessages(prev => {
+        const typedMsg = newMsg as unknown as ChatMessage;
+        if (prev.some(m => m.id === typedMsg.id)) return prev;
+        return [...prev, typedMsg];
+      });
+      setChatInput('');
+
+      await supabase
+        .from('conversations')
+        .update({ last_message_at: new Date().toISOString() })
+        .eq('id', currentConvoId);
+
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to send message', 'error');
+    } finally {
+      setSendingMessage(false);
+    }
+  };
+
+  const redirectToFullChat = () => {
+    if (!conversationId) return;
+    localStorage.setItem('meraki_active_chat_convo_id', conversationId);
+    router.push('/dashboard/chat');
   };
 
   const filtered = orders.filter(o => {
@@ -322,6 +550,23 @@ export default function OrdersPage() {
               </button>
             </div>
 
+            {/* Undo Banner */}
+            {showUndoBanner && previousStatus && (
+              <div className="mx-6 mt-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between animate-fade-in shrink-0">
+                <div className="flex items-center gap-2 text-emerald-800 text-sm">
+                  <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
+                  <span>Status updated to <span className="font-semibold capitalize">{(selectedOrder.shipping_status || '').replace('_', ' ')}</span></span>
+                </div>
+                <button 
+                  onClick={handleUndoShippingStatus}
+                  disabled={updatingId === selectedOrder.id}
+                  className="text-xs font-bold text-emerald-600 hover:text-emerald-800 uppercase px-2.5 py-1 bg-emerald-100/50 hover:bg-emerald-100 rounded-lg transition-all cursor-pointer"
+                >
+                  Undo
+                </button>
+              </div>
+            )}
+
             <div className="p-6 space-y-6">
               {/* Status cards */}
               <div className="grid grid-cols-2 gap-3">
@@ -355,6 +600,81 @@ export default function OrdersPage() {
                     <StatusBadge status={selectedOrder.shipping_status || 'pending'} />
                   )}
                 </div>
+              </div>
+
+              {/* Visual Shipping Timeline & Action Button */}
+              <div className="rounded-2xl bg-[var(--color-surface-light)] p-5 border border-[var(--color-border-light)]/50">
+                <p className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)] mb-4 text-center">Fulfillment Progress</p>
+                <div className="flex justify-between items-center relative px-2 mb-6">
+                  {/* Progress Line */}
+                  <div className="absolute top-[18px] left-[10%] right-[10%] h-0.5 bg-gray-200 -z-0" />
+                  {(() => {
+                    const flow = ['pending', 'processing', 'shipped', 'delivered'];
+                    const currentIdx = flow.indexOf(selectedOrder.shipping_status || 'pending');
+                    const percentage = currentIdx <= 0 ? 0 : (currentIdx / (flow.length - 1)) * 80;
+                    return (
+                      <div 
+                        className="absolute top-[18px] left-[10%] h-0.5 bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-500 -z-0"
+                        style={{ width: `${percentage}%` }}
+                      />
+                    );
+                  })()}
+
+                  {['pending', 'processing', 'shipped', 'delivered'].map((step, idx) => {
+                    const flow = ['pending', 'processing', 'shipped', 'delivered'];
+                    const currentIdx = flow.indexOf(selectedOrder.shipping_status || 'pending');
+                    const isActive = idx <= currentIdx;
+                    const isCurrent = step === (selectedOrder.shipping_status || 'pending');
+                    
+                    const cfg = statusConfig[step] || statusConfig.pending;
+                    const Icon = cfg.icon;
+
+                    return (
+                      <div key={step} className="flex flex-col items-center z-10 flex-1 relative">
+                        <button
+                          onClick={() => {
+                            if (isOwner && updatingId !== selectedOrder.id) {
+                              setPendingShippingStatus(step);
+                            }
+                          }}
+                          disabled={!isOwner || updatingId === selectedOrder.id}
+                          className={`w-9 h-9 rounded-full flex items-center justify-center transition-all cursor-pointer ${
+                            isCurrent ? 'ring-4 ring-offset-2 ring-indigo-500 scale-110' : ''
+                          } ${
+                            isActive 
+                              ? 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-md' 
+                              : 'bg-white text-gray-400 border border-gray-200'
+                          }`}
+                        >
+                          <Icon size={14} />
+                        </button>
+                        <span className={`text-[10px] font-bold mt-2 text-center capitalize ${
+                          isActive ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-muted)]'
+                        }`}>
+                          {step}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {isOwner && (() => {
+                  const flow = ['pending', 'processing', 'shipped', 'delivered'];
+                  const currentIdx = flow.indexOf(selectedOrder.shipping_status || 'pending');
+                  const nextStatus = currentIdx >= 0 && currentIdx < flow.length - 1 ? flow[currentIdx + 1] : null;
+                  if (!nextStatus) return null;
+                  
+                  return (
+                    <button
+                      onClick={() => setPendingShippingStatus(nextStatus)}
+                      disabled={updatingId === selectedOrder.id}
+                      className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 cursor-pointer shadow-md hover:shadow-lg transition-all hover:scale-[1.01] active:scale-95"
+                    >
+                      <Truck size={16} />
+                      Mark as {nextStatus.charAt(0).toUpperCase() + nextStatus.slice(1)}
+                    </button>
+                  );
+                })()}
               </div>
 
               {updatingId === selectedOrder.id && (
@@ -463,6 +783,134 @@ export default function OrdersPage() {
                   </p>
                 </div>
               )}
+
+              {/* Message Consumer (Owner only) */}
+              {isOwner && (
+                <div className="border-t border-[var(--color-border-light)] pt-6 mt-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <MessageSquare size={16} className="text-[var(--color-brand-pink-dark)]" />
+                      <p className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)]">
+                        Message Customer
+                      </p>
+                    </div>
+                    {conversationId && (
+                      <button
+                        onClick={redirectToFullChat}
+                        className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 transition-all cursor-pointer"
+                      >
+                        Open in Full Chat <ExternalLink size={12} />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="rounded-2xl border border-[var(--color-border-light)] bg-gray-50/50 overflow-hidden flex flex-col">
+                    {/* Chat Messages List */}
+                    <div 
+                      ref={chatContainerRef}
+                      className="p-4 max-h-60 overflow-y-auto space-y-2 flex flex-col bg-white/50 min-h-[120px]"
+                    >
+                      {loadingChat ? (
+                        <div className="flex-1 flex flex-col items-center justify-center text-xs text-[var(--color-text-muted)] py-8">
+                          <Loader2 size={18} className="animate-spin mb-2" />
+                          Loading conversation...
+                        </div>
+                      ) : chatMessages.length === 0 ? (
+                        <div className="flex-1 flex flex-col items-center justify-center text-xs text-[var(--color-text-muted)] py-8 text-center px-4">
+                          <MessageSquare size={24} className="opacity-30 mb-2 mx-auto" />
+                          <p className="font-semibold">No messages yet</p>
+                          <p className="text-[11px] mt-0.5">Send a message to start the conversation.</p>
+                        </div>
+                      ) : (
+                        chatMessages.map((msg) => {
+                          const isMine = msg.sender_id === user?.id;
+                          return (
+                            <div
+                              key={msg.id}
+                              className={`flex flex-col max-w-[80%] ${
+                                isMine ? 'self-end items-end' : 'self-start items-start'
+                              }`}
+                            >
+                              <div
+                                className={`px-3 py-2 rounded-2xl text-xs ${
+                                  isMine
+                                    ? 'bg-gradient-to-br from-[var(--color-brand-pink)] to-purple-500 text-white rounded-tr-none'
+                                    : 'bg-gray-100 text-[var(--color-text-primary)] rounded-tl-none border border-gray-200/50'
+                                }`}
+                              >
+                                {msg.content}
+                              </div>
+                              <span className="text-[9px] text-[var(--color-text-muted)] mt-1 px-1">
+                                {new Date(msg.created_at).toLocaleTimeString('en-GB', {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </span>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+
+                    {/* Chat Input Field */}
+                    <div className="border-t border-[var(--color-border-light)] p-2 bg-white flex gap-2 items-center">
+                      <input
+                        type="text"
+                        placeholder="Type a message regarding this order..."
+                        value={chatInput}
+                        onChange={(e) => setChatInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            handleSendMessage();
+                          }
+                        }}
+                        disabled={sendingMessage || loadingChat}
+                        className="flex-1 text-xs bg-gray-50 rounded-xl px-3 py-2 outline-none border border-gray-100 focus:border-indigo-500 focus:bg-white transition-all disabled:opacity-50"
+                      />
+                      <button
+                        onClick={handleSendMessage}
+                        disabled={!chatInput.trim() || sendingMessage || loadingChat}
+                        className="w-8 h-8 rounded-xl bg-gradient-to-br from-[var(--color-brand-pink)] to-purple-500 text-white flex items-center justify-center transition-all shadow-sm hover:shadow active:scale-95 disabled:opacity-50 disabled:scale-100 cursor-pointer"
+                      >
+                        {sendingMessage ? (
+                          <Loader2 size={14} className="animate-spin" />
+                        ) : (
+                          <Send size={14} />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal */}
+      {pendingShippingStatus && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-3xl p-6 max-w-sm w-full border border-[var(--color-border-light)] shadow-2xl flex flex-col items-center text-center">
+            <div className="w-14 h-14 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 mb-4">
+              <Truck size={28} />
+            </div>
+            <h3 className="text-lg font-bold text-[var(--color-text-primary)] mb-2">Update Shipping Status</h3>
+            <p className="text-sm text-[var(--color-text-secondary)] mb-6">
+              Are you sure you want to mark this order as <span className="font-bold text-indigo-600 capitalize">{pendingShippingStatus}</span>?
+            </p>
+            <div className="flex gap-3 w-full">
+              <button
+                onClick={() => setPendingShippingStatus(null)}
+                className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-[var(--color-text-primary)] rounded-xl font-semibold transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleUpdateShippingStatus(pendingShippingStatus)}
+                className="flex-1 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl font-semibold shadow-md hover:shadow-lg transition-all cursor-pointer"
+              >
+                Confirm
+              </button>
             </div>
           </div>
         </div>

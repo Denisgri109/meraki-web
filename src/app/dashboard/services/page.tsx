@@ -8,7 +8,7 @@ import { useToast } from '@/components/Toast';
 import {
   Scissors, Plus, Clock, Edit3, ToggleLeft, ToggleRight, Sparkles, X, Loader2,
   Save, Trash2, AlertTriangle, Activity, CalendarDays, ChevronRight, ChevronDown,
-  DollarSign, Settings2, Percent, BadgePoundSterling,
+  DollarSign, Settings2, Percent, BadgePoundSterling, Boxes,
 } from 'lucide-react';
 import type { Tables, TablesInsert } from '@/types/database';
 import { validateServiceName, validatePrice } from '@/lib/validation';
@@ -41,6 +41,18 @@ export default function ServicesPage() {
   const [showPilatesHub, setShowPilatesHub] = useState(false);
   const [creatingDefaultPilates, setCreatingDefaultPilates] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<string>('All');
+
+  // Supplies state
+  const [availableSupplies, setAvailableSupplies] = useState<any[]>([]);
+  const [formSupplies, setFormSupplies] = useState<{
+    supply_id: string;
+    quantity_per_service: number;
+    notes: string;
+    supply?: { name: string; unit: string; cost_per_unit: number };
+  }[]>([]);
+  const [selectedSupplyId, setSelectedSupplyId] = useState<string>('');
+  const [selectedSupplyQty, setSelectedSupplyQty] = useState<string>('1');
+  const [selectedSupplyNotes, setSelectedSupplyNotes] = useState<string>('');
 
   // Expanded config panel per service
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -94,6 +106,24 @@ export default function ServicesPage() {
     return () => { mounted = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  useEffect(() => {
+    if (!showModal || !user) return;
+    const fetchSupplies = async () => {
+      try {
+        const tableName = isOwner ? 'owner_supplies' : 'master_supplies';
+        const { data, error } = await supabase
+          .from(tableName)
+          .select('*')
+          .order('name');
+        if (error) throw error;
+        setAvailableSupplies(data || []);
+      } catch (err) {
+        console.error('Error fetching available supplies:', err);
+      }
+    };
+    fetchSupplies();
+  }, [showModal, user, isOwner]);
 
   // --- Helpers ---
 
@@ -171,7 +201,7 @@ export default function ServicesPage() {
         customPrice = Number(configForm.custom_price);
       }
       const customDuration = configForm.custom_duration.trim() ? Number(configForm.custom_duration) : null;
-      const depType = configForm.deposit_override_type === 'none' ? null : configForm.deposit_override_type;
+      const depType = svc.category === 'Pilates' || configForm.deposit_override_type === 'none' ? null : configForm.deposit_override_type;
       const depValue = depType && configForm.deposit_override_value.trim() ? Number(configForm.deposit_override_value) : null;
 
       if (customDuration !== null && (isNaN(customDuration) || customDuration <= 0)) {
@@ -221,12 +251,20 @@ export default function ServicesPage() {
   const openCreate = () => {
     setEditingService(null);
     setForm({ name: '', description: '', base_price: '', duration_minutes: '60', category: categories[0] || 'Nails', requires_consultation: false });
+    setFormSupplies([]);
+    setSelectedSupplyId('');
+    setSelectedSupplyQty('1');
+    setSelectedSupplyNotes('');
     setShowModal(true);
   };
 
   const openCreatePilates = () => {
     setEditingService(null);
     setForm({ name: 'Pilates Studio', description: 'Reformer & mat Pilates classes.', base_price: '25', duration_minutes: '50', category: 'Pilates', requires_consultation: false });
+    setFormSupplies([]);
+    setSelectedSupplyId('');
+    setSelectedSupplyQty('1');
+    setSelectedSupplyNotes('');
     setShowPilatesHub(false);
     setShowModal(true);
   };
@@ -267,7 +305,7 @@ export default function ServicesPage() {
     }
   };
 
-  const openEdit = (service: Service) => {
+  const openEdit = async (service: Service) => {
     setEditingService(service);
     setForm({
       name: service.name,
@@ -277,7 +315,31 @@ export default function ServicesPage() {
       category: service.category || 'Nails',
       requires_consultation: service.requires_consultation || false,
     });
+    setFormSupplies([]);
+    setSelectedSupplyId('');
+    setSelectedSupplyQty('1');
+    setSelectedSupplyNotes('');
     setShowModal(true);
+
+    try {
+      const tableName = isOwner ? 'owner_service_supplies' : 'service_supplies';
+      const supplyRelation = isOwner ? 'owner_supplies' : 'master_supplies';
+      const { data, error } = await supabase
+        .from(tableName)
+        .select(`*, supply:${supplyRelation}(*)`)
+        .eq('service_id', service.id);
+      if (error) throw error;
+      if (data) {
+        setFormSupplies(data.map((item: any) => ({
+          supply_id: item.supply_id,
+          quantity_per_service: Number(item.quantity_per_service),
+          notes: item.notes || '',
+          supply: item.supply
+        })));
+      }
+    } catch (err) {
+      console.error('Error fetching service supplies:', err);
+    }
   };
 
   const handleSave = async () => {
@@ -301,9 +363,11 @@ export default function ServicesPage() {
         requires_consultation: form.requires_consultation,
       };
 
+      let serviceId = '';
       if (editingService) {
         const { error } = await supabase.from('services').update(payload).eq('id', editingService.id);
         if (error) throw error;
+        serviceId = editingService.id;
         showToast('Service updated!', 'success');
       } else {
         const { data: serviceData, error: serviceError } = await supabase
@@ -312,6 +376,7 @@ export default function ServicesPage() {
           .select()
           .single();
         if (serviceError) throw serviceError;
+        serviceId = serviceData.id;
 
         // Link to master_services
         await supabase.from('master_services').insert({
@@ -323,6 +388,30 @@ export default function ServicesPage() {
         });
         showToast('Service created!', 'success');
       }
+
+      // Save supplies configuration
+      const tableName = isOwner ? 'owner_service_supplies' : 'service_supplies';
+      // First clear existing links
+      const { error: deleteError } = await supabase
+        .from(tableName)
+        .delete()
+        .eq('service_id', serviceId);
+      if (deleteError) throw deleteError;
+
+      // Insert new links
+      if (formSupplies.length > 0) {
+        const insertPayload = formSupplies.map(fs => ({
+          service_id: serviceId,
+          supply_id: fs.supply_id,
+          quantity_per_service: fs.quantity_per_service,
+          notes: fs.notes.trim() || null
+        }));
+        const { error: insertError } = await supabase
+          .from(tableName)
+          .insert(insertPayload);
+        if (insertError) throw insertError;
+      }
+
       setShowModal(false);
       fetchAll();
     } catch (err: unknown) {
@@ -441,7 +530,7 @@ export default function ServicesPage() {
             const isAvailable = service.config?.is_available ?? false;
             const hasCustomPrice = service.config?.custom_price != null;
             const hasCustomDuration = service.config?.custom_duration != null;
-            const hasDepositOverride = !!service.config?.deposit_override_type;
+            const hasDepositOverride = service.category !== 'Pilates' && !!service.config?.deposit_override_type;
             const isExpanded = expandedId === service.id;
             const effectivePrice = hasCustomPrice ? service.config!.custom_price! : service.base_price;
             const effectiveDuration = hasCustomDuration ? service.config!.custom_duration! : service.duration_minutes;
@@ -593,50 +682,52 @@ export default function ServicesPage() {
                     </div>
 
                     {/* Deposit Override */}
-                    <div className="mb-4">
-                      <label className="label-upper flex items-center gap-1.5 mb-2">
-                        <BadgePoundSterling size={12} className="text-violet-600" />
-                        Deposit Override
-                      </label>
-                      <div className="flex flex-wrap gap-2 mb-3">
-                        {(['none', 'percentage', 'fixed'] as const).map((opt) => (
-                          <button
-                            key={opt}
-                            type="button"
-                            onClick={() => setConfigForm({ ...configForm, deposit_override_type: opt, deposit_override_value: opt === 'none' ? '' : configForm.deposit_override_value })}
-                            className={`px-4 py-1.5 rounded-full text-xs font-semibold cursor-pointer transition-all ${
-                              configForm.deposit_override_type === opt
-                                ? 'bg-violet-600 text-white'
-                                : 'bg-[var(--color-surface-light)] text-[var(--color-text-secondary)] border border-[var(--color-border-light)]'
-                            }`}
-                          >
-                            {opt === 'none' ? 'Use Global' : opt === 'percentage' ? 'Percentage' : 'Fixed Amount'}
-                          </button>
-                        ))}
-                      </div>
-                      {configForm.deposit_override_type !== 'none' && (
-                        <div className="max-w-xs">
-                          <div className="relative">
-                            <input
-                              type="number"
-                              step={configForm.deposit_override_type === 'percentage' ? '1' : '0.01'}
-                              value={configForm.deposit_override_value}
-                              onChange={(e) => setConfigForm({ ...configForm, deposit_override_value: e.target.value })}
-                              className="input-glass pr-10"
-                              placeholder={configForm.deposit_override_type === 'percentage' ? 'e.g. 30' : 'e.g. 15.00'}
-                            />
-                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-[var(--color-text-muted)]">
-                              {configForm.deposit_override_type === 'percentage' ? <Percent size={14} /> : '£'}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-[var(--color-text-muted)] mt-1">
-                            {configForm.deposit_override_type === 'percentage'
-                              ? 'Percentage of service price required as deposit'
-                              : 'Fixed deposit amount in £'}
-                          </p>
+                    {service.category !== 'Pilates' && (
+                      <div className="mb-4">
+                        <label className="label-upper flex items-center gap-1.5 mb-2">
+                          <BadgePoundSterling size={12} className="text-violet-600" />
+                          Deposit Override
+                        </label>
+                        <div className="flex flex-wrap gap-2 mb-3">
+                          {(['none', 'percentage', 'fixed'] as const).map((opt) => (
+                            <button
+                              key={opt}
+                              type="button"
+                              onClick={() => setConfigForm({ ...configForm, deposit_override_type: opt, deposit_override_value: opt === 'none' ? '' : configForm.deposit_override_value })}
+                              className={`px-4 py-1.5 rounded-full text-xs font-semibold cursor-pointer transition-all ${
+                                configForm.deposit_override_type === opt
+                                  ? 'bg-violet-600 text-white'
+                                  : 'bg-[var(--color-surface-light)] text-[var(--color-text-secondary)] border border-[var(--color-border-light)]'
+                              }`}
+                            >
+                              {opt === 'none' ? 'Use Global' : opt === 'percentage' ? 'Percentage' : 'Fixed Amount'}
+                            </button>
+                          ))}
                         </div>
-                      )}
-                    </div>
+                        {configForm.deposit_override_type !== 'none' && (
+                          <div className="max-w-xs">
+                            <div className="relative">
+                              <input
+                                type="number"
+                                step={configForm.deposit_override_type === 'percentage' ? '1' : '0.01'}
+                                value={configForm.deposit_override_value}
+                                onChange={(e) => setConfigForm({ ...configForm, deposit_override_value: e.target.value })}
+                                className="input-glass pr-10"
+                                placeholder={configForm.deposit_override_type === 'percentage' ? 'e.g. 30' : 'e.g. 15.00'}
+                              />
+                              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-[var(--color-text-muted)]">
+                                {configForm.deposit_override_type === 'percentage' ? <Percent size={14} /> : '£'}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-[var(--color-text-muted)] mt-1">
+                              {configForm.deposit_override_type === 'percentage'
+                                ? 'Percentage of service price required as deposit'
+                                : 'Fixed deposit amount in £'}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {/* Active/Inactive toggle */}
                     <div className="flex items-center justify-between p-3 rounded-xl bg-white border border-[var(--color-border-light)] mb-4">
@@ -741,6 +832,112 @@ export default function ServicesPage() {
                 </button>
               </div>
 
+              {/* Supplies Section */}
+              <div className="border-t border-[var(--color-border-light)] pt-4 mt-2">
+                <div className="flex items-center gap-2 mb-2">
+                  <Boxes size={16} className="text-[var(--color-brand-pink-dark)]" />
+                  <label className="label-upper mb-0 font-semibold">Linked Supplies</label>
+                </div>
+                
+                {/* List of current supplies */}
+                <div className="space-y-2 mb-3">
+                  {formSupplies.length === 0 ? (
+                    <p className="text-xs text-[var(--color-text-muted)] italic">No supplies linked to this service yet.</p>
+                  ) : (
+                    formSupplies.map((fs, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-2.5 rounded-xl bg-[var(--color-surface-light)] border border-[var(--color-border-light)] text-sm">
+                        <div className="flex-1 min-w-0 pr-2">
+                          <p className="font-semibold text-[var(--color-text-primary)] truncate">
+                            {fs.supply?.name || 'Unknown Supply'}
+                          </p>
+                          <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
+                            Amount: {fs.quantity_per_service} {fs.supply?.unit || ''}
+                            {fs.notes && ` • Notes: ${fs.notes}`}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setFormSupplies(formSupplies.filter((_, i) => i !== idx))}
+                          className="text-rose-500 hover:text-rose-700 p-1 cursor-pointer transition-colors"
+                          title="Remove supply"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {/* Add supply controls */}
+                {availableSupplies.filter(s => !formSupplies.some(fs => fs.supply_id === s.id)).length > 0 && (
+                  <div className="bg-[var(--color-surface-light)]/40 p-3 rounded-xl border border-dashed border-[var(--color-border-light)] space-y-3">
+                    <p className="text-xs font-semibold text-[var(--color-text-secondary)]">Link a Supply</p>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <div>
+                        <select
+                          value={selectedSupplyId}
+                          onChange={(e) => setSelectedSupplyId(e.target.value)}
+                          className="input-glass text-sm"
+                        >
+                          <option value="">-- Select Supply --</option>
+                          {availableSupplies
+                            .filter(s => !formSupplies.some(fs => fs.supply_id === s.id))
+                            .map(s => (
+                              <option key={s.id} value={s.id}>{s.name} ({s.unit})</option>
+                            ))
+                          }
+                        </select>
+                      </div>
+                      <div className="flex gap-2">
+                        <input
+                          type="number"
+                          min="0.01"
+                          step="any"
+                          placeholder="Qty"
+                          value={selectedSupplyQty}
+                          onChange={(e) => setSelectedSupplyQty(e.target.value)}
+                          className="input-glass text-sm w-20"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Notes (optional)"
+                          value={selectedSupplyNotes}
+                          onChange={(e) => setSelectedSupplyNotes(e.target.value)}
+                          className="input-glass text-sm flex-1"
+                        />
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!selectedSupplyId) {
+                          showToast('Please select a supply', 'error');
+                          return;
+                        }
+                        const qty = parseFloat(selectedSupplyQty);
+                        if (isNaN(qty) || qty <= 0) {
+                          showToast('Please enter a valid quantity', 'error');
+                          return;
+                        }
+                        const sup = availableSupplies.find(s => s.id === selectedSupplyId);
+                        setFormSupplies([...formSupplies, {
+                          supply_id: selectedSupplyId,
+                          quantity_per_service: qty,
+                          notes: selectedSupplyNotes.trim(),
+                          supply: sup
+                        }]);
+                        setSelectedSupplyId('');
+                        setSelectedSupplyQty('1');
+                        setSelectedSupplyNotes('');
+                      }}
+                      className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg border border-[var(--color-primary)] text-[var(--color-primary)] hover:bg-[var(--color-primary)] hover:text-white transition-all text-xs font-semibold cursor-pointer"
+                    >
+                      <Plus size={14} /> Link Supply
+                    </button>
+                  </div>
+                )}
+              </div>
+
               {/* Preview */}
               <div className="p-4 rounded-xl bg-gradient-to-br from-pink-50 to-purple-50 border border-pink-100">
                 <p className="text-[10px] font-bold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Preview</p>
@@ -751,6 +948,7 @@ export default function ServicesPage() {
                   <span className="text-[var(--color-text-muted)]">{form.duration_minutes || '0'} min</span>
                 </div>
               </div>
+
 
               <button
                 onClick={handleSave}
