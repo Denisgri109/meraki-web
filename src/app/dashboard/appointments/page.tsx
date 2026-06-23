@@ -944,10 +944,10 @@ export default function AppointmentsPage() {
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-transparent" />
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center color-white p-6">
           <h1 className="text-4xl font-extrabold text-white tracking-tight drop-shadow-md">
-            {role === 'master' ? 'Professional Bookings' : 'Your Appointments'}
+            {role === 'master' || role === 'owner' ? 'Professional Bookings' : 'Your Appointments'}
           </h1>
           <p className="text-white/80 text-sm mt-2 max-w-md font-medium">
-            {role === 'master' 
+            {role === 'master' || role === 'owner'
               ? 'Manage client attendance, reschedule proposals, and track late arrivals'
               : 'Track upcoming sessions, confirm attendance, or request reschedules'}
           </p>
@@ -1399,18 +1399,18 @@ export default function AppointmentsPage() {
                 <div className="flex items-center justify-between p-4 rounded-xl border border-gray-100 bg-gray-50/50">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-200 to-violet-200 overflow-hidden flex items-center justify-center font-bold text-white shadow-sm">
-                      {role === 'master' 
+                      {role === 'master' || role === 'owner' 
                         ? (selectedAppointment.client?.avatar_url ? <img src={selectedAppointment.client.avatar_url} className="object-cover w-full h-full" alt="avatar" /> : selectedAppointment.client?.full_name.charAt(0))
                         : (selectedAppointment.master?.avatar_url ? <img src={selectedAppointment.master.avatar_url} className="object-cover w-full h-full" alt="avatar" /> : selectedAppointment.master?.full_name.charAt(0))
                       }
                     </div>
                     <div>
-                      <p className="text-[10px] text-gray-400 font-black uppercase leading-none">{role === 'master' ? 'Client' : 'Specialist'}</p>
+                      <p className="text-[10px] text-gray-400 font-black uppercase leading-none">{role === 'master' || role === 'owner' ? 'Client' : 'Specialist'}</p>
                       <p className="text-sm font-bold text-gray-800 mt-1">
-                        {role === 'master' ? selectedAppointment.client?.full_name : selectedAppointment.master?.full_name}
+                        {role === 'master' || role === 'owner' ? selectedAppointment.client?.full_name : selectedAppointment.master?.full_name}
                       </p>
                       <p className="text-xs text-gray-500 font-medium">
-                        {role === 'master' ? selectedAppointment.client?.email : selectedAppointment.master?.specialties?.join(', ') || 'Beauty Professional'}
+                        {role === 'master' || role === 'owner' ? selectedAppointment.client?.email : selectedAppointment.master?.specialties?.join(', ') || 'Beauty Professional'}
                       </p>
                     </div>
                   </div>
@@ -1424,7 +1424,7 @@ export default function AppointmentsPage() {
                 </div>
 
                 {/* Reschedule Proposal Display for Client */}
-                {role !== 'master' && selectedAppointment.status === 'reschedule_pending' && selectedAppointment.proposed_start_time && (
+                {role !== 'master' && role !== 'owner' && selectedAppointment.status === 'reschedule_pending' && selectedAppointment.proposed_start_time && (
                   <div className="p-4 rounded-2xl border border-violet-200 bg-violet-50/60 space-y-3 shadow-xs">
                     <div className="flex items-start gap-2.5 text-violet-800">
                       <CalendarRange className="shrink-0 text-violet-500" size={20} />
@@ -1456,7 +1456,7 @@ export default function AppointmentsPage() {
                 )}
 
                 {/* Reschedule Proposal Display for Master (Status View Only) */}
-                {role === 'master' && selectedAppointment.status === 'reschedule_pending' && selectedAppointment.proposed_start_time && (
+                {(role === 'master' || role === 'owner') && selectedAppointment.status === 'reschedule_pending' && selectedAppointment.proposed_start_time && (
                   <div className="p-4 rounded-2xl border border-violet-100 bg-violet-50/30">
                     <div className="flex gap-2.5 items-center text-violet-700">
                       <Loader2 className="animate-spin text-violet-500 shrink-0" size={16} />
@@ -1533,7 +1533,7 @@ export default function AppointmentsPage() {
                 )}
 
                 {/* Attendance Confirmation Actions for Client */}
-                {role !== 'master' && selectedAppointment.requires_confirmation && !selectedAppointment.client_confirmed && !['cancelled', 'completed', 'no_show'].includes(selectedAppointment.status) && (
+                {role !== 'master' && role !== 'owner' && selectedAppointment.requires_confirmation && !selectedAppointment.client_confirmed && !['cancelled', 'completed', 'no_show'].includes(selectedAppointment.status) && (
                   <div className="p-4 rounded-2xl border border-amber-200 bg-amber-50/50 space-y-3">
                     <div className="flex items-start gap-2.5 text-amber-800">
                       <AlertTriangle className="shrink-0 text-amber-500 mt-0.5" size={18} />
@@ -1587,7 +1587,7 @@ export default function AppointmentsPage() {
                 <div className="pt-6 border-t border-gray-100 space-y-3 shrink-0">
                   
                   {/* Master Propose Reschedule Actions */}
-                  {role === 'master' && !['cancelled', 'completed', 'no_show'].includes(selectedAppointment.status) && (
+                  {(role === 'master' || role === 'owner') && !['cancelled', 'completed', 'no_show'].includes(selectedAppointment.status) && (
                     <div className="space-y-3">
                       {selectedAppointment.service_category === 'Pilates' ? (
                         <Link

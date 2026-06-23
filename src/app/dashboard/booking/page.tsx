@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, type Dispatch, type SetStateAction } from
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useModal } from '@/contexts/ModalContext';
-import { Search, Star, Clock, ArrowRight, ArrowLeft, Calendar, CheckCircle2, Sparkles, User, Scissors, SlidersHorizontal, Loader2, ChevronLeft, ChevronRight, AlertCircle, CreditCard, Plus } from 'lucide-react';
+import { Search, Star, Clock, ArrowRight, ArrowLeft, Calendar, CheckCircle2, Sparkles, User, Scissors, SlidersHorizontal, Loader2, ChevronLeft, ChevronRight, AlertCircle, CreditCard, Plus, MapPin } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
@@ -285,14 +285,17 @@ interface Service {
 interface Master {
   id: string;
   full_name: string | null;
+  email: string | null;
   avatar_url: string | null;
-  specialties: string | null;
+  specialties: string[] | string | null;
   city: string | null;
   country: string | null;
   state: string | null;
   state_code: string | null;
   latitude: number | null;
   longitude: number | null;
+  bio: string | null;
+  years_of_experience?: number | null;
 }
 
 type PilatesSettings = Tables<'pilates_settings'>;
@@ -444,6 +447,47 @@ export default function BookingPage() {
   const [submitting, setSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState(() => initialBookingDraft?.searchQuery ?? '');
   const [selectedCategory, setSelectedCategory] = useState(() => initialBookingDraft?.selectedCategory ?? 'All');
+  const [profileModalMaster, setProfileModalMaster] = useState<Master | null>(null);
+  const [portfolioPhotos, setPortfolioPhotos] = useState<any[]>([]);
+  const [activePhotoUrl, setActivePhotoUrl] = useState<string | null>(null);
+
+  const fetchAndShowProfile = async (profileId: string) => {
+    if (!profileId) return;
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, avatar_url, specialties, city, country, state, state_code, latitude, longitude, bio, years_of_experience')
+        .eq('id', profileId)
+        .single();
+      if (!error && data) {
+        setProfileModalMaster(data as Master);
+      }
+    } catch (err) {
+      console.error('Error fetching profile:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (!profileModalMaster?.id) {
+      setPortfolioPhotos([]);
+      return;
+    }
+    const fetchPortfolio = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('portfolios')
+          .select('*')
+          .eq('master_id', profileModalMaster.id)
+          .order('created_at', { ascending: false });
+        if (!error && data) {
+          setPortfolioPhotos(data);
+        }
+      } catch (err) {
+        console.error('Error fetching portfolio:', err);
+      }
+    };
+    fetchPortfolio();
+  }, [profileModalMaster?.id, supabase]);
 
   // Data
   const [services, setServices] = useState<Service[]>([]);
@@ -469,6 +513,7 @@ export default function BookingPage() {
   const [loadingPilatesSessions, setLoadingPilatesSessions] = useState(false);
   const [masterAvailability, setMasterAvailability] = useState<MasterAvailability[]>([]);
   const [blockedSlots, setBlockedSlots] = useState<BlockedSlot[]>([]);
+  const [serviceProfessionalIds, setServiceProfessionalIds] = useState<Record<string, string[]>>({});
   const [bookedSlotKeys, setBookedSlotKeys] = useState<string[]>([]);
   const [isFetchingSlots, setIsFetchingSlots] = useState(false);
   const selectedService = useMemo(
@@ -521,24 +566,15 @@ export default function BookingPage() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [servicesRes, mastersRes] = await Promise.all([
-          // Pull each service together with its master_services rows so we can
-          // verify at least one offering master is inside the user's country
-          // and search radius before showing the service.
-          supabase
-            .from('services')
-            .select(
-              '*, master_services!inner(is_available, master_id, master:profiles!master_services_master_id_fkey(country, state, state_code, latitude, longitude))'
-            )
-            .eq('is_active', true)
-            .eq('master_services.is_available', true)
-            .limit(60),
-          supabase
-            .from('profiles')
-            .select('id, full_name, avatar_url, specialties, city, country, state, state_code, latitude, longitude')
-            .eq('is_master', true)
-            .limit(60),
-        ]);
+        // Fetch services with their linked professionals' location data
+        const servicesRes = await supabase
+          .from('services')
+          .select(
+            '*, master_services!inner(is_available, master_id, master:profiles!master_services_master_id_fkey(country, state, state_code, latitude, longitude))'
+          )
+          .eq('is_active', true)
+          .eq('master_services.is_available', true)
+          .limit(60);
 
         const userLoc = {
           country: userCountry,
@@ -564,31 +600,47 @@ export default function BookingPage() {
           }>;
         };
         const rawServices = ((servicesRes.data as unknown as ServiceRow[]) || []);
-        const filteredServices: Service[] = rawServices
-          .filter((service) => {
-            const links = service.master_services || [];
-            if (!userCountry) {
-              // Without a known country, keep nothing — matches mobile behaviour
-              // ("Must have a known user country to view local booking options").
-              return false;
-            }
-            return links.some((link) => {
+        // Build service → professional-IDs mapping so Step 2 only shows
+        // professionals who actually offer the selected service.
+        const profMap: Record<string, string[]> = {};
+        const allProfIds = new Set<string>();
+
+        rawServices.forEach(service => {
+          const links = service.master_services || [];
+          if (!userCountry) {
+            profMap[service.id] = [];
+            return;
+          }
+          const validIds = links
+            .filter(link => {
               if (!user?.id) return false;
-              if (link.master_id === user.id) return false; // never show own services
+              if (link.master_id === user.id) return false;
               if (!link.master) return false;
               return isMasterWithinRange(userLoc, link.master, searchRadiusKm);
-            });
-          })
+            })
+            .map(link => link.master_id);
+          profMap[service.id] = validIds;
+          validIds.forEach(id => allProfIds.add(id));
+        });
+
+        setServiceProfessionalIds(profMap);
+
+        const filteredServices: Service[] = rawServices
+          .filter(service => (profMap[service.id] || []).length > 0)
           .map(({ master_services: _ms, ...rest }) => rest as Service);
         setServices(filteredServices);
 
-        // ── Masters: filter the same way so step 2 only shows nearby pros.
-        const rawMasters = ((mastersRes.data as unknown as Master[]) || [])
-          .filter((master) => master.id !== user?.id)
-          .filter((master) => {
-            if (!userCountry) return false;
-            return isMasterWithinRange(userLoc, master, searchRadiusKm);
-          });
+        // ── Professionals: fetch profiles for every professional linked to
+        // at least one visible service (includes owners who offer services).
+        const profIdArray = Array.from(allProfIds);
+        let rawMasters: Master[] = [];
+        if (profIdArray.length > 0) {
+          const mastersRes = await supabase
+            .from('profiles')
+            .select('id, full_name, email, avatar_url, specialties, city, country, state, state_code, latitude, longitude, bio, years_of_experience')
+            .in('id', profIdArray);
+          rawMasters = ((mastersRes.data as unknown as Master[]) || []);
+        }
         setMasters(rawMasters);
 
         // Check for masterId parameter in the URL
@@ -846,6 +898,13 @@ export default function BookingPage() {
     return acc;
   }, {});
 
+  // Only show professionals who actually offer the selected service in Step 2
+  const relevantMasters = useMemo(() => {
+    if (!selectedServiceId) return masters;
+    const ids = serviceProfessionalIds[selectedServiceId] || [];
+    return masters.filter(m => ids.includes(m.id));
+  }, [masters, selectedServiceId, serviceProfessionalIds]);
+
   return (
     <div className="w-full max-w-4xl mx-auto animate-fade-in pb-20 relative">
       
@@ -965,8 +1024,17 @@ export default function BookingPage() {
                     if (service.category === 'Pilates') {
                       setSelectedMasterId(null);
                       setStep(3);
+                    } else if (isMasterPreselected) {
+                      setStep(3);
                     } else {
-                      setStep(isMasterPreselected ? 3 : 2);
+                      // Auto-select when only one professional offers this service
+                      const linkedProfIds = serviceProfessionalIds[service.id] || [];
+                      if (linkedProfIds.length === 1) {
+                        setSelectedMasterId(linkedProfIds[0]);
+                        setStep(3);
+                      } else {
+                        setStep(2);
+                      }
                     }
                   }}
                   className="glass-card overflow-hidden hover:shadow-xl hover:-translate-y-2 hover:border-pink-500/30 transition-all duration-300 cursor-pointer group"
@@ -984,6 +1052,45 @@ export default function BookingPage() {
                   </div>
                   <div className="p-5">
                     <h3 className="font-bold text-[var(--color-text-primary)] group-hover:text-pink-600 transition-colors">{service.name}</h3>
+                    
+                    {(() => {
+                      const linkedIds = serviceProfessionalIds[service.id] || [];
+                      const providers = linkedIds
+                        .map(id => masters.find(m => m.id === id))
+                        .filter((m): m is Master => !!m);
+                      if (providers.length === 0) return null;
+
+                      const getDisplayName = (m: Master) => {
+                        const name = m.full_name?.trim();
+                        if (name && name.toLowerCase() !== 'owner' && name.toLowerCase() !== 'master') {
+                          return name;
+                        }
+                        if (m.email) {
+                          return m.email.split('@')[0];
+                        }
+                        return name || 'Professional';
+                      };
+
+                      const primaryName = getDisplayName(providers[0]);
+                      return (
+                        <p className="text-xs text-[var(--color-text-secondary)] mt-1.5 flex items-center gap-1">
+                          <User size={12} className="text-pink-500 shrink-0" />
+                          <span 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setProfileModalMaster(providers[0]);
+                            }}
+                            className="truncate hover:text-pink-600 hover:underline cursor-pointer font-medium animate-fade-in"
+                            title="View specialist profile"
+                          >
+                            {providers.length === 1 
+                              ? `By ${primaryName}` 
+                              : `By ${primaryName} & ${providers.length - 1} other${providers.length > 2 ? 's' : ''}`}
+                          </span>
+                        </p>
+                      );
+                    })()}
+
                     <div className="flex items-center justify-between mt-4">
                       <div className="flex items-center gap-1.5 text-sm text-[var(--color-text-muted)] bg-[var(--color-surface-light)] px-2 py-1 rounded-md">
                         <Clock size={14} /> <span>{service.duration_minutes} min</span>
@@ -1023,7 +1130,7 @@ export default function BookingPage() {
           <h2 className="text-2xl font-bold text-[var(--color-text-primary)] mb-6">Choose a Professional</h2>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {masters.map((master) => (
+            {relevantMasters.map((master) => (
               <div
                 key={master.id}
                 onClick={() => { setSelectedMasterId(master.id); setStep(3); }}
@@ -1047,7 +1154,18 @@ export default function BookingPage() {
                     </span>
                   )}
                 </div>
-                <div className="w-8 h-8 rounded-full bg-[var(--color-surface-light)] flex items-center justify-center group-hover:bg-violet-100 group-hover:text-violet-600 transition-colors">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setProfileModalMaster(master);
+                  }}
+                  className="w-8 h-8 rounded-full bg-violet-50 text-violet-600 flex items-center justify-center hover:bg-violet-100 hover:scale-105 transition-all cursor-pointer mr-1 relative z-20 shrink-0"
+                  title="View Profile"
+                >
+                  <User size={14} />
+                </button>
+                <div className="w-8 h-8 rounded-full bg-[var(--color-surface-light)] flex items-center justify-center group-hover:bg-violet-100 group-hover:text-violet-600 transition-colors shrink-0">
                   <ArrowRight size={16} />
                 </div>
               </div>
@@ -1059,9 +1177,54 @@ export default function BookingPage() {
       {/* STEP 3: Select Date & Time */}
       {step === 3 && (
         <div className="animate-fade-in">
-          <button onClick={() => setStep(selectedService?.category === 'Pilates' || isMasterPreselected ? 1 : 2)} className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] mb-6 transition-colors">
-            <ArrowLeft size={16} /> Back to {selectedService?.category === 'Pilates' || isMasterPreselected ? 'Services' : 'Professionals'}
+          <button onClick={() => {
+            const skipStep2 = selectedService?.category === 'Pilates' || isMasterPreselected || relevantMasters.length <= 1;
+            setStep(skipStep2 ? 1 : 2);
+          }} className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] mb-6 transition-colors">
+            <ArrowLeft size={16} /> Back to {selectedService?.category === 'Pilates' || isMasterPreselected || relevantMasters.length <= 1 ? 'Services' : 'Professionals'}
           </button>
+
+          {/* Selected Service & Professional Banner */}
+          <div className="bg-gradient-to-r from-pink-50 to-violet-50 border border-pink-100 rounded-2xl p-4 mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-pink-400 to-violet-500 flex items-center justify-center shadow-md shrink-0">
+                <Scissors size={20} className="text-white" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-pink-600 uppercase tracking-widest">Selected Service</p>
+                <p className="text-lg font-bold text-[var(--color-text-primary)]">{selectedService?.name}</p>
+              </div>
+            </div>
+            
+            {!isPilatesService && selectedMaster && (
+              <div 
+                onClick={() => setProfileModalMaster(selectedMaster)}
+                className="flex items-center gap-3 bg-white/60 hover:bg-white border border-pink-100 hover:border-pink-200 rounded-xl p-2.5 cursor-pointer transition-all shadow-sm group shrink-0"
+                title="View Specialist Profile"
+              >
+                <div className="w-8 h-8 rounded-full overflow-hidden bg-[var(--color-surface-light)] border border-pink-100 shrink-0">
+                  {selectedMaster.avatar_url ? (
+                    <img src={selectedMaster.avatar_url} alt={selectedMaster.full_name || ''} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-xs font-bold text-[var(--color-text-muted)] bg-gradient-to-br from-gray-100 to-gray-200">
+                      {selectedMaster.full_name?.charAt(0) || '?'}
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-[var(--color-text-muted)] uppercase tracking-wider">Professional</p>
+                  <p className="text-xs font-bold text-[var(--color-text-primary)] group-hover:text-pink-600 transition-colors flex items-center gap-1">
+                    {selectedMaster.full_name}
+                    <User size={10} className="text-pink-500" />
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="text-right sm:block hidden shrink-0">
+              <p className="text-sm font-bold text-violet-700">£{selectedService?.base_price?.toFixed(2)} • {selectedService?.duration_minutes} min</p>
+            </div>
+          </div>
 
           <h2 className="text-2xl font-bold text-[var(--color-text-primary)] mb-6">{selectedService?.category === 'Pilates' ? 'Choose a Pilates Class' : 'Select Date & Time'}</h2>
 
@@ -1094,7 +1257,20 @@ export default function BookingPage() {
                                 <span className="text-lg font-bold text-[var(--color-text-primary)]">{new Date(session.starts_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                 <span className={`rounded-full px-3 py-1 text-xs font-bold ${isFull ? 'bg-gray-200 text-gray-500' : 'bg-emerald-100 text-emerald-700'}`}>{isFull ? 'Full' : `${spotsLeft} spots left`}</span>
                               </div>
-                              <p className="mt-2 font-semibold text-violet-700">{session.host?.display_name || 'Pilates host'}</p>
+                              <p 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const hostProfileId = session.host?.profile_id || session.owner_id;
+                                  if (hostProfileId) {
+                                    fetchAndShowProfile(hostProfileId);
+                                  }
+                                }}
+                                className="mt-2 font-semibold text-violet-700 hover:text-violet-900 hover:underline cursor-pointer inline-flex items-center gap-1 relative z-20"
+                                title="View Host Profile"
+                              >
+                                {session.host?.display_name || 'Pilates host'}
+                                <User size={12} className="text-violet-500" />
+                              </p>
                               <p className="mt-1 text-sm text-[var(--color-text-muted)]">{session.level} · {Math.round((new Date(session.ends_at).getTime() - new Date(session.starts_at).getTime()) / 60000)} min</p>
                             </button>
                           );
@@ -1307,18 +1483,38 @@ export default function BookingPage() {
                   <p className="font-bold text-lg text-gradient-pink">£{selectedService?.base_price?.toFixed(2)}</p>
                 </div>
 
-                <div className="flex items-center justify-between p-4 rounded-xl bg-white/50 border border-white/40 shadow-sm">
+                <div 
+                  onClick={() => {
+                    if (selectedMaster) {
+                      setProfileModalMaster(selectedMaster);
+                    } else {
+                      const hostProfileId = selectedPilatesSession?.host?.profile_id || selectedPilatesSession?.owner_id;
+                      if (hostProfileId) {
+                        fetchAndShowProfile(hostProfileId);
+                      }
+                    }
+                  }}
+                  className="flex items-center justify-between p-4 rounded-xl bg-white/50 border border-white/40 shadow-sm hover:border-violet-200 hover:bg-violet-50/30 cursor-pointer transition-all group"
+                  title="View Specialist Profile"
+                >
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full bg-violet-100 flex items-center justify-center text-violet-600 overflow-hidden">
-                      {selectedMaster?.avatar_url ? (
-                        <img src={selectedMaster.avatar_url} className="w-full h-full object-cover" alt="Master" />
-                      ) : <User size={20} />}
+                    <div className="w-12 h-12 rounded-full bg-violet-100 flex items-center justify-center text-violet-600 overflow-hidden animate-fade-in">
+                      {(() => {
+                        const hostId = selectedPilatesSession?.host?.profile_id || selectedPilatesSession?.owner_id;
+                        const matchingMaster = masters.find(m => m.id === hostId);
+                        const avatarUrl = selectedMaster?.avatar_url || matchingMaster?.avatar_url;
+                        if (avatarUrl) {
+                          return <img src={avatarUrl} className="w-full h-full object-cover" alt="Avatar" />;
+                        }
+                        return <User size={20} />;
+                      })()}
                     </div>
                     <div>
                       <p className="text-xs font-bold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">{selectedService?.category === 'Pilates' ? 'Host' : 'Professional'}</p>
-                      <p className="font-bold text-[var(--color-text-primary)]">{selectedPilatesSession?.host?.display_name || selectedMaster?.full_name}</p>
+                      <p className="font-bold text-[var(--color-text-primary)] group-hover:text-violet-600 transition-colors">{selectedPilatesSession?.host?.display_name || selectedMaster?.full_name}</p>
                     </div>
                   </div>
+                  <ChevronRight size={18} className="text-gray-300 group-hover:text-violet-500 group-hover:translate-x-0.5 transition-all" />
                 </div>
 
                 <div className="flex items-center justify-between p-4 rounded-xl bg-white/50 border border-white/40 shadow-sm">
@@ -1383,6 +1579,180 @@ export default function BookingPage() {
             <button onClick={() => setStep(1)} className="px-8 py-3 rounded-xl font-bold bg-[var(--color-surface-light)] hover:bg-[var(--color-border)] text-[var(--color-text-primary)] transition-colors">
               Book Another
             </button>
+          </div>
+        </div>
+      )}
+
+    {/* Professional Profile Modal */}
+      {profileModalMaster && (
+        <div className="fixed inset-0 z-[10001] flex items-center justify-center p-4 animate-fade-in">
+          <div 
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm" 
+            onClick={() => setProfileModalMaster(null)} 
+          />
+          <div className="relative bg-white rounded-[2rem] shadow-2xl border border-pink-100 p-6 sm:p-8 w-full max-w-3xl max-h-[90vh] overflow-y-auto transform scale-in z-30 scrollbar-thin">
+            
+            {/* Colorful top decoration */}
+            <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-pink-100/50 to-violet-100/30 rounded-bl-[8rem] -z-10" />
+            
+            <button 
+              onClick={() => setProfileModalMaster(null)}
+              className="absolute top-4 right-4 w-8 h-8 rounded-full bg-gray-50 hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors shadow-sm"
+              aria-label="Close modal"
+            >
+              ✕
+            </button>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              
+              {/* Left Column: Profile Details */}
+              <div className="space-y-6">
+                <div className="flex items-start gap-4">
+                  <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-violet-400 to-pink-400 flex items-center justify-center text-white font-bold text-3xl shrink-0 shadow-lg overflow-hidden border-2 border-white">
+                    {profileModalMaster.avatar_url ? (
+                      <img src={profileModalMaster.avatar_url} alt={profileModalMaster.full_name || ''} className="w-full h-full object-cover" />
+                    ) : (
+                      profileModalMaster.full_name?.charAt(0) || '?'
+                    )}
+                  </div>
+                  <div className="pt-2">
+                    <h3 className="text-2xl font-bold text-[var(--color-text-primary)] leading-tight">
+                      {profileModalMaster.full_name || (profileModalMaster.email ? profileModalMaster.email.split('@')[0] : 'Specialist')}
+                    </h3>
+                    <p className="text-xs font-semibold text-pink-600 uppercase tracking-widest mt-1">
+                      {(() => {
+                        const specs = profileModalMaster.specialties;
+                        if (!specs) return 'Beauty Professional';
+                        if (Array.isArray(specs)) return specs.join(', ');
+                        return String(specs);
+                      })()}
+                    </p>
+                    
+                    {profileModalMaster.years_of_experience != null && (
+                      <span className="inline-flex items-center gap-1.5 mt-2 px-2.5 py-0.5 rounded-full bg-violet-50 text-violet-700 font-bold text-[10px] uppercase tracking-wider">
+                        ★ {profileModalMaster.years_of_experience} Years Experience
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* About Section */}
+                <div>
+                  <h4 className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">About & Bio</h4>
+                  {profileModalMaster.bio ? (
+                    <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed bg-pink-50/20 border border-pink-100/40 p-4 rounded-2xl">
+                      {profileModalMaster.bio}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-[var(--color-text-muted)] italic bg-gray-50 border border-gray-100 p-4 rounded-2xl">No biography provided yet.</p>
+                  )}
+                </div>
+
+                {/* Salon Location Section */}
+                <div>
+                  <h4 className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">Salon Location</h4>
+                  <div className="p-4 rounded-2xl bg-white border border-gray-100 shadow-sm flex flex-col gap-3 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-16 h-16 bg-pink-50 rounded-full mix-blend-multiply filter blur-xl opacity-70" />
+                    
+                    <div className="flex items-start gap-2.5 relative z-10">
+                      <MapPin className="text-pink-500 shrink-0 mt-0.5" size={16} />
+                      <div>
+                        <p className="text-sm font-bold text-[var(--color-text-primary)]">
+                          {profileModalMaster.city ? `${profileModalMaster.city}` : 'Local Salon'}
+                        </p>
+                        <p className="text-xs text-[var(--color-text-secondary)] mt-0.5">
+                          {[profileModalMaster.state, profileModalMaster.country].filter(Boolean).join(', ') || 'Available for booking in country area'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Google Maps link if coords are available */}
+                    {profileModalMaster.latitude && profileModalMaster.longitude ? (
+                      <a 
+                        href={`https://www.google.com/maps/search/?api=1&query=${profileModalMaster.latitude},${profileModalMaster.longitude}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-1 w-full text-center py-2.5 rounded-xl text-xs font-bold bg-pink-50 hover:bg-pink-100 text-pink-600 transition-all block border border-pink-100 hover:-translate-y-0.5"
+                      >
+                        📍 View on Google Maps
+                      </a>
+                    ) : (
+                      <p className="text-[10px] text-[var(--color-text-muted)] italic border-t border-gray-50 pt-2">No coordinates set for map navigation.</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column: Portfolio Grid */}
+              <div className="flex flex-col h-full border-t md:border-t-0 md:border-l border-gray-100 pt-6 md:pt-0 md:pl-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Portfolio & Gallery</h4>
+                  <span className="text-[10px] font-bold text-pink-500 px-2 py-0.5 rounded-full bg-pink-50">
+                    {portfolioPhotos.length} Photos
+                  </span>
+                </div>
+
+                <div className="flex-1 overflow-y-auto max-h-[400px] scrollbar-thin pr-1">
+                  {portfolioPhotos.length === 0 ? (
+                    <div className="h-48 flex flex-col items-center justify-center text-center border-2 border-dashed border-gray-100 rounded-2xl p-6 bg-gray-50/50">
+                      <span className="text-2xl mb-2">📸</span>
+                      <p className="text-xs font-semibold text-[var(--color-text-secondary)]">No portfolio photos uploaded</p>
+                      <p className="text-[10px] text-[var(--color-text-muted)] mt-1">This professional hasn't shared any of their work yet.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-3 pb-2">
+                      {portfolioPhotos.map((photo) => (
+                        <div 
+                          key={photo.id}
+                          onClick={() => setActivePhotoUrl(photo.image_url)}
+                          className="group relative h-28 rounded-xl overflow-hidden cursor-pointer shadow-sm hover:shadow-md border border-gray-100 transition-all hover:scale-[1.02]"
+                        >
+                          <img 
+                            src={photo.image_url} 
+                            alt={photo.description || 'Portfolio work'} 
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                          />
+                          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-2 text-center backdrop-blur-[2px]">
+                            <p className="text-[10px] text-white font-medium line-clamp-3">
+                              {photo.description || 'View larger'}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+            </div>
+
+            <div className="mt-8 pt-4 border-t border-gray-100 flex justify-end gap-3">
+              <button 
+                onClick={() => setProfileModalMaster(null)} 
+                className="w-full btn-primary py-3 rounded-xl font-extrabold text-sm shadow-md hover:shadow-lg transition-all"
+              >
+                Close Profile
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Lightbox / Enlarged Photo View */}
+      {activePhotoUrl && (
+        <div className="fixed inset-0 z-[10002] flex items-center justify-center p-4 bg-black/90 animate-fade-in">
+          <button 
+            onClick={() => setActivePhotoUrl(null)}
+            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white text-xl font-bold transition-colors"
+          >
+            ✕
+          </button>
+          <div className="max-w-4xl max-h-[85vh] overflow-hidden rounded-2xl shadow-2xl border border-white/10 relative scale-in">
+            <img 
+              src={activePhotoUrl} 
+              alt="Enlarged portfolio work" 
+              className="max-w-full max-h-[85vh] object-contain"
+            />
           </div>
         </div>
       )}

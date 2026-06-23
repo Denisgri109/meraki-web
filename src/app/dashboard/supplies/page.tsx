@@ -302,18 +302,28 @@ export default function SuppliesPage() {
           : await supabase.from('master_supplies').update(base).eq('id', editing.id);
         if (upd.error) throw upd.error;
 
-        // log manual adjustment if quantity changed (master side has trigger-based logging on consumption only;
-        // we manually log manual adjustments here)
+        // log manual adjustment if quantity changed (we manually log manual adjustments here)
         const delta = qty - editing.quantity;
-        if (!isOwner && delta !== 0) {
-          await supabase.from('supply_consumption_log').insert({
-            supply_id: editing.id,
-            quantity_used: -delta, // negative when adding stock
-            quantity_before: editing.quantity,
-            quantity_after: qty,
-            notes: delta > 0 ? `Restock +${delta}` : `Manual remove ${Math.abs(delta)}`,
-            created_by: user.id,
-          });
+        if (delta !== 0) {
+          if (isOwner) {
+            await supabase.from('owner_supply_consumption_log').insert({
+              supply_id: editing.id,
+              quantity_used: -delta, // negative when adding stock
+              quantity_before: editing.quantity,
+              quantity_after: qty,
+              notes: delta > 0 ? `Restock +${delta}` : `Manual remove ${Math.abs(delta)}`,
+              created_by: user.id,
+            });
+          } else {
+            await supabase.from('supply_consumption_log').insert({
+              supply_id: editing.id,
+              quantity_used: -delta, // negative when adding stock
+              quantity_before: editing.quantity,
+              quantity_after: qty,
+              notes: delta > 0 ? `Restock +${delta}` : `Manual remove ${Math.abs(delta)}`,
+              created_by: user.id,
+            });
+          }
         }
         showToast('Supply updated', 'success');
       } else {
@@ -400,6 +410,11 @@ export default function SuppliesPage() {
     const qty = Number(linkQty);
     if (!Number.isFinite(qty) || qty <= 0) {
       showToast('Invalid quantity', 'error');
+      return;
+    }
+    const selectedSupply = supplies.find((s) => s.id === linkSupplyId);
+    if (selectedSupply && qty > selectedSupply.quantity) {
+      showToast(`Cannot exceed available stock of ${selectedSupply.quantity} ${selectedSupply.unit}`, 'error');
       return;
     }
     setSaving(true);

@@ -352,6 +352,15 @@ export default function ServicesPage() {
     if (!form.duration_minutes || isNaN(Number(form.duration_minutes)) || Number(form.duration_minutes) <= 0) { showToast('Please enter a valid duration', 'error'); return; }
     if (form.category === 'Pilates' && !isOwner) { showToast('Only owners can create Pilates services', 'error'); return; }
 
+    // Validate linked supplies stock first
+    for (const fs of formSupplies) {
+      const sup = availableSupplies.find(s => s.id === fs.supply_id);
+      if (sup && fs.quantity_per_service > sup.quantity) {
+        showToast(`Supply "${sup.name}" exceeds available stock (${sup.quantity} ${sup.unit || ''})`, 'error');
+        return;
+      }
+    }
+
     setSaving(true);
     try {
       const payload: Omit<ServiceInsert, 'created_by' | 'is_active'> = {
@@ -920,6 +929,10 @@ export default function ServicesPage() {
                           return;
                         }
                         const sup = availableSupplies.find(s => s.id === selectedSupplyId);
+                        if (sup && qty > sup.quantity) {
+                          showToast(`Cannot exceed available stock of ${sup.quantity} ${sup.unit || ''}`, 'error');
+                          return;
+                        }
                         setFormSupplies([...formSupplies, {
                           supply_id: selectedSupplyId,
                           quantity_per_service: qty,
