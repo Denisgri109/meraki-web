@@ -10,7 +10,7 @@ import {
   Home, Calendar, Search, ShoppingBag, GraduationCap, Gift,
   MessageSquare, Settings, LogOut, Menu, X, ChevronDown,
   Scissors, Clock, Package, BarChart3, Boxes, DollarSign, Wallet,
-  Bell, ShoppingCart, CalendarCheck, Inbox, ClipboardList, HelpCircle, Megaphone
+  Bell, ShoppingCart, CalendarCheck, Inbox, ClipboardList, HelpCircle, Megaphone, Smartphone
 } from 'lucide-react';
 
 // ─── Navigation items ─────────────────────────────────────────────
@@ -132,24 +132,44 @@ export function MainNavbar({ transparent = false }: MainNavbarProps) {
   // Not authenticated
   if (!user) {
     return (
-      <header className={`${transparent ? 'absolute top-0 left-0 right-0 z-50' : 'sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100'} h-16 flex items-center justify-between px-6 lg:px-12`}>
-        <Link href="/" className={`text-2xl font-[family-name:var(--font-playfair)] italic drop-shadow-sm ${transparent ? 'text-white drop-shadow-md' : 'text-[var(--color-primary)]'}`}>
-          Merakí
-        </Link>
-        <div className="flex items-center gap-3">
-          <Link href="/login" className={`text-sm font-medium transition-colors px-4 py-2 ${transparent ? 'text-white/90 hover:text-white' : 'text-gray-700 hover:text-black'}`}>
-            Sign In
-          </Link>
-          <Link href="/register" className={`text-sm font-semibold px-5 py-2.5 rounded-full transition-colors shadow-md ${transparent ? 'bg-white text-[var(--color-primary)] hover:bg-white/90 shadow-lg' : 'bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary)]/90'}`}>
-            Get Started
+      <>
+        <header className={`${transparent ? 'absolute top-0 left-0 right-0 z-50' : 'sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100'}`}>
+          <div className="h-16 flex items-center justify-between px-6 lg:px-12">
+            <Link href="/" className={`text-2xl font-[family-name:var(--font-playfair)] italic drop-shadow-sm ${transparent ? 'text-white drop-shadow-md' : 'text-[var(--color-primary)]'}`}>
+              Merakí
+            </Link>
+            <div className="flex items-center gap-3">
+              <Link href="/login" className={`text-sm font-medium transition-colors px-4 py-2 ${transparent ? 'text-white/90 hover:text-white' : 'text-gray-700 hover:text-black'}`}>
+                Sign In
+              </Link>
+              <Link href="/register" className={`text-sm font-semibold px-5 py-2.5 rounded-full transition-colors shadow-md ${transparent ? 'bg-white text-[var(--color-primary)] hover:bg-white/90 shadow-lg' : 'bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary)]/90'}`}>
+                Get Started
+              </Link>
+            </div>
+          </div>
+        </header>
+
+        {/* Below the navbar border */}
+        <div className="w-full flex justify-start px-2 lg:px-4 pt-3 pb-2">
+          <Link 
+            href="/get-app" 
+            className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full font-bold transition-all shadow-sm border ${
+              transparent 
+                ? 'bg-white/10 hover:bg-white/20 border-white/20 text-white' 
+                : 'bg-[var(--color-brand-pink-light)] hover:bg-[var(--color-brand-pink)] hover:text-white border-[var(--color-brand-pink)]/20 text-[var(--color-brand-pink-dark)]'
+            }`}
+          >
+            <Smartphone size={18} />
+            <span>Get Mobile App</span>
           </Link>
         </div>
-      </header>
+      </>
     );
   }
 
   // Authenticated
   return (
+    <>
     <header className={`${transparent ? 'relative' : 'sticky'} top-0 z-50 bg-white/70 backdrop-blur-2xl border-b border-[var(--color-brand-pink)]/20 shadow-[0_2px_10px_rgba(232,160,180,0.05)]`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
@@ -369,5 +389,17 @@ export function MainNavbar({ transparent = false }: MainNavbarProps) {
         </div>
       )}
     </header>
+
+    {/* Below the navbar border */}
+    <div className="w-full flex justify-start px-2 lg:px-4 pt-3 pb-2">
+      <Link 
+        href="/get-app" 
+        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full font-bold text-[var(--color-brand-pink-dark)] bg-[var(--color-brand-pink-light)] hover:bg-[var(--color-brand-pink)] hover:text-white transition-all shadow-sm border border-[var(--color-brand-pink)]/20"
+      >
+        <Smartphone size={18} />
+        <span>Get Mobile App</span>
+      </Link>
+    </div>
+    </>
   );
 }
