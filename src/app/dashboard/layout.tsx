@@ -7,8 +7,6 @@ import { ToastProvider } from '@/components/Toast';
 import { Footer } from '@/components/Footer';
 import { MainNavbar } from '@/components/MainNavbar';
 import { NotificationsProvider } from '@/contexts/NotificationsContext';
-import { TestPanel } from '@/components/TestPanel';
-import { TestHighlighter } from '@/components/TestHighlighter';
 import { useAutoLocation } from '@/hooks/useAutoLocation';
 import LocationGateModal from '@/components/LocationGateModal';
 import { ModalProvider } from '@/contexts/ModalContext';
@@ -78,8 +76,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <ToastProvider>{children}</ToastProvider>
           </main>
           <Footer />
-          <TestPanel />
-          <TestHighlighter />
         </NotificationsProvider>
 
         {/* Location gate — blocks dashboard until country/city is set */}
