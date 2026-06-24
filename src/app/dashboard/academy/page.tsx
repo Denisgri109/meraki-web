@@ -7,7 +7,7 @@ import { useToast } from '@/components/Toast';
 import {
   GraduationCap, Play, Search, Users, ArrowLeft, CheckCircle2, Clock, BookOpen,
   ShieldCheck, Plus, Edit3, Trash2, Eye, EyeOff, BarChart3, Inbox, MessageCircle,
-  ChevronRight, Loader2, X, Save, DollarSign, FileText, AlertTriangle,
+  ChevronRight, Loader2, X, Save, DollarSign, FileText, AlertTriangle, Upload,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -76,6 +76,44 @@ function OwnerAcademyView() {
   // Delete
   const [deleteTarget, setDeleteTarget] = useState<Course | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Thumbnail upload
+  const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
+
+  const handleThumbnailUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('Image must be under 5MB', 'error');
+      return;
+    }
+
+    setUploadingThumbnail(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `course-${Date.now()}-${Math.random().toString(36).substring(2, 10)}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('course-images')
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('course-images')
+        .getPublicUrl(filePath);
+
+      setForm((prev) => ({ ...prev, thumbnail_url: publicUrl }));
+      showToast('Thumbnail uploaded successfully', 'success');
+    } catch (error: unknown) {
+      console.error('Upload error:', error);
+      showToast(error instanceof Error ? error.message : 'Error uploading thumbnail', 'error');
+    } finally {
+      setUploadingThumbnail(false);
+    }
+  };
 
   const fetchCourses = useCallback(async () => {
     if (!user) return;
@@ -222,7 +260,11 @@ function OwnerAcademyView() {
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
         <StatCard label="Courses" value={courses.length} accent="from-cyan-400 to-blue-400" />
-        <StatCard label="Enrollments" value={stats.totalEnrollments} accent="from-pink-400 to-rose-400" />
+        <button onClick={() => router.push('/dashboard/academy/students')} className="text-left glass-card p-4 hover:shadow-md transition-all relative">
+          <div className="w-2 h-2 rounded-full bg-gradient-to-br from-pink-400 to-rose-400 mb-3" />
+          <p className="text-2xl font-bold text-[var(--color-text-primary)] tracking-tight">{stats.totalEnrollments}</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)] mt-1">Enrollments</p>
+        </button>
         <button onClick={() => router.push('/dashboard/academy/homework')} className="text-left glass-card p-4 hover:shadow-md transition-all relative">
           <div className="w-2 h-2 rounded-full bg-gradient-to-br from-amber-400 to-orange-400 mb-3" />
           <p className="text-2xl font-bold text-[var(--color-text-primary)] tracking-tight">{stats.pendingHomework}</p>
@@ -374,17 +416,24 @@ function OwnerAcademyView() {
                   <input className="input-glass w-full" type="number" min="0" step="0.01" placeholder="0.00" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
                 </div>
                 <div>
-                  <label className="text-sm font-semibold text-[var(--color-text-secondary)] mb-1 block">Thumbnail URL</label>
-                  <input className="input-glass w-full" placeholder="https://..." value={form.thumbnail_url} onChange={(e) => setForm({ ...form, thumbnail_url: e.target.value })} />
+                  <label className="text-sm font-semibold text-[var(--color-text-secondary)] mb-1 block">Thumbnail Image</label>
+                  <div className="flex gap-2">
+                    <input className="input-glass flex-1" placeholder="URL or upload" value={form.thumbnail_url} onChange={(e) => setForm({ ...form, thumbnail_url: e.target.value })} />
+                    <label className={`btn-primary shrink-0 px-4 py-2 flex items-center justify-center gap-2 cursor-pointer ${uploadingThumbnail ? 'opacity-50 pointer-events-none' : ''}`}>
+                      {uploadingThumbnail ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                      {uploadingThumbnail ? 'Uploading...' : 'Upload'}
+                      <input type="file" accept="image/*" className="hidden" onChange={handleThumbnailUpload} disabled={uploadingThumbnail} />
+                    </label>
+                  </div>
                 </div>
               </div>
               <label className="flex items-center gap-3 cursor-pointer">
                 <button
                   type="button"
                   onClick={() => setForm({ ...form, is_published: !form.is_published })}
-                  className={`w-10 h-6 rounded-full transition-colors relative ${form.is_published ? 'bg-emerald-500' : 'bg-gray-300'}`}
+                  className={`w-10 h-6 rounded-full transition-colors relative shrink-0 ${form.is_published ? 'bg-emerald-500' : 'bg-gray-300'}`}
                 >
-                  <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${form.is_published ? 'translate-x-4.5' : 'translate-x-0.5'}`} />
+                  <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${form.is_published ? 'translate-x-4' : 'translate-x-0'}`} />
                 </button>
                 <span className="text-sm font-medium text-[var(--color-text-primary)]">Publish immediately</span>
               </label>

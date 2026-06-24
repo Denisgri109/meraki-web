@@ -177,7 +177,6 @@ export default function ConsultationsPage() {
   const [reviewNotes, setReviewNotes] = useState('');
   const [reviewDoable, setReviewDoable] = useState<boolean | null>(null);
   const [reviewRecommendations, setReviewRecommendations] = useState('');
-  const [reviewPriceRange, setReviewPriceRange] = useState('');
   const [reviewDuration, setReviewDuration] = useState('');
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
 
@@ -320,7 +319,7 @@ export default function ConsultationsPage() {
           is_doable: reviewDoable,
           professional_notes: reviewNotes.trim() || null,
           recommendations: reviewRecommendations.trim() || null,
-          estimated_price_range: reviewPriceRange.trim() || null,
+          estimated_price_range: null,
           estimated_duration: reviewDuration.trim() || null,
         })
         .eq('id', consultationId);
@@ -407,7 +406,6 @@ export default function ConsultationsPage() {
     setReviewNotes('');
     setReviewDoable(null);
     setReviewRecommendations('');
-    setReviewPriceRange('');
     setReviewDuration('');
   };
 
@@ -428,7 +426,6 @@ export default function ConsultationsPage() {
       setReviewNotes(pc.professional_notes || pc.master_reply || '');
       setReviewDoable(pc.is_doable);
       setReviewRecommendations(pc.recommendations || '');
-      setReviewPriceRange(pc.estimated_price_range || '');
       setReviewDuration(pc.estimated_duration || '');
     } else {
       const bc = item as BookingConsultation;
@@ -558,26 +555,15 @@ export default function ConsultationsPage() {
                         <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">{pc.recommendations}</p>
                       </div>
                     )}
-                    {(pc.estimated_price_range || pc.estimated_duration) && (
-                      <div className="grid grid-cols-2 gap-4 pt-2 border-t border-[var(--color-border-light)]">
-                        {pc.estimated_price_range && (
-                          <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)] bg-white/40 p-2.5 rounded-xl border border-[var(--color-border-light)]">
-                            <DollarSign size={16} className="text-[var(--color-brand-pink-dark)] shrink-0" />
-                            <div>
-                              <p className="text-[10px] text-[var(--color-text-muted)] font-semibold uppercase">Est. Price Range</p>
-                              <p className="font-semibold text-[var(--color-text-primary)] mt-0.5">{pc.estimated_price_range}</p>
-                            </div>
+                    {pc.estimated_duration && (
+                      <div className="pt-2 border-t border-[var(--color-border-light)]">
+                        <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)] bg-white/40 p-2.5 rounded-xl border border-[var(--color-border-light)] w-full">
+                          <Timer size={16} className="text-[var(--color-brand-pink-dark)] shrink-0" />
+                          <div>
+                            <p className="text-[10px] text-[var(--color-text-muted)] font-semibold uppercase">Est. Duration</p>
+                            <p className="font-semibold text-[var(--color-text-primary)] mt-0.5">{pc.estimated_duration}</p>
                           </div>
-                        )}
-                        {pc.estimated_duration && (
-                          <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)] bg-white/40 p-2.5 rounded-xl border border-[var(--color-border-light)]">
-                            <Timer size={16} className="text-[var(--color-brand-pink-dark)] shrink-0" />
-                            <div>
-                              <p className="text-[10px] text-[var(--color-text-muted)] font-semibold uppercase">Est. Duration</p>
-                              <p className="font-semibold text-[var(--color-text-primary)] mt-0.5">{pc.estimated_duration}</p>
-                            </div>
-                          </div>
-                        )}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -645,28 +631,16 @@ export default function ConsultationsPage() {
                       />
                     </div>
 
-                    {/* Price Range & Duration */}
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="label-upper">Est. Price Range</label>
-                        <input
-                          type="text"
-                          value={reviewPriceRange}
-                          onChange={(e) => setReviewPriceRange(e.target.value)}
-                          placeholder="e.g. €60 - €80"
-                          className="input-glass mt-1"
-                        />
-                      </div>
-                      <div>
-                        <label className="label-upper">Est. Duration</label>
-                        <input
-                          type="text"
-                          value={reviewDuration}
-                          onChange={(e) => setReviewDuration(e.target.value)}
-                          placeholder="e.g. 1.5 - 2 hours"
-                          className="input-glass mt-1"
-                        />
-                      </div>
+                    {/* Duration */}
+                    <div>
+                      <label className="label-upper">Est. Duration</label>
+                      <input
+                        type="text"
+                        value={reviewDuration}
+                        onChange={(e) => setReviewDuration(e.target.value)}
+                        placeholder="e.g. 1.5 - 2 hours"
+                        className="input-glass mt-1"
+                      />
                     </div>
 
                     {/* Submit Actions */}
@@ -722,20 +696,12 @@ export default function ConsultationsPage() {
                         <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">{pc.recommendations}</p>
                       </div>
                     )}
-                    {(pc.estimated_price_range || pc.estimated_duration) && (
-                      <div className="grid grid-cols-2 gap-3 pt-1">
-                        {pc.estimated_price_range && (
-                          <div className="p-2.5 bg-white/60 border border-[var(--color-border-light)] rounded-xl text-xs">
-                            <span className="text-[var(--color-text-muted)] font-semibold uppercase">Est. Price:</span>{' '}
-                            <span className="font-semibold text-[var(--color-text-primary)]">{pc.estimated_price_range}</span>
-                          </div>
-                        )}
-                        {pc.estimated_duration && (
-                          <div className="p-2.5 bg-white/60 border border-[var(--color-border-light)] rounded-xl text-xs">
-                            <span className="text-[var(--color-text-muted)] font-semibold uppercase">Duration:</span>{' '}
-                            <span className="font-semibold text-[var(--color-text-primary)]">{pc.estimated_duration}</span>
-                          </div>
-                        )}
+                    {pc.estimated_duration && (
+                      <div className="pt-1">
+                        <div className="p-2.5 bg-white/60 border border-[var(--color-border-light)] rounded-xl text-xs w-full">
+                          <span className="text-[var(--color-text-muted)] font-semibold uppercase">Duration:</span>{' '}
+                          <span className="font-semibold text-[var(--color-text-primary)]">{pc.estimated_duration}</span>
+                        </div>
                       </div>
                     )}
                   </div>

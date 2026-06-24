@@ -24,6 +24,20 @@ interface LessonProgress { lesson_id: string; progress_percent: number | null; c
 interface HomeworkSubmission { id: string; lesson_id: string; student_id: string; photo_url: string | null; notes: string | null; status: string | null; feedback: string | null; reviewed_at: string | null; created_at: string | null; }
 interface QAMessage { id: string; lesson_id: string; course_id: string; sender_id: string; content: string | null; is_question: boolean | null; parent_message_id: string | null; created_at: string | null; sender_name?: string; }
 
+const formatDuration = (seconds: number | null | undefined): string => {
+  if (!seconds) return '';
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) return `${Math.round(seconds / 60)} min`;
+  return `${(seconds / 3600).toFixed(1)} hrs`;
+};
+
+const formatDurationShort = (seconds: number | null | undefined): string => {
+  if (!seconds) return '';
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) return `${Math.round(seconds / 60)}m`;
+  return `${(seconds / 3600).toFixed(1)}h`;
+};
+
 export default function LearnCoursePage() {
   const { courseId } = useParams<{ courseId: string }>();
   const router = useRouter();
@@ -46,6 +60,42 @@ export default function LearnCoursePage() {
   const [hwForm, setHwForm] = useState({ photo_url: '', notes: '' });
   const [hwSubmitting, setHwSubmitting] = useState(false);
   const [hwTab, setHwTab] = useState<'submit' | 'feedback'>('submit');
+  const [uploadingHomework, setUploadingHomework] = useState(false);
+
+  const handleHomeworkUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user || !activeLesson) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      showToast('Photo must be under 10MB', 'error');
+      return;
+    }
+
+    setUploadingHomework(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `homework/${user.id}/${activeLesson.id}_${Date.now()}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('homework-submissions')
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('homework-submissions')
+        .getPublicUrl(filePath);
+
+      setHwForm((prev) => ({ ...prev, photo_url: publicUrl }));
+      showToast('Photo uploaded successfully', 'success');
+    } catch (error: unknown) {
+      console.error('Upload error:', error);
+      showToast(error instanceof Error ? error.message : 'Error uploading photo', 'error');
+    } finally {
+      setUploadingHomework(false);
+    }
+  };
 
   // Q&A
   const [qaMessages, setQaMessages] = useState<QAMessage[]>([]);
@@ -334,7 +384,7 @@ export default function LearnCoursePage() {
               <div>
                 <h2 className="text-2xl font-bold text-[var(--color-text-primary)]">{activeLesson.title}</h2>
                 <div className="flex items-center gap-3 mt-2 text-sm text-[var(--color-text-muted)]">
-                  {activeLesson.duration_minutes && <span className="flex items-center gap-1"><Clock size={14} />{activeLesson.duration_minutes} min</span>}
+                  {activeLesson.duration_minutes && <span className="flex items-center gap-1"><Clock size={14} />{formatDuration(activeLesson.duration_minutes)}</span>}
                   <span>Lesson {lessonIdx + 1} of {lessons.length}</span>
                 </div>
               </div>
@@ -395,13 +445,25 @@ export default function LearnCoursePage() {
                     </div>
                   )}
                   <div>
-                    <label className="text-sm font-semibold text-[var(--color-text-secondary)] mb-1 block">Photo URL</label>
-                    <input
-                      className="input-glass w-full"
-                      placeholder="https://... (link to your photo submission)"
-                      value={hwForm.photo_url || hwSubmission?.photo_url || ''}
-                      onChange={(e) => setHwForm({ ...hwForm, photo_url: e.target.value })}
-                    />
+                    <label className="text-sm font-semibold text-[var(--color-text-secondary)] mb-1 block">Photo Submission</label>
+                    <div className="flex gap-2 mb-2">
+                      <input
+                        className="input-glass flex-1"
+                        placeholder="https://... or upload a photo"
+                        value={hwForm.photo_url || hwSubmission?.photo_url || ''}
+                        onChange={(e) => setHwForm({ ...hwForm, photo_url: e.target.value })}
+                      />
+                      <label className={`btn-primary shrink-0 px-4 py-2 flex items-center justify-center gap-2 cursor-pointer ${uploadingHomework ? 'opacity-50 pointer-events-none' : ''}`}>
+                        {uploadingHomework ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                        {uploadingHomework ? 'Uploading...' : 'Upload Photo'}
+                        <input type="file" accept="image/*" className="hidden" onChange={handleHomeworkUpload} disabled={uploadingHomework} />
+                      </label>
+                    </div>
+                    {(hwForm.photo_url || hwSubmission?.photo_url) && (
+                      <div className="mt-2 relative rounded-lg overflow-hidden border border-[var(--color-border-light)] aspect-video max-w-xs bg-gray-50">
+                        <img src={hwForm.photo_url || hwSubmission?.photo_url || ''} alt="Homework Submission" className="w-full h-full object-cover" />
+                      </div>
+                    )}
                   </div>
                   <div>
                     <label className="text-sm font-semibold text-[var(--color-text-secondary)] mb-1 block">Notes</label>
@@ -528,7 +590,7 @@ export default function LearnCoursePage() {
                             <Circle size={16} className="text-gray-300 shrink-0" />
                           )}
                           <span className="truncate flex-1">{lesson.title}</span>
-                          {lesson.duration_minutes && <span className="text-xs text-[var(--color-text-muted)] shrink-0">{lesson.duration_minutes}m</span>}
+                          {lesson.duration_minutes && <span className="text-xs text-[var(--color-text-muted)] shrink-0">{formatDurationShort(lesson.duration_minutes)}</span>}
                         </button>
                       );
                     })}
@@ -551,7 +613,7 @@ export default function LearnCoursePage() {
                       >
                         {done ? <CheckCircle2 size={16} className="text-emerald-500 shrink-0" /> : isActive ? <Play size={16} className="text-cyan-500 shrink-0" /> : <Circle size={16} className="text-gray-300 shrink-0" />}
                         <span className="truncate flex-1">{lesson.title}</span>
-                        {lesson.duration_minutes && <span className="text-xs text-[var(--color-text-muted)] shrink-0">{lesson.duration_minutes}m</span>}
+                        {lesson.duration_minutes && <span className="text-xs text-[var(--color-text-muted)] shrink-0">{formatDurationShort(lesson.duration_minutes)}</span>}
                       </button>
                     );
                   })}

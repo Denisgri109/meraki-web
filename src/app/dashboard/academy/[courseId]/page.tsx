@@ -36,6 +36,13 @@ interface StudentRow {
 
 type OwnerTab = 'curriculum' | 'students' | 'analytics';
 
+const formatDuration = (seconds: number | null | undefined): string => {
+  if (!seconds) return '';
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) return `${Math.round(seconds / 60)} min`;
+  return `${(seconds / 3600).toFixed(1)} hrs`;
+};
+
 // ─── Page ───────────────────────────────────────────────────────────────────
 export default function CourseEditorPage() {
   const { courseId } = useParams<{ courseId: string }>();
@@ -90,6 +97,101 @@ export default function CourseEditorPage() {
   const [editCourse, setEditCourse] = useState(false);
   const [courseForm, setCourseForm] = useState({ title: '', description: '', price: '', thumbnail_url: '' });
   const [courseSaving, setCourseSaving] = useState(false);
+
+  // Media upload states
+  const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
+
+  const handleThumbnailUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('Image must be under 5MB', 'error');
+      return;
+    }
+
+    setUploadingThumbnail(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `course-${courseId}-${Date.now()}-${Math.random().toString(36).substring(2, 10)}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('course-images')
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('course-images')
+        .getPublicUrl(filePath);
+
+      setCourseForm((prev) => ({ ...prev, thumbnail_url: publicUrl }));
+      showToast('Thumbnail uploaded successfully', 'success');
+    } catch (error: unknown) {
+      console.error('Upload error:', error);
+      showToast(error instanceof Error ? error.message : 'Error uploading thumbnail', 'error');
+    } finally {
+      setUploadingThumbnail(false);
+    }
+  };
+
+  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    if (file.size > 100 * 1024 * 1024) {
+      showToast('Video must be under 100MB', 'error');
+      return;
+    }
+
+    setUploadingVideo(true);
+    try {
+      let durationSeconds = 0;
+      try {
+        durationSeconds = await new Promise<number>((resolve) => {
+          const video = document.createElement('video');
+          video.preload = 'metadata';
+          video.onloadedmetadata = () => {
+            window.URL.revokeObjectURL(video.src);
+            resolve(video.duration || 0);
+          };
+          video.onerror = () => resolve(0);
+          video.src = window.URL.createObjectURL(file);
+        });
+      } catch (err) {
+        console.warn('Failed to read video duration', err);
+      }
+
+      const fileExt = file.name.split('.').pop();
+      const fileName = `lesson-${editingLesson?.id || 'new'}-${Date.now()}-${Math.random().toString(36).substring(2, 10)}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('course-videos')
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('course-videos')
+        .getPublicUrl(filePath);
+
+      setLessonForm((prev) => ({
+        ...prev,
+        video_url: publicUrl,
+        video_provider: 'upload',
+        duration_minutes: durationSeconds > 0 ? Math.round(durationSeconds).toString() : prev.duration_minutes
+      }));
+      showToast('Video uploaded successfully', 'success');
+    } catch (error: unknown) {
+      console.error('Upload error:', error);
+      showToast(error instanceof Error ? error.message : 'Error uploading video', 'error');
+    } finally {
+      setUploadingVideo(false);
+    }
+  };
 
   // ── Fetch ──
   const fetchCourse = useCallback(async () => {
@@ -219,7 +321,8 @@ export default function CourseEditorPage() {
     setLessonForm({
       title: l.title, description: l.description || '', video_url: l.video_url || '',
       video_provider: l.video_provider || 'url', resource_url: l.resource_url || '',
-      has_homework: l.has_homework || false, duration_minutes: l.duration_minutes?.toString() || '',
+      has_homework: l.has_homework || false,
+      duration_minutes: l.duration_minutes ? Math.round(l.duration_minutes / 60).toString() : '',
     });
     setLessonModal(true);
   };
@@ -237,7 +340,7 @@ export default function CourseEditorPage() {
         video_provider: lessonForm.video_provider || null,
         resource_url: lessonForm.resource_url.trim() || null,
         has_homework: lessonForm.has_homework,
-        duration_minutes: lessonForm.duration_minutes ? parseInt(lessonForm.duration_minutes) : null,
+        duration_minutes: lessonForm.duration_minutes ? parseInt(lessonForm.duration_minutes) * 60 : null,
       };
       if (editingLesson) {
         const { error } = await supabase.from('lessons').update(payload).eq('id', editingLesson.id);
@@ -354,7 +457,12 @@ export default function CourseEditorPage() {
               <textarea className="input-glass w-full min-h-[80px] resize-y text-sm" value={courseForm.description} onChange={(e) => setCourseForm({ ...courseForm, description: e.target.value })} />
               <div className="flex gap-3">
                 <input className="input-glass w-32" type="number" placeholder="Price" value={courseForm.price} onChange={(e) => setCourseForm({ ...courseForm, price: e.target.value })} />
-                <input className="input-glass flex-1" placeholder="Thumbnail URL" value={courseForm.thumbnail_url} onChange={(e) => setCourseForm({ ...courseForm, thumbnail_url: e.target.value })} />
+                <input className="input-glass flex-1" placeholder="Thumbnail URL or upload" value={courseForm.thumbnail_url} onChange={(e) => setCourseForm({ ...courseForm, thumbnail_url: e.target.value })} />
+                <label className={`btn-primary shrink-0 px-4 py-2 flex items-center justify-center gap-2 cursor-pointer ${uploadingThumbnail ? 'opacity-50 pointer-events-none' : ''}`}>
+                  {uploadingThumbnail ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                  {uploadingThumbnail ? 'Uploading...' : 'Upload'}
+                  <input type="file" accept="image/*" className="hidden" onChange={handleThumbnailUpload} disabled={uploadingThumbnail} />
+                </label>
               </div>
               <div className="flex gap-2">
                 <button onClick={saveCourseDetails} disabled={courseSaving} className="btn-primary px-4 py-2 text-sm flex items-center gap-2">
@@ -412,9 +520,9 @@ export default function CourseEditorPage() {
             const isExpanded = expandedChapter === chapter.id;
             return (
               <div key={chapter.id} className="glass-card overflow-hidden">
-                <button
+                <div
                   onClick={() => setExpandedChapter(isExpanded ? null : chapter.id)}
-                  className="w-full flex items-center gap-3 p-4 hover:bg-gray-50/50 transition-colors text-left"
+                  className="w-full flex items-center gap-3 p-4 hover:bg-gray-50/50 transition-colors text-left cursor-pointer"
                 >
                   <GripVertical size={16} className="text-[var(--color-text-muted)] shrink-0" />
                   <ChevronRight size={16} className={`text-[var(--color-text-muted)] shrink-0 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
@@ -427,7 +535,7 @@ export default function CourseEditorPage() {
                     <button onClick={() => openAddLesson(chapter.id)} className="w-7 h-7 rounded-md hover:bg-cyan-50 flex items-center justify-center text-cyan-600"><Plus size={13} /></button>
                     <button onClick={() => setDeleteItem({ type: 'chapter', id: chapter.id, title: chapter.title })} className="w-7 h-7 rounded-md hover:bg-red-50 flex items-center justify-center text-red-500"><Trash2 size={13} /></button>
                   </div>
-                </button>
+                </div>
 
                 {isExpanded && (
                   <div className="border-t border-[var(--color-border-light)]">
@@ -446,7 +554,7 @@ export default function CourseEditorPage() {
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-semibold text-[var(--color-text-primary)] truncate">{lesson.title}</p>
                             <div className="flex items-center gap-3 text-xs text-[var(--color-text-muted)]">
-                              {lesson.duration_minutes && <span>{lesson.duration_minutes} min</span>}
+                              {lesson.duration_minutes && <span>{formatDuration(lesson.duration_minutes)}</span>}
                               {lesson.has_homework && <span className="text-amber-600 font-semibold">Homework</span>}
                               {lesson.resource_url && <span className="flex items-center gap-1"><Link2 size={10} />Resource</span>}
                             </div>
@@ -482,7 +590,7 @@ export default function CourseEditorPage() {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-[var(--color-text-primary)] truncate">{lesson.title}</p>
                     <div className="flex items-center gap-3 text-xs text-[var(--color-text-muted)]">
-                      {lesson.duration_minutes && <span>{lesson.duration_minutes} min</span>}
+                      {lesson.duration_minutes && <span>{formatDuration(lesson.duration_minutes)}</span>}
                       {lesson.has_homework && <span className="text-amber-600 font-semibold">Homework</span>}
                     </div>
                   </div>
@@ -662,8 +770,15 @@ export default function CourseEditorPage() {
                 <textarea className="input-glass w-full min-h-[80px] resize-y" value={lessonForm.description} onChange={(e) => setLessonForm({ ...lessonForm, description: e.target.value })} />
               </div>
               <div>
-                <label className="text-sm font-semibold text-[var(--color-text-secondary)] mb-1 block">Video URL</label>
-                <input className="input-glass w-full" placeholder="https://youtube.com/... or direct URL" value={lessonForm.video_url} onChange={(e) => setLessonForm({ ...lessonForm, video_url: e.target.value })} />
+                <label className="text-sm font-semibold text-[var(--color-text-secondary)] mb-1 block">Lesson Video</label>
+                <div className="flex gap-2">
+                  <input className="input-glass flex-1" placeholder="YouTube/Vimeo link or direct URL" value={lessonForm.video_url} onChange={(e) => setLessonForm({ ...lessonForm, video_url: e.target.value })} />
+                  <label className={`btn-primary shrink-0 px-4 py-2 flex items-center justify-center gap-2 cursor-pointer ${uploadingVideo ? 'opacity-50 pointer-events-none' : ''}`}>
+                    {uploadingVideo ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                    {uploadingVideo ? 'Uploading...' : 'Upload Video'}
+                    <input type="file" accept="video/*" className="hidden" onChange={handleVideoUpload} disabled={uploadingVideo} />
+                  </label>
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -679,9 +794,9 @@ export default function CourseEditorPage() {
                 <button
                   type="button"
                   onClick={() => setLessonForm({ ...lessonForm, has_homework: !lessonForm.has_homework })}
-                  className={`w-10 h-6 rounded-full transition-colors relative ${lessonForm.has_homework ? 'bg-amber-500' : 'bg-gray-300'}`}
+                  className={`w-10 h-6 rounded-full transition-colors relative shrink-0 ${lessonForm.has_homework ? 'bg-amber-500' : 'bg-gray-300'}`}
                 >
-                  <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${lessonForm.has_homework ? 'translate-x-4.5' : 'translate-x-0.5'}`} />
+                  <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${lessonForm.has_homework ? 'translate-x-4' : 'translate-x-0'}`} />
                 </button>
                 <span className="text-sm font-medium text-[var(--color-text-primary)]">Requires homework submission</span>
               </label>

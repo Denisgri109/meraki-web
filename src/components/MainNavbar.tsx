@@ -10,7 +10,7 @@ import {
   Home, Calendar, Search, ShoppingBag, GraduationCap, Gift,
   MessageSquare, Settings, LogOut, Menu, X, ChevronDown,
   Scissors, Clock, Package, BarChart3, Boxes, DollarSign, Wallet,
-  Bell, ShoppingCart, CalendarCheck, Inbox, ClipboardList, HelpCircle, Megaphone, Smartphone
+  Bell, ShoppingCart, CalendarCheck, Inbox, ClipboardList, HelpCircle, Smartphone
 } from 'lucide-react';
 
 // ─── Navigation items ─────────────────────────────────────────────
@@ -35,7 +35,6 @@ const ownerNav = [
   { href: '/dashboard/academy', label: 'Academy', icon: GraduationCap },
   { href: '/dashboard/loyalty', label: 'Rewards', icon: Gift },
   { href: '/dashboard/consultations', label: 'Consults', icon: ClipboardList },
-  { href: '/dashboard/notifications', label: 'Notifications', icon: Megaphone },
 ];
 
 const masterNav = [

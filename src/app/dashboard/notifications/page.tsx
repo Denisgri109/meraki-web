@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/components/Toast';
@@ -45,22 +46,19 @@ function formatDateTime(iso: string) {
 }
 
 export default function NotificationsPage() {
-  const { user, role } = useAuth();
-  const supabase = createClient();
-  const { showToast } = useToast();
+  const router = useRouter();
 
-  // Redirect non-owners
-  if (role !== 'owner') {
-    return (
-      <div className="max-w-4xl mx-auto text-center py-20">
-        <Bell size={48} className="mx-auto text-[var(--color-text-muted)] mb-4" />
-        <h2 className="text-lg font-bold text-[var(--color-text-primary)]">Access Restricted</h2>
-        <p className="text-sm text-[var(--color-text-muted)] mt-2">Notification management is only available for owners.</p>
-      </div>
-    );
-  }
+  useEffect(() => {
+    router.replace('/dashboard');
+  }, [router]);
 
-  return <NotificationsContent userId={user?.id || ''} />;
+  return (
+    <div className="max-w-4xl mx-auto text-center py-20">
+      <Bell size={48} className="mx-auto text-[var(--color-text-muted)] mb-4" />
+      <h2 className="text-lg font-bold text-[var(--color-text-primary)]">Access Restricted</h2>
+      <p className="text-sm text-[var(--color-text-muted)] mt-2">Notification management is not available on the web version.</p>
+    </div>
+  );
 }
 
 function NotificationsContent({ userId }: { userId: string }) {

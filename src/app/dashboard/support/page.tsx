@@ -30,17 +30,19 @@ interface SupportSettings {
 
 type TabValue = 'faq' | 'contact' | 'settings';
 
-const FAQ_CATEGORIES = ['General', 'Bookings', 'Payments', 'Account', 'Shop', 'Academy', 'Loyalty'];
+const FAQ_CATEGORIES = ['General', 'Bookings', 'Payments', 'Account', 'Shop', 'Academy', 'Loyalty', 'Consultations'];
 
 const DEFAULT_FAQS: FaqItem[] = [
   { id: '1', question: 'How do I book an appointment?', answer: 'Navigate to the Book section from the menu, select a service and specialist, choose your preferred date and time, then complete the booking with payment.', category: 'Bookings', order: 0 },
-  { id: '2', question: 'Can I cancel or reschedule my appointment?', answer: 'Yes. Go to My Appointments, tap the appointment you wish to change, and select Cancel or Reschedule. Please note that late cancellations (within 24 hours) may incur a fee as per the cancellation policy.', category: 'Bookings', order: 1 },
+  { id: '2', question: 'Can I cancel or reschedule my appointment?', answer: 'Yes. Go to My Appointments (available from the profile dropdown menu in the top right), click the appointment you wish to change, and select Cancel or Reschedule. Please note that late cancellations (within 24 hours) may incur a 50% penalty fee as per our cancellation policy.', category: 'Bookings', order: 1 },
   { id: '3', question: 'How do deposits work?', answer: 'Some services require a deposit at the time of booking. The deposit is applied toward your total service cost. The remaining balance is due at the salon on the day of your appointment.', category: 'Payments', order: 2 },
   { id: '4', question: 'What payment methods are accepted?', answer: 'We accept all major credit and debit cards through our secure Stripe payment system. You can save multiple cards for faster checkout.', category: 'Payments', order: 3 },
-  { id: '5', question: 'How do I earn loyalty points?', answer: 'Earn points by scanning QR codes at the salon after your appointment. Points accumulate on your loyalty card and can be redeemed for rewards once you reach the required stamps.', category: 'Loyalty', order: 4 },
-  { id: '6', question: 'How do I update my profile or change my email?', answer: 'Go to Settings from the menu. You can update your name, photo, and bio in the Profile section, and change your email or password in the Security section.', category: 'Account', order: 5 },
+  { id: '5', question: 'How do I earn loyalty points?', answer: 'Loyalty points are earned by scanning the Master\'s QR code using the mobile app at the salon after your service. You can view your earned stamps and rewards under the Rewards section on both web and mobile, but physical scanning requires the mobile app.', category: 'Loyalty', order: 4 },
+  { id: '6', question: 'How do I update my profile or security settings?', answer: 'Go to Settings from the menu. You can update your name, photo, and bio in the Profile section, and change your password in the Security section.', category: 'Account', order: 5 },
   { id: '7', question: 'How do refunds work?', answer: 'Refunds are processed by the salon owner. If eligible, refunds are returned to your original payment method and typically appear within 5-10 business days.', category: 'Payments', order: 6 },
   { id: '8', question: 'How do I access courses in the Academy?', answer: 'Navigate to the Academy section. Browse available courses, enroll, and start learning. Track your progress and complete lessons at your own pace.', category: 'Academy', order: 7 },
+  { id: '9', question: 'How does the Shop and shipping work?', answer: 'Navigate to the Shop section to browse products, add them to your cart, and check out securely. We currently ship to European countries. You can track your orders in the Orders section.', category: 'Shop', order: 8 },
+  { id: '10', question: 'What are photo consultations?', answer: 'If a Master requires a pre-service assessment, you can submit a photo consultation request under the Consults section. Once the Master reviews and approves your photos, you will be cleared to book the service.', category: 'Consultations', order: 9 }
 ];
 
 const DEFAULT_SUPPORT: SupportSettings = {
@@ -239,6 +241,14 @@ export default function SupportPage() {
         <h1 className="text-3xl font-bold text-[var(--color-text-primary)]">Support</h1>
         <p className="text-[var(--color-text-secondary)] text-sm mt-1">
           {isOwner ? 'Manage FAQ content and support settings' : 'Find answers and get in touch'}
+        </p>
+      </div>
+
+      {/* Fallback Warning Banner */}
+      <div className="glass-card p-4 border-l-4 border-l-[var(--color-brand-pink-dark)] flex items-center gap-3">
+        <HelpCircle className="text-[var(--color-brand-pink-dark)] shrink-0" size={18} />
+        <p className="text-sm text-[var(--color-text-secondary)] font-medium">
+          If a feature is not working as expected, please try the mobile app.
         </p>
       </div>
 
