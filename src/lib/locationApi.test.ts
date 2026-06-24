@@ -282,6 +282,41 @@ describe('API functions', () => {
       expect(result).toEqual([]);
       expect(console.error).toHaveBeenCalledWith(expect.stringContaining('countries error'), expect.any(Error));
     });
+
+    it('handles sessionStorage.setItem errors (e.g. QuotaExceededError) safely', async () => {
+      const mockData = [{ id: 1, name: 'France' }];
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockData,
+      });
+
+      mockSessionStorage.setItem.mockImplementationOnce(() => {
+        throw new Error('QuotaExceededError');
+      });
+
+      // Should not throw
+      const result = await getAllCountries();
+      expect(result).toEqual(mockData);
+      expect(mockSessionStorage.setItem).toHaveBeenCalled();
+    });
+
+    it('handles sessionStorage.getItem errors safely', async () => {
+      const mockData = [{ id: 1, name: 'France' }];
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockData,
+      });
+
+      mockSessionStorage.getItem.mockImplementationOnce(() => {
+        throw new Error('InvalidStateError');
+      });
+
+      // Should not throw, should fall back to fetching
+      const result = await getAllCountries();
+      expect(result).toEqual(mockData);
+      expect(mockSessionStorage.getItem).toHaveBeenCalled();
+      expect(global.fetch).toHaveBeenCalled();
+    });
   });
 
   describe('getCitiesOfCountry', () => {
