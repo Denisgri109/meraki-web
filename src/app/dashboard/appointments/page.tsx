@@ -798,6 +798,42 @@ export default function AppointmentsPage() {
     }
   };
 
+  const handleClientNoShowClick = async () => {
+    if (!selectedAppointment) return;
+    const balanceDue = selectedAppointment.price - (selectedAppointment.deposit_paid ? selectedAppointment.deposit_amount : 0);
+    if (balanceDue <= 0) {
+      try {
+        const { error } = await supabase
+          .from('appointments')
+          .update({
+            status: 'no_show',
+            no_show_charge_amount: 0,
+            no_show_processed_at: new Date().toISOString(),
+            status_updated_at: new Date().toISOString()
+          })
+          .eq('id', selectedAppointment.id);
+
+        if (error) throw error;
+
+        await supabase
+          .from('appointment_confirmations')
+          .upsert({
+            appointment_id: selectedAppointment.id,
+            no_show_charge_captured: false,
+          }, { onConflict: 'appointment_id' });
+
+        showToast('Client recorded as No-Show. Booking completed.', 'success');
+        setSelectedAppointment(null);
+        fetchAppointments();
+      } catch (err: any) {
+        showToast(err.message || 'Failed to record no-show', 'error');
+      }
+    } else {
+      setShowNoShowModal(true);
+      setShowRescheduleForm(false);
+    }
+  };
+
   // No-Show action: Capture immediate charge via Stripe (Master)
   const handleNoShowChargeNow = async () => {
     if (!selectedAppointment) return;
@@ -1596,58 +1632,60 @@ export default function AppointmentsPage() {
                         >
                           <Settings size={16} /> Studio Configuration
                         </Link>
-                      ) : !showRescheduleForm ? (
-                        <button 
-                          onClick={() => { setShowRescheduleForm(true); setShowLateInputForm(false); }}
-                          className="w-full py-3 rounded-xl border border-violet-200 text-violet-700 font-bold hover:bg-violet-50 text-sm cursor-pointer transition-all flex items-center justify-center gap-2"
-                        >
-                          <CalendarRange size={16} /> Propose Reschedule
-                        </button>
-                      ) : (
-                        <div className="p-4 rounded-2xl border border-violet-100 bg-violet-50/20 space-y-3">
-                          <h6 className="text-xs font-black text-violet-800 uppercase tracking-wider">Propose New Date/Time</h6>
-                          <div className="grid grid-cols-2 gap-2">
-                            <div>
-                              <label className="block text-[10px] text-gray-400 font-black uppercase mb-1">New Date</label>
-                              <input 
-                                type="date" 
-                                value={rescheduleDate}
-                                onChange={(e) => setRescheduleDate(e.target.value)}
-                                className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-700 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
-                              />
+                      ) : new Date(selectedAppointment.start_time).getTime() > new Date().getTime() ? (
+                        !showRescheduleForm ? (
+                          <button 
+                            onClick={() => { setShowRescheduleForm(true); setShowLateInputForm(false); }}
+                            className="w-full py-3 rounded-xl border border-violet-200 text-violet-700 font-bold hover:bg-violet-50 text-sm cursor-pointer transition-all flex items-center justify-center gap-2"
+                          >
+                            <CalendarRange size={16} /> Propose Reschedule
+                          </button>
+                        ) : (
+                          <div className="p-4 rounded-2xl border border-violet-100 bg-violet-50/20 space-y-3">
+                            <h6 className="text-xs font-black text-violet-800 uppercase tracking-wider">Propose New Date/Time</h6>
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <label className="block text-[10px] text-gray-400 font-black uppercase mb-1">New Date</label>
+                                <input 
+                                  type="date" 
+                                  value={rescheduleDate}
+                                  onChange={(e) => setRescheduleDate(e.target.value)}
+                                  className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-700 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] text-gray-400 font-black uppercase mb-1">Start Time</label>
+                                <input 
+                                  type="time" 
+                                  value={rescheduleTime}
+                                  onChange={(e) => setRescheduleTime(e.target.value)}
+                                  className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-700 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+                                />
+                              </div>
                             </div>
-                            <div>
-                              <label className="block text-[10px] text-gray-400 font-black uppercase mb-1">Start Time</label>
-                              <input 
-                                type="time" 
-                                value={rescheduleTime}
-                                onChange={(e) => setRescheduleTime(e.target.value)}
-                                className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-700 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
-                              />
+                            <div className="flex gap-2 justify-end">
+                              <button 
+                                onClick={() => setShowRescheduleForm(false)}
+                                className="px-3 py-1.5 rounded-lg text-xs font-bold border border-violet-200 text-violet-800 hover:bg-violet-100 cursor-pointer"
+                              >
+                                Cancel
+                              </button>
+                              <button 
+                                onClick={handleProposeReschedule}
+                                className="px-4 py-1.5 rounded-lg text-xs font-bold bg-violet-600 hover:bg-violet-700 text-white cursor-pointer shadow-sm"
+                              >
+                                Submit Proposal
+                              </button>
                             </div>
                           </div>
-                          <div className="flex gap-2 justify-end">
-                            <button 
-                              onClick={() => setShowRescheduleForm(false)}
-                              className="px-3 py-1.5 rounded-lg text-xs font-bold border border-violet-200 text-violet-800 hover:bg-violet-100 cursor-pointer"
-                            >
-                              Cancel
-                            </button>
-                            <button 
-                              onClick={handleProposeReschedule}
-                              className="px-4 py-1.5 rounded-lg text-xs font-bold bg-violet-600 hover:bg-violet-700 text-white cursor-pointer shadow-sm"
-                            >
-                              Submit Proposal
-                            </button>
-                          </div>
-                        </div>
-                      )}
+                        )
+                      ) : null}
 
                       {/* No-Show modal buttons */}
                       {!showNoShowModal && !showLateInputForm ? (
                         <div className="grid grid-cols-2 gap-2">
                           <button 
-                            onClick={() => { setShowNoShowModal(true); setShowRescheduleForm(false); }}
+                            onClick={handleClientNoShowClick}
                             className="py-3 rounded-xl border border-rose-200 text-rose-600 font-bold hover:bg-rose-50 text-sm cursor-pointer transition-all flex items-center justify-center gap-1.5"
                           >
                             <ShieldAlert size={16} /> Client No-Show
@@ -1718,7 +1756,7 @@ export default function AppointmentsPage() {
                   )}
 
                   {/* Client Cancel / Reschedule Booking Trigger */}
-                  {role !== 'master' && !['cancelled', 'completed', 'no_show'].includes(selectedAppointment.status) && (
+                  {role !== 'master' && !['cancelled', 'completed', 'no_show'].includes(selectedAppointment.status) && new Date(selectedAppointment.start_time).getTime() > new Date().getTime() && (
                     <div className="space-y-3">
                       {!showCancelConfirm ? (
                         <div className="grid grid-cols-2 gap-3">
