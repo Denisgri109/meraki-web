@@ -163,7 +163,7 @@ interface Appointment {
   stripe_payment_intent_id: string | null;
   service_duration_minutes: number | null;
   payment_hold_amount: number | null;
-  service?: { name: string; base_price?: number; duration_minutes?: number; description?: string } | null;
+  service?: { name: string; base_price?: number; duration_minutes?: number; description?: string; category?: string } | null;
   master?: { id: string; full_name: string; avatar_url: string | null; specialties: string[] | null; push_token: string | null } | null;
   client?: { id: string; full_name: string; avatar_url: string | null; email: string; phone: string | null } | null;
 }
@@ -269,7 +269,7 @@ export default function AppointmentsPage() {
           requires_confirmation, proposed_start_time, proposed_end_time, reschedule_initiated_by,
           cancellation_fee_amount, cancellation_reason, no_show_charge_amount, no_show_processed_at,
           stripe_payment_intent_id, service_duration_minutes, payment_hold_amount,
-          service:services(name, base_price, duration_minutes, description),
+          service:services(name, base_price, duration_minutes, description, category),
           master:profiles!appointments_master_id_fkey(id, full_name, avatar_url, specialties, push_token),
           client:profiles!appointments_client_id_fkey(id, full_name, avatar_url, email, phone)
         `);
@@ -521,6 +521,8 @@ export default function AppointmentsPage() {
   const handleRescheduleResponse = async (approve: boolean) => {
     if (!selectedAppointment) return;
     try {
+      const isPilates = selectedAppointment.service_category === 'Pilates' || selectedAppointment.service?.category === 'Pilates';
+      
       const updatePayload: any = {
         status: 'confirmed',
         proposed_start_time: null,
@@ -530,7 +532,26 @@ export default function AppointmentsPage() {
       };
 
       let isApproved = false;
+      let newSessionId = null;
+
       if (approve && selectedAppointment.proposed_start_time && selectedAppointment.proposed_end_time) {
+        if (isPilates) {
+          const { data: sessionData, error: sessionError } = await supabase
+            .from('pilates_class_sessions')
+            .select('id')
+            .eq('starts_at', selectedAppointment.proposed_start_time)
+            .eq('ends_at', selectedAppointment.proposed_end_time)
+            .eq('service_id', selectedAppointment.service_id)
+            .eq('status', 'scheduled')
+            .maybeSingle();
+
+          if (sessionError || !sessionData) {
+            showToast('No matching scheduled Pilates session found for the proposed time.', 'error');
+            return;
+          }
+          newSessionId = sessionData.id;
+        }
+
         // Approve: commit proposed times
         updatePayload.start_time = selectedAppointment.proposed_start_time;
         updatePayload.end_time = selectedAppointment.proposed_end_time;
@@ -543,6 +564,15 @@ export default function AppointmentsPage() {
         .eq('id', selectedAppointment.id);
 
       if (error) throw error;
+
+      if (isApproved && isPilates && newSessionId) {
+        const { error: bookingError } = await supabase
+          .from('pilates_session_bookings')
+          .update({ session_id: newSessionId })
+          .eq('appointment_id', selectedAppointment.id);
+        if (bookingError) throw bookingError;
+      }
+
       showToast(isApproved ? 'Reschedule request approved.' : 'Reschedule request declined.', 'success');
 
       setSelectedAppointment(null);
