@@ -339,12 +339,13 @@ export default function AppointmentsPage() {
     }
   };
 
-  // Check if late cancellation warning is required (<24h)
+  // Check if late cancellation warning is required (within configured window)
   const isLateCancellation = (startTimeStr: string) => {
     const start = new Date(startTimeStr).getTime();
     const now = new Date().getTime();
     const diffHours = (start - now) / (1000 * 60 * 60);
-    return diffHours < 24 && diffHours > 0;
+    const windowHours = settingsData?.late_cancellation_window_hours ?? 24;
+    return diffHours < windowHours && diffHours > 0;
   };
 
   // Perform client cancellation
@@ -352,13 +353,14 @@ export default function AppointmentsPage() {
     if (!selectedAppointment) return;
     try {
       const isLate = isLateCancellation(selectedAppointment.start_time);
-      const penaltyAmount = isLate ? Number(((selectedAppointment.price * 50) / 100).toFixed(2)) : 0;
+      const chargePercent = settingsData?.cancellation_charge_percent ?? 50;
+      const penaltyAmount = isLate ? Number(((selectedAppointment.price * chargePercent) / 100).toFixed(2)) : 0;
 
       const { error } = await supabase
         .from('appointments')
         .update({
           status: 'cancelled',
-          cancellation_fee_amount: Math.round(penaltyAmount * 100), // in cents
+          cancellation_fee_amount: Math.round(penaltyAmount), // in pounds (matches price column)
           cancellation_reason: isLate ? 'Late cancellation under policy window' : 'Cancelled by Client',
           status_updated_at: new Date().toISOString()
         })
