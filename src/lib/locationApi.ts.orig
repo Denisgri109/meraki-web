@@ -117,7 +117,8 @@ const headers: HeadersInit = { 'X-CSCAPI-KEY': API_KEY };
 
 /* ─── API Functions ──────────────────────────────────────────── */
 
-const inFlightRequests = new Map<string, Promise<unknown>>();
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const inFlightRequests = new Map<string, Promise<any>>();
 
 /**
  * Helper to fetch location data and handle common errors safely.
@@ -152,7 +153,7 @@ export async function getAllCountries(): Promise<Country[]> {
   if (cached) return cached;
 
   if (inFlightRequests.has(cacheKey)) {
-    return inFlightRequests.get(cacheKey) as Promise<Country[]>;
+    return inFlightRequests.get(cacheKey)!;
   }
 
   const promise = fetchLocationData<Country>(`${API_BASE_URL}/countries`, 'countries').then(data => {
@@ -176,7 +177,7 @@ export async function getCitiesOfCountry(countryCode: string): Promise<City[]> {
   if (cached) return cached;
 
   if (inFlightRequests.has(cacheKey)) {
-    return inFlightRequests.get(cacheKey) as Promise<City[]>;
+    return inFlightRequests.get(cacheKey)!;
   }
 
   const promise = fetchLocationData<City>(`${API_BASE_URL}/countries/${countryCode}/cities`, `cities for ${countryCode}`).then(data => {
@@ -200,7 +201,7 @@ export async function getStatesOfCountry(countryCode: string): Promise<State[]> 
   if (cached) return cached;
 
   if (inFlightRequests.has(cacheKey)) {
-    return inFlightRequests.get(cacheKey) as Promise<State[]>;
+    return inFlightRequests.get(cacheKey)!;
   }
 
   const promise = fetchLocationData<State>(`${API_BASE_URL}/countries/${countryCode}/states`, `states for ${countryCode}`).then(data => {
@@ -224,7 +225,7 @@ export async function getCitiesOfState(countryCode: string, stateCode: string): 
   if (cached) return cached;
 
   if (inFlightRequests.has(cacheKey)) {
-    return inFlightRequests.get(cacheKey) as Promise<City[]>;
+    return inFlightRequests.get(cacheKey)!;
   }
 
   const promise = fetchLocationData<City>(`${API_BASE_URL}/countries/${countryCode}/states/${stateCode}/cities`, `cities for state ${stateCode}`).then(data => {
