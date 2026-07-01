@@ -19,6 +19,17 @@ type ServiceInsert = TablesInsert<'services'>;
 
 type ServiceWithConfig = Service & { config?: MasterServiceRow };
 
+interface ServiceSupplyResponse {
+  supply_id: string;
+  quantity_per_service: number | string;
+  notes: string | null;
+  supply?: {
+    name: string;
+    unit: string;
+    cost_per_unit: number | null;
+  } | null;
+}
+
 const CATEGORIES = ['Nails', 'Lashes', 'Brows', 'Hair', 'Makeup', 'Skincare', 'Pilates', 'Other'];
 
 export default function ServicesPage() {
@@ -43,12 +54,14 @@ export default function ServicesPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>('All');
 
   // Supplies state
-  const [availableSupplies, setAvailableSupplies] = useState<any[]>([]);
+  const [availableSupplies, setAvailableSupplies] = useState<
+    { id: string; name: string; quantity: number; unit: string; cost_per_unit: number | null }[]
+  >([]);
   const [formSupplies, setFormSupplies] = useState<{
     supply_id: string;
     quantity_per_service: number;
     notes: string;
-    supply?: { name: string; unit: string; cost_per_unit: number };
+    supply?: { name: string; unit: string; cost_per_unit: number | null } | null;
   }[]>([]);
   const [selectedSupplyId, setSelectedSupplyId] = useState<string>('');
   const [selectedSupplyQty, setSelectedSupplyQty] = useState<string>('1');
@@ -330,7 +343,8 @@ export default function ServicesPage() {
         .eq('service_id', service.id);
       if (error) throw error;
       if (data) {
-        setFormSupplies(data.map((item: any) => ({
+        // Use type assertion since Supabase generated types for the relational query are overly broad here
+        setFormSupplies((data as unknown as ServiceSupplyResponse[]).map((item) => ({
           supply_id: item.supply_id,
           quantity_per_service: Number(item.quantity_per_service),
           notes: item.notes || '',
