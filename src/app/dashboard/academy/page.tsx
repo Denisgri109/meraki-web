@@ -92,7 +92,7 @@ function OwnerAcademyView() {
     setUploadingThumbnail(true);
     try {
       const fileExt = file.name.split('.').pop();
-      const fileName = `course-${Date.now()}-${Math.random().toString(36).substring(2, 10)}.${fileExt}`;
+      const fileName = `course-${Date.now()}-${crypto.randomUUID()}.${fileExt}`;
       const filePath = `${fileName}`;
 
       const { error: uploadError } = await supabase.storage
