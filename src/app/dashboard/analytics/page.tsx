@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { BarChart3, TrendingUp, Users, Calendar, DollarSign, ArrowUpRight, ArrowDownRight, UserCircle, Briefcase, UserCheck } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/components/Toast';
 
 type ActivityItem = { type: string; message: string; time: string };
 
@@ -22,6 +23,7 @@ function formatRelative(dateStr: string) {
 export default function AnalyticsPage() {
   const supabase = createClient();
   const { profile } = useAuth();
+  const { showToast } = useToast();
   const currency = (profile?.currency_code as string | undefined) || (profile?.currency as string | undefined) || 'EUR';
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState({
@@ -138,7 +140,7 @@ export default function AnalyticsPage() {
         });
         setActivity(acts.length ? acts : [{ type: 'info', message: 'No recent activity yet', time: '' }]);
       } catch (err) {
-        console.error('[Analytics] fetch error:', err);
+        showToast('Failed to load analytics data', 'error');
       } finally {
         setLoading(false);
       }
