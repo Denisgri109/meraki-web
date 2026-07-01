@@ -165,8 +165,7 @@ export async function reverseGeocodeCountry(
         ? data.address.country_code.toUpperCase()
         : null,
     };
-  } catch (err) {
-    console.warn('[location] reverseGeocodeCountry failed:', err);
+  } catch {
     return { country: null, countryCode: null };
   }
 }
