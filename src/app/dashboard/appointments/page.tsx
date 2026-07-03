@@ -377,8 +377,8 @@ export default function AppointmentsPage() {
       
       setSelectedAppointment(null);
       fetchAppointments();
-    } catch (err: any) {
-      showToast(err.message || 'Failed to cancel appointment', 'error');
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : 'Failed to cancel appointment', 'error');
     }
   };
 
@@ -411,8 +411,8 @@ export default function AppointmentsPage() {
       showToast(confirmed ? 'Attendance confirmed!' : 'Attendance declined & booking cancelled.', 'success');
       setSelectedAppointment(null);
       fetchAppointments();
-    } catch (err: any) {
-      showToast(err.message || 'Failed to submit confirmation', 'error');
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : 'Failed to submit confirmation', 'error');
     }
   };
 
@@ -448,8 +448,8 @@ export default function AppointmentsPage() {
       showToast(msg, 'success');
       setSelectedAppointment(null);
       fetchAppointments();
-    } catch (err: any) {
-      showToast(err.message || 'Failed to update appointment', 'error');
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : 'Failed to update appointment', 'error');
     }
   };
 
@@ -483,8 +483,8 @@ export default function AppointmentsPage() {
       // Store in localStorage to trigger auto-activation on the messages page
       localStorage.setItem('meraki_active_chat_convo_id', convo.id);
       window.location.href = '/dashboard/chat';
-    } catch (err: any) {
-      showToast(err.message || 'Failed to initiate chat', 'error');
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : 'Failed to initiate chat', 'error');
     }
   };
 
@@ -514,8 +514,8 @@ export default function AppointmentsPage() {
       showToast('Reschedule proposal sent to client.', 'success');
       setSelectedAppointment(null);
       fetchAppointments();
-    } catch (err: any) {
-      showToast(err.message || 'Failed to submit proposal', 'error');
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : 'Failed to submit proposal', 'error');
     }
   };
 
@@ -579,8 +579,8 @@ export default function AppointmentsPage() {
 
       setSelectedAppointment(null);
       fetchAppointments();
-    } catch (err: any) {
-      showToast(err.message || 'Failed to submit response', 'error');
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : 'Failed to submit response', 'error');
     }
   };
 
@@ -857,8 +857,8 @@ export default function AppointmentsPage() {
         showToast('Client recorded as No-Show. Booking completed.', 'success');
         setSelectedAppointment(null);
         fetchAppointments();
-      } catch (err: any) {
-        showToast(err.message || 'Failed to record no-show', 'error');
+      } catch (err: unknown) {
+        showToast(err instanceof Error ? err.message : 'Failed to record no-show', 'error');
       }
     } else {
       setShowNoShowModal(true);
@@ -913,8 +913,8 @@ export default function AppointmentsPage() {
       );
       setSelectedAppointment(null);
       fetchAppointments();
-    } catch (err: any) {
-      showToast(err.message || 'Failed to capture no-show fee', 'error');
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : 'Failed to capture no-show fee', 'error');
     }
   };
 
@@ -939,8 +939,8 @@ export default function AppointmentsPage() {
       showToast(`Grace period set. Client has ${graceMinutes} minutes to arrive.`, 'success');
       setSelectedAppointment(null);
       fetchAppointments();
-    } catch (err: any) {
-      showToast(err.message || 'Failed to initialize grace period', 'error');
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : 'Failed to initialize grace period', 'error');
     }
   };
 
@@ -970,8 +970,8 @@ export default function AppointmentsPage() {
       );
       setSelectedAppointment(null);
       fetchAppointments();
-    } catch (err: any) {
-      showToast(err.message || 'Failed to log arrival', 'error');
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : 'Failed to log arrival', 'error');
     }
   };
 
