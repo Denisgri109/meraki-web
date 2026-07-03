@@ -114,7 +114,7 @@ export default function CourseEditorPage() {
     setUploadingThumbnail(true);
     try {
       const fileExt = file.name.split('.').pop();
-      const fileName = `course-${courseId}-${Date.now()}-${Math.random().toString(36).substring(2, 10)}.${fileExt}`;
+      const fileName = `course-${courseId}-${Date.now()}-${crypto.randomUUID()}.${fileExt}`;
       const filePath = `${fileName}`;
 
       const { error: uploadError } = await supabase.storage
@@ -165,7 +165,7 @@ export default function CourseEditorPage() {
       }
 
       const fileExt = file.name.split('.').pop();
-      const fileName = `lesson-${editingLesson?.id || 'new'}-${Date.now()}-${Math.random().toString(36).substring(2, 10)}.${fileExt}`;
+      const fileName = `lesson-${editingLesson?.id || 'new'}-${Date.now()}-${crypto.randomUUID()}.${fileExt}`;
       const filePath = `${fileName}`;
 
       const { error: uploadError } = await supabase.storage
