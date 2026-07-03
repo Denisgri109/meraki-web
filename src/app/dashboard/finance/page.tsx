@@ -148,6 +148,18 @@ interface RefundItem {
   original_payment_amount: number | null;
 }
 
+interface RefundReviewData {
+  id: string;
+  amount: number;
+  reason: string | null;
+  status: string | null;
+  created_at: string;
+  payment: {
+    description: string | null;
+    amount: number;
+  } | null;
+}
+
 const periodOptions: { value: PeriodFilter; label: string }[] = [
   { value: '7d', label: 'Last 7 days' },
   { value: '30d', label: 'Last 30 days' },
@@ -497,7 +509,7 @@ export default function FinancePage() {
       let refReviewQuery = supabase.from('refunds').select('*, payment:payments(description, amount)').order('created_at', { ascending: false });
       if (periodStart) refReviewQuery = refReviewQuery.gte('created_at', periodStart);
       const { data: refReviewData } = await refReviewQuery;
-      setReviewRefunds((refReviewData || []).map((r: any) => ({
+      setReviewRefunds((refReviewData as unknown as RefundReviewData[] || []).map((r: RefundReviewData) => ({
         id: r.id,
         amount: r.amount / 100,
         reason: r.reason,
