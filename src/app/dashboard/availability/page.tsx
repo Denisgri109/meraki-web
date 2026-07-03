@@ -288,18 +288,18 @@ export default function AvailabilityPage() {
     if (!selectedDay || !selDaySched || !selDayAvail) return [];
     const result: { time: string; status: 'available' | 'booked' | 'blocked'; label?: string }[] = [];
 
-    // Precompute timestamps to avoid recreating Date objects in the loop
+    // Precompute timestamps and sort to avoid recreating Date objects and O(N^2) lookups
     const parsedBlocks = selDayBlocks.map(b => ({
       ...b,
       startMs: new Date(b.start_time).getTime(),
       endMs: new Date(b.end_time).getTime()
-    }));
+    })).sort((a, b) => a.startMs - b.startMs);
 
     const parsedApts = selDayApts.map(a => ({
       ...a,
       startMs: new Date(a.start_time).getTime(),
       endMs: new Date(a.end_time).getTime()
-    }));
+    })).sort((a, b) => a.startMs - b.startMs);
 
     for (const slot of selDaySched.slots) {
       const [sh, sm] = slot.start.split(':').map(Number);
@@ -309,10 +309,20 @@ export default function AvailabilityPage() {
         const ss = new Date(selectedDay); ss.setHours(h, m, 0, 0);
         const ssMs = ss.getTime();
 
-        const blocked = parsedBlocks.find(b => ssMs >= b.startMs && ssMs < b.endMs);
+        let blocked = undefined;
+        for (let j = 0; j < parsedBlocks.length; j++) {
+          const b = parsedBlocks[j];
+          if (b.startMs > ssMs) break;
+          if (ssMs < b.endMs) { blocked = b; break; }
+        }
         if (blocked) { result.push({ time: tl, status: 'blocked', label: blocked.reason || 'Blocked' }); continue; }
 
-        const booked = parsedApts.find(a => ssMs >= a.startMs && ssMs < a.endMs);
+        let booked = undefined;
+        for (let j = 0; j < parsedApts.length; j++) {
+          const a = parsedApts[j];
+          if (a.startMs > ssMs) break;
+          if (ssMs < a.endMs) { booked = a; break; }
+        }
         if (booked) {
           const cn = (booked.profiles as { full_name: string } | null)?.full_name || 'Client';
           const sn = (booked.services as { name: string } | null)?.name || 'Appointment';
