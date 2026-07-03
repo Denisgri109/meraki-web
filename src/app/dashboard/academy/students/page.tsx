@@ -161,11 +161,14 @@ export default function AcademyStudentsPage() {
       }
 
       // 4. Enrich enrollments with progress calculations
-      const enriched: StudentEnrollment[] = enrollmentData.map((enrollment: any) => {
-        const courseLessonIds = lessonsByCourse[enrollment.course_id] || [];
+      const enriched: StudentEnrollment[] = enrollmentData.map((enrollment) => {
+        const courseId = enrollment.course_id || '';
+        const studentId = enrollment.student_id || '';
+
+        const courseLessonIds = lessonsByCourse[courseId] || [];
         const totalLessonsCount = courseLessonIds.length;
 
-        const userProg = progressByUser[enrollment.student_id] || { completed: new Set(), latestUpdate: null };
+        const userProg = progressByUser[studentId] || { completed: new Set(), latestUpdate: null };
 
         let completedLessonsCount = 0;
         for (const lid of courseLessonIds) {
@@ -180,6 +183,9 @@ export default function AcademyStudentsPage() {
 
         return {
           ...enrollment,
+          course_id: courseId,
+          student_id: studentId,
+          enrolled_at: enrollment.enrolled_at || '',
           progress,
           completedLessonsCount,
           totalLessonsCount,
