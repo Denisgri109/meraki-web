@@ -313,15 +313,58 @@ export default function FinancePage() {
     try {
       const periodStart = getPeriodStart(periodFilter);
 
-      // 1. Load all payments
-      let paymentQuery = supabase
-        .from('payments')
-        .select('*')
-        .order('created_at', { ascending: false });
-
+      // Prepare initial queries to run concurrently
+      let paymentQuery = supabase.from('payments').select('*').order('created_at', { ascending: false });
       if (periodStart) paymentQuery = paymentQuery.gte('created_at', periodStart);
 
-      const { data: allPayments } = await paymentQuery;
+      let enrollQuery = supabase.from('course_enrollments').select('id, course:courses(price)');
+      if (periodStart) enrollQuery = enrollQuery.gte('enrolled_at', periodStart);
+
+      let ordReviewQuery = supabase.from('orders').select('*, user:profiles!orders_user_id_fkey(full_name)').order('created_at', { ascending: false });
+      if (periodStart) ordReviewQuery = ordReviewQuery.gte('created_at', periodStart);
+
+      let aptReviewQuery = supabase.from('appointments').select(`
+        id, start_time, status, price, service_name,
+        client:profiles!appointments_client_id_fkey(full_name),
+        master:profiles!appointments_master_id_fkey(full_name)
+      `).order('start_time', { ascending: false });
+      if (periodStart) aptReviewQuery = aptReviewQuery.gte('start_time', periodStart);
+
+      let enrReviewQuery = supabase.from('course_enrollments').select(`
+        id, enrolled_at, progress, payment_intent_id,
+        student:profiles!course_enrollments_student_id_fkey(full_name),
+        course:courses(title)
+      `).order('enrolled_at', { ascending: false });
+      if (periodStart) enrReviewQuery = enrReviewQuery.gte('enrolled_at', periodStart);
+
+      const msReviewQuery = supabase.from('master_services').select(`
+        id, custom_price, custom_duration, is_available,
+        master:profiles!master_services_master_id_fkey(full_name),
+        service:services(name)
+      `);
+
+      let refReviewQuery = supabase.from('refunds').select('*, payment:payments(description, amount)').order('created_at', { ascending: false });
+      if (periodStart) refReviewQuery = refReviewQuery.gte('created_at', periodStart);
+
+      // Execute all independent queries at once
+      const [
+        { data: allPayments },
+        { data: enrollments },
+        { data: ordReviewData },
+        { data: aptReviewData },
+        { data: enrReviewData },
+        { data: msReviewData },
+        { data: refReviewData }
+      ] = await Promise.all([
+        paymentQuery,
+        enrollQuery,
+        ordReviewQuery,
+        aptReviewQuery,
+        enrReviewQuery,
+        msReviewQuery,
+        refReviewQuery
+      ]);
+
       const payments = (allPayments || []).filter(p => p.created_at) as PaymentRow[];
 
       // Separate by type
@@ -330,55 +373,57 @@ export default function FinancePage() {
       setShopPayments(shop);
       setBookingPayments(booking);
 
-      // 2. Load order info for shop payments
-      const oMap = new Map<string, OrderInfo>();
       const orderIds = [...new Set(shop.map(p => p.order_id).filter(Boolean))] as string[];
-      if (orderIds.length > 0) {
-        const { data: orders } = await supabase
-          .from('orders')
-          .select('id, total, status, user_id, user:profiles!orders_user_id_fkey(full_name)')
-          .in('id', orderIds);
-
-        (orders || []).forEach((o: Record<string, unknown>) => {
-          oMap.set(o.id as string, {
-            id: o.id as string,
-            total: o.total as number,
-            status: o.status as string,
-            user_name: (o.user as unknown as { full_name: string } | null)?.full_name || null,
-          });
-        });
-        setOrderInfoMap(oMap);
-      }
-
-      // 3. Load appointment info for booking payments + commissions
-      const aMap = new Map<string, AppointmentInfo>();
       const appointmentIds = [...new Set(booking.map(p => p.appointment_id).filter(Boolean))] as string[];
-      if (appointmentIds.length > 0) {
-        const { data: appointments } = await supabase
-          .from('appointments')
-          .select(`
-            id, master_id, service_name, price,
-            client:profiles!appointments_client_id_fkey(full_name),
-            master:profiles!appointments_master_id_fkey(full_name, commission_rate)
-          `)
-          .in('id', appointmentIds);
 
-        (appointments || []).forEach(a => {
-          const client = a.client as unknown as { full_name: string } | null;
-          const master = a.master as unknown as { full_name: string; commission_rate: number | null } | null;
-          aMap.set(a.id, {
-            id: a.id,
-            master_id: a.master_id,
-            service_name: a.service_name,
-            price: a.price,
-            client_name: client?.full_name || null,
-            master_name: master?.full_name || null,
-            commission_rate: master?.commission_rate ?? 0.20,
-          });
+      // Fetch dependent data (orders and appointments) concurrently
+      const [
+        { data: orders },
+        { data: appointments }
+      ] = await Promise.all([
+        orderIds.length > 0
+          ? supabase.from('orders').select('id, total, status, user_id, user:profiles!orders_user_id_fkey(full_name)').in('id', orderIds)
+          : Promise.resolve({ data: [] }),
+        appointmentIds.length > 0
+          ? supabase.from('appointments').select(`
+              id, master_id, service_name, price,
+              client:profiles!appointments_client_id_fkey(full_name),
+              master:profiles!appointments_master_id_fkey(full_name, commission_rate)
+            `).in('id', appointmentIds)
+          : Promise.resolve({ data: [] })
+      ]);
+
+      // Process orders
+      const oMap = new Map<string, OrderInfo>();
+      (orders || []).forEach((o: Record<string, unknown>) => {
+        oMap.set(o.id as string, {
+          id: o.id as string,
+          total: o.total as number,
+          status: o.status as string,
+          user_name: (o.user as unknown as { full_name: string } | null)?.full_name || null,
         });
-        setAppointmentInfoMap(aMap);
+      });
+      setOrderInfoMap(oMap);
 
-        // Build commission breakdown by master
+      // Process appointments
+      const aMap = new Map<string, AppointmentInfo>();
+      (appointments || []).forEach(a => {
+        const client = a.client as unknown as { full_name: string } | null;
+        const master = a.master as unknown as { full_name: string; commission_rate: number | null } | null;
+        aMap.set(a.id, {
+          id: a.id,
+          master_id: a.master_id,
+          service_name: a.service_name,
+          price: a.price,
+          client_name: client?.full_name || null,
+          master_name: master?.full_name || null,
+          commission_rate: master?.commission_rate ?? 0.20,
+        });
+      });
+      setAppointmentInfoMap(aMap);
+
+      // Build commission breakdown by master
+      if (appointmentIds.length > 0) {
         const masterMap = new Map<string, MasterCommission>();
         booking.filter(p => p.status === 'succeeded').forEach(p => {
           const info = p.appointment_id ? aMap.get(p.appointment_id) : null;
@@ -408,13 +453,7 @@ export default function FinancePage() {
         setMasterCommissions(Array.from(masterMap.values()));
       }
 
-      // 4. Academy revenue (from course_enrollments)
-      let enrollQuery = supabase
-        .from('course_enrollments')
-        .select('id, course:courses(price)');
-      if (periodStart) enrollQuery = enrollQuery.gte('enrolled_at', periodStart);
-
-      const { data: enrollments } = await enrollQuery;
+      // Academy revenue (from course_enrollments)
       const enrollCount = (enrollments || []).length;
       const acRevenue = (enrollments || []).reduce((sum, e) => {
         const course = e.course as unknown as { price: number } | null;
@@ -423,7 +462,7 @@ export default function FinancePage() {
       setAcademyRevenue(acRevenue);
       setAcademyEnrollments(enrollCount);
 
-      // 5. Refundable payments (succeeded, have stripe PI)
+      // Refundable payments (succeeded, have stripe PI)
       const refundable: RefundablePayment[] = payments
         .filter(p => p.status === 'succeeded' && p.stripe_payment_intent_id)
         .map(p => {
@@ -442,10 +481,7 @@ export default function FinancePage() {
         });
       setRefundablePayments(refundable);
 
-      // 6. Review Orders
-      let ordReviewQuery = supabase.from('orders').select('*, user:profiles!orders_user_id_fkey(full_name)').order('created_at', { ascending: false });
-      if (periodStart) ordReviewQuery = ordReviewQuery.gte('created_at', periodStart);
-      const { data: ordReviewData } = await ordReviewQuery;
+      // Review Data setting
       setReviewOrders((ordReviewData || []).map((o: any) => ({
         id: o.id,
         total: Number(o.total),
@@ -456,14 +492,6 @@ export default function FinancePage() {
         user_name: o.user?.full_name || 'Anonymous'
       })));
 
-      // 7. Review Bookings
-      let aptReviewQuery = supabase.from('appointments').select(`
-        id, start_time, status, price, service_name,
-        client:profiles!appointments_client_id_fkey(full_name),
-        master:profiles!appointments_master_id_fkey(full_name)
-      `).order('start_time', { ascending: false });
-      if (periodStart) aptReviewQuery = aptReviewQuery.gte('start_time', periodStart);
-      const { data: aptReviewData } = await aptReviewQuery;
       setReviewAppointments((aptReviewData || []).map((a: any) => ({
         id: a.id,
         start_time: a.start_time,
@@ -474,14 +502,6 @@ export default function FinancePage() {
         master_name: a.master?.full_name || 'Master'
       })));
 
-      // 8. Review Enrollments
-      let enrReviewQuery = supabase.from('course_enrollments').select(`
-        id, enrolled_at, progress, payment_intent_id,
-        student:profiles!course_enrollments_student_id_fkey(full_name),
-        course:courses(title)
-      `).order('enrolled_at', { ascending: false });
-      if (periodStart) enrReviewQuery = enrReviewQuery.gte('enrolled_at', periodStart);
-      const { data: enrReviewData } = await enrReviewQuery;
       setReviewEnrollments((enrReviewData || []).map((e: any) => ({
         id: e.id,
         enrolled_at: e.enrolled_at,
@@ -490,12 +510,6 @@ export default function FinancePage() {
         course_title: e.course?.title || 'Course'
       })));
 
-      // 9. Review Services
-      const { data: msReviewData } = await supabase.from('master_services').select(`
-        id, custom_price, custom_duration, is_available,
-        master:profiles!master_services_master_id_fkey(full_name),
-        service:services(name)
-      `);
       setReviewServices((msReviewData || []).map((ms: any) => ({
         id: ms.id,
         master_name: ms.master?.full_name || 'Master',
@@ -505,10 +519,6 @@ export default function FinancePage() {
         is_available: ms.is_available
       })));
 
-      // 10. Review Refunds
-      let refReviewQuery = supabase.from('refunds').select('*, payment:payments(description, amount)').order('created_at', { ascending: false });
-      if (periodStart) refReviewQuery = refReviewQuery.gte('created_at', periodStart);
-      const { data: refReviewData } = await refReviewQuery;
       setReviewRefunds((refReviewData as unknown as RefundReviewData[] || []).map((r: RefundReviewData) => ({
         id: r.id,
         amount: r.amount / 100,
