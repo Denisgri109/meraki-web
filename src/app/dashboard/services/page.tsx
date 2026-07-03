@@ -367,8 +367,9 @@ export default function ServicesPage() {
     if (form.category === 'Pilates' && !isOwner) { showToast('Only owners can create Pilates services', 'error'); return; }
 
     // Validate linked supplies stock first
+    const suppliesMap = new Map(availableSupplies.map(s => [s.id, s]));
     for (const fs of formSupplies) {
-      const sup = availableSupplies.find(s => s.id === fs.supply_id);
+      const sup = suppliesMap.get(fs.supply_id);
       if (sup && fs.quantity_per_service > sup.quantity) {
         showToast(`Supply "${sup.name}" exceeds available stock (${sup.quantity} ${sup.unit || ''})`, 'error');
         return;
