@@ -650,7 +650,7 @@ export default function FinancePage() {
           if (body?.error) msg = body.error;
         } catch { /* use default msg */ }
 
-        // If Stripe says already refunded, fix DB status and inform user
+        // If Stripe says already refunded, update DB status and inform user
         if (msg.toLowerCase().includes('already been refunded')) {
           await supabase
             .from('payments')
