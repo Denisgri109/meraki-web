@@ -104,5 +104,24 @@ describe('proxy', () => {
     expect(clientOptions).toBeDefined();
     expect(clientOptions?.cookies?.getAll).toBeDefined();
     expect(clientOptions?.cookies?.setAll).toBeDefined();
+
+    // Verify setAll sets httpOnly: true
+    const setAll = clientOptions?.cookies?.setAll;
+    expect(setAll).toBeDefined();
+
+    const mockCookiesToSet = [
+      { name: 'test-cookie', value: 'test-value', options: { path: '/' } }
+    ];
+
+    setAll!(mockCookiesToSet);
+
+    // Get the mock next Response cookie set
+    const nextResponseMock = jest.mocked(NextResponse.next);
+
+    // The last call to NextResponse.next() was during setAll
+    const lastResult = nextResponseMock.mock.results[nextResponseMock.mock.results.length - 1].value;
+    const mockSet = lastResult.cookies.set;
+
+    expect(mockSet).toHaveBeenCalledWith('test-cookie', 'test-value', { path: '/', httpOnly: true });
   });
 });
