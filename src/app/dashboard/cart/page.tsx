@@ -71,7 +71,7 @@ export default function CartPage() {
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-muted)]">MERAKÍ</p>
                     <h2 className="font-bold text-[var(--color-text-primary)] line-clamp-2">{item.name}</h2>
-                    <p className="text-sm text-[var(--color-text-secondary)] mt-1">£{item.price.toFixed(2)} each</p>
+                    <p className="text-sm text-[var(--color-text-secondary)] mt-1">€{item.price.toFixed(2)} each</p>
                   </div>
                   <button onClick={() => removeFromCart(item.id)} className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-red-50 text-[var(--color-text-muted)] hover:text-red-500 transition-colors">
                     <Trash2 size={17} />
@@ -88,7 +88,7 @@ export default function CartPage() {
                       <Plus size={14} />
                     </button>
                   </div>
-                  <p className="font-bold text-lg text-[var(--color-text-primary)]">£{(item.price * item.quantity).toFixed(2)}</p>
+                  <p className="font-bold text-lg text-[var(--color-text-primary)]">€{(item.price * item.quantity).toFixed(2)}</p>
                 </div>
               </div>
             </div>
@@ -109,7 +109,7 @@ export default function CartPage() {
           <div className="space-y-3 text-sm mb-6">
             <div className="flex justify-between text-[var(--color-text-secondary)]">
               <span>Subtotal</span>
-              <span>£{subtotal.toFixed(2)}</span>
+              <span>€{subtotal.toFixed(2)}</span>
             </div>
             <div className="flex justify-between text-[var(--color-text-secondary)]">
               <span>Shipping</span>
@@ -117,7 +117,7 @@ export default function CartPage() {
             </div>
             <div className="border-t border-[var(--color-border-light)] pt-3 flex justify-between font-bold text-lg text-[var(--color-text-primary)]">
               <span>Total</span>
-              <span>£{subtotal.toFixed(2)}+</span>
+              <span>€{subtotal.toFixed(2)}+</span>
             </div>
           </div>
 

@@ -196,9 +196,9 @@ export default function ShopProductPage() {
           </div>
 
           <div className="mb-6">
-            <span className="text-4xl font-bold text-[var(--color-text-primary)]">£{price.toFixed(2)}</span>
+            <span className="text-4xl font-bold text-[var(--color-text-primary)]">€{price.toFixed(2)}</span>
             {isMasterOrOwner && product.retail_price !== product.wholesale_price && (
-              <span className="text-sm text-[var(--color-text-muted)] line-through ml-3">£{product.retail_price.toFixed(2)}</span>
+              <span className="text-sm text-[var(--color-text-muted)] line-through ml-3">€{product.retail_price.toFixed(2)}</span>
             )}
             {isMasterOrOwner && <p className="text-xs font-semibold text-amber-600 mt-1">Wholesale pricing applied</p>}
           </div>

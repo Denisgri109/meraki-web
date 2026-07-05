@@ -458,7 +458,7 @@ export default function AcademyStudentsPage() {
         </div>
         <div className="glass-card p-5">
           <div className="w-2 h-2 rounded-full bg-gradient-to-br from-cyan-400 to-blue-400 mb-3" />
-          <p className="text-3xl font-bold text-[var(--color-text-primary)] tracking-tight">£{analytics.totalRevenue.toFixed(2)}</p>
+          <p className="text-3xl font-bold text-[var(--color-text-primary)] tracking-tight">€{analytics.totalRevenue.toFixed(2)}</p>
           <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)] mt-1">Estimated Revenue</p>
         </div>
         <div className="glass-card p-5">

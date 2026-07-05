@@ -602,12 +602,12 @@ export default function ServicesPage() {
                           {hasCustomDuration && <span className="text-[10px] text-cyan-600 ml-1">(custom)</span>}
                         </span>
                         <span className="flex items-center gap-1 font-bold text-[var(--color-text-primary)] bg-emerald-50 px-2.5 py-1 rounded-md text-emerald-700">
-                          £{Number(effectivePrice).toFixed(2)}
+                          €{Number(effectivePrice).toFixed(2)}
                           {hasCustomPrice && <span className="text-[10px] text-cyan-600 ml-1">(custom)</span>}
                         </span>
                         {hasCustomPrice && (
                           <span className="text-xs text-[var(--color-text-muted)] line-through">
-                            £{Number(service.base_price).toFixed(2)} base
+                            €{Number(service.base_price).toFixed(2)} base
                           </span>
                         )}
                       </div>
@@ -675,7 +675,7 @@ export default function ServicesPage() {
                       <div>
                         <label className="label-upper flex items-center gap-1.5">
                           <DollarSign size={12} className="text-emerald-600" />
-                          Custom Price (£)
+                          Custom Price (€)
                         </label>
                         <input
                           type="number"
@@ -683,7 +683,7 @@ export default function ServicesPage() {
                           value={configForm.custom_price}
                           onChange={(e) => setConfigForm({ ...configForm, custom_price: e.target.value })}
                           className="input-glass"
-                          placeholder={`Base: £${Number(service.base_price).toFixed(2)}`}
+                          placeholder={`Base: €${Number(service.base_price).toFixed(2)}`}
                         />
                         <p className="text-[11px] text-[var(--color-text-muted)] mt-1">Leave empty to use base price</p>
                       </div>
@@ -740,13 +740,13 @@ export default function ServicesPage() {
                                 placeholder={configForm.deposit_override_type === 'percentage' ? 'e.g. 30' : 'e.g. 15.00'}
                               />
                               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-[var(--color-text-muted)]">
-                                {configForm.deposit_override_type === 'percentage' ? <Percent size={14} /> : '£'}
+                                {configForm.deposit_override_type === 'percentage' ? <Percent size={14} /> : '€'}
                               </span>
                             </div>
                             <p className="text-[11px] text-[var(--color-text-muted)] mt-1">
                               {configForm.deposit_override_type === 'percentage'
                                 ? 'Percentage of service price required as deposit'
-                                : 'Fixed deposit amount in £'}
+                                : 'Fixed deposit amount in €'}
                             </p>
                           </div>
                         )}
@@ -830,7 +830,7 @@ export default function ServicesPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="label-upper">Price (£) *</label>
+                  <label className="label-upper">Price (€) *</label>
                   <input type="number" step="0.01" value={form.base_price} onChange={(e) => setForm({ ...form, base_price: e.target.value })} className="input-glass" placeholder="50" />
                 </div>
                 <div>
@@ -972,7 +972,7 @@ export default function ServicesPage() {
                 <p className="text-xs font-bold text-pink-600 uppercase tracking-wider">{form.category}</p>
                 <p className="font-bold text-[var(--color-text-primary)]">{form.name || 'Service Name'}</p>
                 <div className="flex items-center gap-4 mt-2 text-sm">
-                  <span className="font-bold text-emerald-600">£{form.base_price || '0'}</span>
+                  <span className="font-bold text-emerald-600">€{form.base_price || '0'}</span>
                   <span className="text-[var(--color-text-muted)]">{form.duration_minutes || '0'} min</span>
                 </div>
               </div>
@@ -1090,7 +1090,7 @@ export default function ServicesPage() {
                           <span className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded bg-[var(--color-surface-light)] text-[var(--color-text-muted)]">Inactive</span>
                         )}
                       </div>
-                      <p className="text-xs text-[var(--color-text-muted)] truncate">{service.duration_minutes} min · £{service.base_price?.toFixed(2)} · Manage timetable, hosts & sessions</p>
+                      <p className="text-xs text-[var(--color-text-muted)] truncate">{service.duration_minutes} min · €{service.base_price?.toFixed(2)} · Manage timetable, hosts & sessions</p>
                     </div>
                     <ChevronRight size={18} className="text-[var(--color-text-muted)] shrink-0" />
                   </button>

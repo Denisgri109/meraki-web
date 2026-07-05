@@ -21,9 +21,9 @@ import type { SavedCard } from '@/components/PaymentMethodsManager';
 import { CardBrandBadge } from '@/components/PaymentMethodsManager';
 import { DEFAULT_PRODUCT_IMAGE } from '@/lib/constants/images';
 // Server-authoritative catalog. The price shown here is a PREVIEW only — the
-// real charge is always resolved from the server-side PRODUCT_CATALOG in the
+// real charge is always resolved from the products table in the
 // create-stripe-session edge function, keyed by productId.
-import { findQrProduct } from '@/lib/qr-catalog';
+import { fetchQrProduct, type QrCatalogProduct } from '@/lib/qr-catalog';
 
 const stripePublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
 const stripePromise = stripePublishableKey ? loadStripe(stripePublishableKey) : null;
@@ -59,13 +59,30 @@ function QrCheckoutFlow() {
 
   const productId = searchParams.get('productId');
   // `price` and `name` from the URL are display hints ONLY. The authoritative
-  // price/name come from the shared catalog (and ultimately the server), so a
+  // price/name come from the products table (and ultimately the server), so a
   // tampered URL can't influence the charge.
   const urlName = searchParams.get('name');
   const isSuccessParam = searchParams.get('success') === 'true';
 
-  // Resolve the real product from the catalog. Unknown productId → invalid.
-  const catalogProduct = findQrProduct(productId);
+  // Resolve the real product from the DB (async). Unknown/inactive/non-qr
+  // productId → invalid checkout.
+  const [catalogProduct, setCatalogProduct] = useState<QrCatalogProduct | null>(null);
+  const [resolvingProduct, setResolvingProduct] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    const resolve = async () => {
+      if (!productId) { if (!cancelled) setResolvingProduct(false); return; }
+      const product = await fetchQrProduct(supabase, productId);
+      if (!cancelled) {
+        setCatalogProduct(product);
+        setResolvingProduct(false);
+      }
+    };
+    resolve();
+    return () => { cancelled = true; };
+  }, [productId, supabase]);
+
   const productName = catalogProduct?.name ?? urlName ?? 'Product';
   const priceEuros = catalogProduct?.price ?? 0;
   const hasValidParams = !!catalogProduct;
@@ -120,6 +137,15 @@ function QrCheckoutFlow() {
     setShowSuccess(true);
     try { navigator.vibrate?.([100, 50, 100]); } catch { /* unsupported */ }
   };
+
+  // ── Resolving product from DB (show spinner, not the error screen) ────────
+  if (resolvingProduct) {
+    return (
+      <div className="min-h-[400px] flex items-center justify-center">
+        <Loader2 size={32} className="animate-spin text-[var(--color-brand-pink-dark)]" />
+      </div>
+    );
+  }
 
   // ── Invalid QR params ────────────────────────────────────────────────────
   if (!hasValidParams && !isSuccessParam) {
@@ -454,7 +480,7 @@ function CartCheckoutForm() {
       const { data: paymentIntentData, error: paymentIntentError } = await supabase.functions.invoke('create-payment-intent', {
         body: {
           amount: toCents(finalTotal),
-          currency: 'gbp',
+          currency: 'eur',
           customer_id: profile?.stripe_customer_id || undefined,
           payment_method_id: usingSavedCard ? selectedPm : undefined,
           description: `Shop Order: ${items.length} item(s) + shipping to ${getCountryName(shippingCountry)}`,
@@ -496,7 +522,7 @@ function CartCheckoutForm() {
             quantity: item.quantity,
           })),
           payment_intent_id: paymentIntentId,
-          currency: 'gbp',
+          currency: 'eur',
           shipping: {
             name: shippingName.trim(),
             phone: shippingPhone.trim(),
@@ -582,7 +608,7 @@ function CartCheckoutForm() {
               <label className="label-upper">Country *</label>
               <select value={shippingCountry} onChange={(event) => setShippingCountry(event.target.value)} className="input-glass w-full">
                 {EUROPEAN_COUNTRIES_SORTED.map((country) => (
-                  <option key={country.code} value={country.code}>{country.name} — £{country.shippingCost.toFixed(2)}</option>
+                  <option key={country.code} value={country.code}>{country.name} — €{country.shippingCost.toFixed(2)}</option>
                 ))}
               </select>
             </div>
@@ -675,7 +701,7 @@ function CartCheckoutForm() {
                 <p className="text-sm font-semibold text-[var(--color-text-primary)] line-clamp-1">{item.name}</p>
                 <p className="text-xs text-[var(--color-text-muted)]">Qty {item.quantity}</p>
               </div>
-              <p className="text-sm font-bold text-[var(--color-text-primary)]">£{(item.price * item.quantity).toFixed(2)}</p>
+              <p className="text-sm font-bold text-[var(--color-text-primary)]">€{(item.price * item.quantity).toFixed(2)}</p>
             </div>
           ))}
         </div>
@@ -683,15 +709,15 @@ function CartCheckoutForm() {
         <div className="space-y-3 text-sm mb-6 border-t border-[var(--color-border-light)] pt-4">
           <div className="flex justify-between text-[var(--color-text-secondary)]">
             <span>Subtotal</span>
-            <span>£{subtotal.toFixed(2)}</span>
+            <span>€{subtotal.toFixed(2)}</span>
           </div>
           <div className="flex justify-between text-[var(--color-text-secondary)]">
             <span>Shipping to {getCountryName(shippingCountry)}</span>
-            <span>£{shippingCost.toFixed(2)}</span>
+            <span>€{shippingCost.toFixed(2)}</span>
           </div>
           <div className="flex justify-between font-bold text-xl text-[var(--color-text-primary)] border-t border-[var(--color-border-light)] pt-3">
             <span>Total</span>
-            <span>£{finalTotal.toFixed(2)}</span>
+            <span>€{finalTotal.toFixed(2)}</span>
           </div>
         </div>
 

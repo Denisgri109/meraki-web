@@ -370,7 +370,7 @@ export default function AppointmentsPage() {
 
       showToast(
         isLate 
-          ? `Appointment cancelled. Late fee of £${penaltyAmount.toFixed(2)} recorded.`
+          ? `Appointment cancelled. Late fee of €${penaltyAmount.toFixed(2)} recorded.`
           : 'Appointment cancelled successfully.',
         'success'
       );
@@ -1123,7 +1123,7 @@ export default function AppointmentsPage() {
                 {/* Price + Arrow */}
                 <div className="text-right shrink-0 flex items-center gap-3">
                   <div>
-                    <p className="font-extrabold text-base text-gradient-pink">£{apt.price ? Number(apt.price).toFixed(2) : '0.00'}</p>
+                    <p className="font-extrabold text-base text-gradient-pink">€{apt.price ? Number(apt.price).toFixed(2) : '0.00'}</p>
                     <p className="text-[10px] text-gray-400 font-bold">
                       {apt.deposit_paid ? 'Deposit Paid' : 'No Deposit'}
                     </p>
@@ -1543,13 +1543,13 @@ export default function AppointmentsPage() {
                   <div className="rounded-2xl border border-gray-100 p-4 space-y-2 bg-white shadow-xs">
                     <div className="flex justify-between items-center text-sm">
                       <span className="text-gray-500 font-medium">Base Service Total</span>
-                      <span className="font-bold text-gray-800">£{Number(selectedAppointment.price).toFixed(2)}</span>
+                      <span className="font-bold text-gray-800">€{Number(selectedAppointment.price).toFixed(2)}</span>
                     </div>
 
                     <div className="flex justify-between items-center text-sm">
                       <span className="text-gray-500 font-medium">Deposit Pre-Paid</span>
                       <span className="font-bold text-emerald-600">
-                        {selectedAppointment.deposit_paid ? `-£${Number(selectedAppointment.deposit_amount).toFixed(2)}` : '£0.00'}
+                        {selectedAppointment.deposit_paid ? `-€${Number(selectedAppointment.deposit_amount).toFixed(2)}` : '€0.00'}
                       </span>
                     </div>
 
@@ -1558,7 +1558,7 @@ export default function AppointmentsPage() {
                     <div className="flex justify-between items-center text-base">
                       <span className="text-gray-800 font-extrabold">Balance Due at Salon</span>
                       <span className="font-black text-gradient-pink text-lg">
-                        £{Number(selectedAppointment.price - (selectedAppointment.deposit_paid ? selectedAppointment.deposit_amount : 0)).toFixed(2)}
+                        €{Number(selectedAppointment.price - (selectedAppointment.deposit_paid ? selectedAppointment.deposit_amount : 0)).toFixed(2)}
                       </span>
                     </div>
                   </div>
@@ -1813,7 +1813,7 @@ export default function AppointmentsPage() {
                               <p className="text-xs font-black uppercase tracking-wider">Confirm Cancellation</p>
                               {isLateCancellation(selectedAppointment.start_time) ? (
                                 <p className="text-xs text-rose-700 font-semibold mt-1">
-                                  ⚠️ <span className="font-extrabold">Late Cancellation Alert:</span> This booking is under {settingsData?.late_cancellation_window_hours ?? 24}h away. Cancelling now will incur a <span className="font-extrabold">{settingsData?.cancellation_charge_percent ?? 50}% fee (£{((selectedAppointment.price * (settingsData?.cancellation_charge_percent ?? 50)) / 100).toFixed(2)})</span>.
+                                  ⚠️ <span className="font-extrabold">Late Cancellation Alert:</span> This booking is under {settingsData?.late_cancellation_window_hours ?? 24}h away. Cancelling now will incur a <span className="font-extrabold">{settingsData?.cancellation_charge_percent ?? 50}% fee (€{((selectedAppointment.price * (settingsData?.cancellation_charge_percent ?? 50)) / 100).toFixed(2)})</span>.
                                 </p>
                               ) : (
                                 <p className="text-xs text-rose-600 font-medium mt-1">

@@ -143,7 +143,7 @@ export default function PilatesStudioPage() {
               {service.name}
             </h1>
             <p className="text-sm mt-1.5" style={{ color: 'rgba(255,255,255,0.85)' }}>
-              {service.duration_minutes} min · £{service.base_price?.toFixed(2)} per class
+              {service.duration_minutes} min · €{service.base_price?.toFixed(2)} per class
             </p>
           </div>
         </div>

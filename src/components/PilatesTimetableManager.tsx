@@ -923,7 +923,7 @@ export function PilatesTimetableManager({ service, onServiceUpdate }: PilatesTim
 
                 <div className="mt-3 grid grid-cols-2 gap-3">
                   <div>
-                    <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-sky-900/80">Price (£)</label>
+                    <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-sky-900/80">Price (€)</label>
                     <input
                       type="number"
                       step="0.01"

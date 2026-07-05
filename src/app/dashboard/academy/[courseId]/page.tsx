@@ -481,7 +481,7 @@ export default function CourseEditorPage() {
               </div>
               {course.description && <p className="text-sm text-[var(--color-text-secondary)] mt-1 max-w-2xl">{course.description}</p>}
               <div className="flex items-center gap-4 mt-2 text-xs text-[var(--color-text-muted)]">
-                <span>£{(course.price || 0).toFixed(2)}</span>
+                <span>€{(course.price || 0).toFixed(2)}</span>
                 <span className={`px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${course.is_published ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
                   {course.is_published ? 'Published' : 'Draft'}
                 </span>

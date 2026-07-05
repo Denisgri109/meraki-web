@@ -637,7 +637,7 @@ export default function SuppliesPage() {
                       {threshold} {s.unit}
                     </div>
                     <div className="col-span-2 text-right text-sm text-[var(--color-text-secondary)]">
-                      {s.cost_per_unit != null ? `£${fmtMoney(s.cost_per_unit)}` : '—'}
+                      {s.cost_per_unit != null ? `€${fmtMoney(s.cost_per_unit)}` : '—'}
                     </div>
                     <div className="col-span-2 flex items-center justify-end gap-1">
                       <button
@@ -703,14 +703,14 @@ export default function SuppliesPage() {
                         </p>
                         <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">{svc.name}</h3>
                         <p className="text-xs text-[var(--color-text-muted)]">
-                          £{fmtMoney(svc.base_price)} • {svc.duration_minutes} min
+                          €{fmtMoney(svc.base_price)} • {svc.duration_minutes} min
                         </p>
                       </div>
                       <div className="text-right">
                         <p className="text-xs uppercase tracking-wider text-[var(--color-text-muted)]">Supply cost</p>
-                        <p className="text-xl font-bold text-[var(--color-text-primary)]">£{fmtMoney(cost.total)}</p>
+                        <p className="text-xl font-bold text-[var(--color-text-primary)]">€{fmtMoney(cost.total)}</p>
                         <p className={`text-xs ${margin >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
-                          Margin £{fmtMoney(margin)}
+                          Margin €{fmtMoney(margin)}
                         </p>
                       </div>
                       <button
@@ -738,7 +738,7 @@ export default function SuppliesPage() {
                                 </p>
                                 <p className="text-xs text-[var(--color-text-muted)]">
                                   {l.quantity_per_service} {sup.unit}
-                                  {sup.cost_per_unit != null && ` • £${fmtMoney(lineCost)}`}
+                                  {sup.cost_per_unit != null && ` • €${fmtMoney(lineCost)}`}
                                   {l.notes && ` • ${l.notes}`}
                                 </p>
                               </div>
@@ -883,7 +883,7 @@ export default function SuppliesPage() {
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">
-                    Cost / unit (£)
+                    Cost / unit (€)
                   </label>
                   <input
                     type="number"
@@ -1041,7 +1041,7 @@ export default function SuppliesPage() {
                           }`}
                         >
                           {s.quantity} {s.unit} available
-                          {s.cost_per_unit != null && ` • £${fmtMoney(s.cost_per_unit)}/${s.unit}`}
+                          {s.cost_per_unit != null && ` • €${fmtMoney(s.cost_per_unit)}/${s.unit}`}
                         </p>
                       </button>
                     ))}

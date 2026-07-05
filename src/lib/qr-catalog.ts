@@ -1,41 +1,50 @@
 /**
- * On-site QR product catalog — client mirror of the server-side catalog in
- * supabase/functions/create-stripe-session/index.ts (PRODUCT_CATALOG).
+ * On-site QR product lookup (client-side preview only).
  *
  * SECURITY MODEL: The server is the single source of truth for the actual
- * charge. These client-side values are used ONLY for:
- *   1. Rendering the product picker on the owner's QR dashboard.
- *   2. Encoding productId/price/name into the QR code URL (display hints).
- *   3. Showing a price preview to the customer before they pay.
- *
- * A tampered QR URL cannot change what is charged — create-stripe-session
- * looks up the price from its own server-side PRODUCT_CATALOG by productId and
- * ignores whatever price/name the client sends. Unknown productIds are rejected.
- *
- * If you edit a price, edit it HERE and in the edge function's PRODUCT_CATALOG
- * so the preview the customer sees matches what they are actually charged.
+ * charge. The create-stripe-session edge function looks up the product by id
+ * in the `products` table and uses the `retail_price` from the row — it
+ * ignores any client-supplied price. The helpers here are ONLY for displaying
+ * a price/name preview to the customer before they tap "Pay". Even if this
+ * lookup returns a stale/wrong value, the charge is always correct.
  */
 
 export interface QrCatalogProduct {
-  /** Stable identifier encoded in the QR URL. Must match a key in the server catalog. */
   id: string;
   name: string;
-  /** Display price in euros. The server re-derives the real charge from this id. */
+  /** Display price in euros. Preview only — the server re-derives the real charge from this id. */
   price: number;
-  description: string;
+  description: string | null;
+  image_url: string | null;
 }
 
-export const QR_CATALOG: QrCatalogProduct[] = [
-  { id: 'socks-16',  name: 'Merakí Cozy Socks',      price: 16.00, description: 'Soft, organic cotton salon socks' },
-  { id: 'tshirt-25', name: 'Merakí Premium Tee',      price: 25.00, description: 'Relaxed fit, ultra-soft daily wear' },
-  { id: 'cap-20',    name: 'Signature Dad Cap',        price: 20.00, description: 'Embroidered logo, adjustable strap' },
-  { id: 'towel-12',  name: 'Microfiber Salon Towel',   price: 12.50, description: 'Quick-dry, absorbent hair towel' },
-  { id: 'tote-10',   name: 'Canvas Tote Bag',          price: 10.00, description: 'Eco-friendly, spacious everyday carry' },
-  { id: 'combo-45',  name: 'Ultimate Care Combo',      price: 45.00, description: 'Socks + Tee + Tote bag premium bundle' },
-];
+/**
+ * Fetch a single product by id for the checkout preview.
+ * Returns null if the product doesn't exist, isn't active, or isn't QR-enabled.
+ */
+export async function fetchQrProduct(
+  supabase: { from: (t: string) => any },
+  productId: string,
+): Promise<QrCatalogProduct | null> {
+  if (!productId) return null;
+  try {
+    const { data, error } = await supabase
+      .from('products')
+      .select('id, name, retail_price, description, image_url, qr_enabled, is_active')
+      .eq('id', productId)
+      .maybeSingle();
 
-/** Look up a product by id for the checkout preview (display only). */
-export function findQrProduct(id: string | null): QrCatalogProduct | null {
-  if (!id) return null;
-  return QR_CATALOG.find((p) => p.id === id) ?? null;
+    if (error || !data) return null;
+    if (!data.qr_enabled || data.is_active === false) return null;
+
+    return {
+      id: data.id,
+      name: data.name,
+      price: Number(data.retail_price) || 0,
+      description: data.description,
+      image_url: data.image_url,
+    };
+  } catch {
+    return null;
+  }
 }

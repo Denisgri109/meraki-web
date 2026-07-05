@@ -269,9 +269,9 @@ export default function ShopPage() {
                 <h3 className="font-semibold text-sm text-[var(--color-text-primary)] line-clamp-1 group-hover:text-gradient-pink transition-colors">{product.name}</h3>
                 <div className="flex items-center justify-between mt-3">
                   <div>
-                    <span className="text-lg font-bold text-[var(--color-text-primary)]">£{getPrice(product).toFixed(2)}</span>
+                    <span className="text-lg font-bold text-[var(--color-text-primary)]">€{getPrice(product).toFixed(2)}</span>
                     {isMasterOrOwner && product.retail_price !== product.wholesale_price && (
-                      <span className="text-xs text-[var(--color-text-muted)] line-through ml-2">£{product.retail_price.toFixed(2)}</span>
+                      <span className="text-xs text-[var(--color-text-muted)] line-through ml-2">€{product.retail_price.toFixed(2)}</span>
                     )}
                   </div>
                 </div>

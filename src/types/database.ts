@@ -2757,6 +2757,7 @@ export type Database = {
           is_digital: boolean | null
           low_stock_threshold: number | null
           name: string
+          qr_enabled: boolean
           restricted_countries: string[] | null
           retail_price: number
           shipping_weight_kg: number | null
@@ -2775,6 +2776,7 @@ export type Database = {
           is_digital?: boolean | null
           low_stock_threshold?: number | null
           name: string
+          qr_enabled?: boolean
           restricted_countries?: string[] | null
           retail_price: number
           shipping_weight_kg?: number | null
@@ -2793,6 +2795,7 @@ export type Database = {
           is_digital?: boolean | null
           low_stock_threshold?: number | null
           name?: string
+          qr_enabled?: boolean
           restricted_countries?: string[] | null
           retail_price?: number
           shipping_weight_kg?: number | null

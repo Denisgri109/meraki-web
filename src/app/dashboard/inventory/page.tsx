@@ -422,7 +422,7 @@ export default function InventoryPage() {
                   <span className="font-medium text-sm text-[var(--color-text-primary)] truncate">{product.name}</span>
                 </div>
                 <div className="col-span-2 text-sm text-[var(--color-text-muted)]">{product.category || '—'}</div>
-                <div className="col-span-2 text-right text-sm font-medium text-[var(--color-text-primary)]">£{formatMoney(product.retail_price)}</div>
+                <div className="col-span-2 text-right text-sm font-medium text-[var(--color-text-primary)]">€{formatMoney(product.retail_price)}</div>
                 <div className="col-span-2 text-right">
                   <span className={`text-sm font-bold ${stockCount === 0 ? 'text-red-500' : stockCount <= (product.low_stock_threshold ?? 5) ? 'text-amber-500' : 'text-[var(--color-text-primary)]'}`}>
                     {stockCount}

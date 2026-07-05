@@ -383,8 +383,9 @@ export default function SettingsPage() {
     const updates: Record<string, unknown> = {
       full_name: fullName.trim(),
       phone: normalizedPhone,
-      currency,
-      currency_code: currency,
+      // Currency is locked to EUR for the whole salon (no per-user switching).
+      currency: 'EUR',
+      currency_code: 'EUR',
       bio: String(formData.get('bio') || ''),
       city: city.trim() || null,
       country: country.trim() || null,
@@ -786,19 +787,15 @@ export default function SettingsPage() {
                 <div>
                   <label className="label-upper">Currency</label>
                   <select
-                    value={currency}
-                    onChange={(e) => setCurrency(e.target.value)}
-                    className="input-glass w-full"
+                    value="EUR"
+                    disabled
+                    className="input-glass w-full opacity-70 cursor-not-allowed"
                   >
                     <option value="EUR">€ EUR - Euro</option>
-                    <option value="USD">$ USD - US Dollar</option>
-                    <option value="GBP">£ GBP - British Pound</option>
-                    <option value="CAD">$ CAD - Canadian Dollar</option>
-                    <option value="AUD">$ AUD - Australian Dollar</option>
-                    <option value="CHF">Fr CHF - Swiss Franc</option>
-                    <option value="JPY">¥ JPY - Japanese Yen</option>
-                    <option value="Other">Other</option>
                   </select>
+                  <p className="text-[11px] text-[var(--color-text-muted)] mt-1">
+                    All prices and payments are in Euros (€). Currency is fixed for this salon.
+                  </p>
                 </div>
                 <LocationPicker
                   country={country}

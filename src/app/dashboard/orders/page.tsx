@@ -434,7 +434,7 @@ export default function OrdersPage() {
               <CreditCard size={20} className="text-emerald-500" />
             </div>
             <div>
-              <p className="text-xl font-bold text-emerald-600">£{totalRevenue.toFixed(2)}</p>
+              <p className="text-xl font-bold text-emerald-600">€{totalRevenue.toFixed(2)}</p>
               <p className="text-xs text-[var(--color-text-muted)]">Revenue</p>
             </div>
           </div>
@@ -518,7 +518,7 @@ export default function OrdersPage() {
                 <StatusBadge status={order.shipping_status || 'pending'} />
               </div>
               <div className="col-span-2 text-right text-sm font-bold text-[var(--color-text-primary)]">
-                £{Number(order.total).toFixed(2)}
+                €{Number(order.total).toFixed(2)}
               </div>
               <div className="col-span-1 text-right">
                 <button className="w-8 h-8 rounded-full hover:bg-[var(--color-surface-light)] flex items-center justify-center cursor-pointer">
@@ -728,7 +728,7 @@ export default function OrdersPage() {
                           <p className="text-xs text-[var(--color-text-muted)]">Qty: {item.quantity}</p>
                         </div>
                       </div>
-                      <p className="text-sm font-bold text-[var(--color-text-primary)]">£{Number(item.price * item.quantity).toFixed(2)}</p>
+                      <p className="text-sm font-bold text-[var(--color-text-primary)]">€{Number(item.price * item.quantity).toFixed(2)}</p>
                     </div>
                   ))}
                 </div>
@@ -757,12 +757,12 @@ export default function OrdersPage() {
                 {Number(selectedOrder.shipping_cost) > 0 && (
                   <div className="flex justify-between text-sm text-[var(--color-text-secondary)]">
                     <span>Shipping</span>
-                    <span>£{Number(selectedOrder.shipping_cost).toFixed(2)}</span>
+                    <span>€{Number(selectedOrder.shipping_cost).toFixed(2)}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-lg font-bold text-[var(--color-text-primary)]">
                   <span>Total</span>
-                  <span>£{Number(selectedOrder.total).toFixed(2)}</span>
+                  <span>€{Number(selectedOrder.total).toFixed(2)}</span>
                 </div>
               </div>
 

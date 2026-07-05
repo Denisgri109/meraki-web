@@ -361,7 +361,7 @@ function OwnerAcademyView() {
                 <div className="flex items-center gap-4 mt-3 text-xs text-[var(--color-text-muted)]">
                   <span className="flex items-center gap-1"><Users size={12} />{course.enrollment_count || 0}</span>
                   <span className="flex items-center gap-1"><BookOpen size={12} />{course.lesson_count || 0} lessons</span>
-                  <span className="flex items-center gap-1"><DollarSign size={12} />£{(course.price || 0).toFixed(2)}</span>
+                  <span className="flex items-center gap-1"><DollarSign size={12} />€{(course.price || 0).toFixed(2)}</span>
                 </div>
 
                 {/* Actions */}
@@ -412,7 +412,7 @@ function OwnerAcademyView() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-semibold text-[var(--color-text-secondary)] mb-1 block">Price (£)</label>
+                  <label className="text-sm font-semibold text-[var(--color-text-secondary)] mb-1 block">Price (€)</label>
                   <input className="input-glass w-full" type="number" min="0" step="0.01" placeholder="0.00" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
                 </div>
                 <div>
@@ -706,7 +706,7 @@ function ClientAcademyView() {
               <div className="h-[1px] w-full bg-[var(--color-border-light)] mb-6" />
               <div className="flex justify-between items-center mb-6">
                 <span className="text-[var(--color-text-secondary)] font-medium">Course Price</span>
-                <span className="text-3xl font-extrabold text-gradient-pink">£{(selectedCourse.price || 0).toFixed(2)}</span>
+                <span className="text-3xl font-extrabold text-gradient-pink">€{(selectedCourse.price || 0).toFixed(2)}</span>
               </div>
               <div className="space-y-4 mb-8">
                 <div className="flex gap-3 items-start"><CheckCircle2 size={18} className="text-emerald-500 shrink-0 mt-0.5" /><span className="text-sm text-[var(--color-text-secondary)]">Lifetime access to all materials</span></div>
@@ -806,7 +806,7 @@ function ClientAcademyView() {
                         <span className="flex items-center gap-1"><BookOpen size={12} />{course.lesson_count || 0} lessons</span>
                       </div>
                       <div className="flex items-center justify-between mt-3 pt-3 border-t border-[var(--color-border-light)]">
-                        <span className="text-gradient-pink text-lg font-bold">£{(course.price || 0).toFixed(2)}</span>
+                        <span className="text-gradient-pink text-lg font-bold">€{(course.price || 0).toFixed(2)}</span>
                         <span className="text-xs text-cyan-500 font-bold opacity-0 group-hover:opacity-100 transition-opacity">View Details →</span>
                       </div>
                     </div>

@@ -1095,7 +1095,7 @@ export default function BookingPage() {
                       <div className="flex items-center gap-1.5 text-sm text-[var(--color-text-muted)] bg-[var(--color-surface-light)] px-2 py-1 rounded-md">
                         <Clock size={14} /> <span>{service.duration_minutes} min</span>
                       </div>
-                      <span className="text-lg font-bold text-gradient-pink">£{service.base_price?.toFixed(2)}</span>
+                      <span className="text-lg font-bold text-gradient-pink">€{service.base_price?.toFixed(2)}</span>
                     </div>
                   </div>
                 </div>
@@ -1123,7 +1123,7 @@ export default function BookingPage() {
               </div>
             </div>
             <div className="text-right hidden sm:block">
-              <p className="text-sm font-bold text-violet-700">£{selectedService?.base_price?.toFixed(2)} • {selectedService?.duration_minutes} min</p>
+              <p className="text-sm font-bold text-violet-700">€{selectedService?.base_price?.toFixed(2)} • {selectedService?.duration_minutes} min</p>
             </div>
           </div>
 
@@ -1222,7 +1222,7 @@ export default function BookingPage() {
             )}
 
             <div className="text-right sm:block hidden shrink-0">
-              <p className="text-sm font-bold text-violet-700">£{selectedService?.base_price?.toFixed(2)} • {selectedService?.duration_minutes} min</p>
+              <p className="text-sm font-bold text-violet-700">€{selectedService?.base_price?.toFixed(2)} • {selectedService?.duration_minutes} min</p>
             </div>
           </div>
 
@@ -1480,7 +1480,7 @@ export default function BookingPage() {
                       <p className="font-bold text-[var(--color-text-primary)]">{selectedService?.name}</p>
                     </div>
                   </div>
-                  <p className="font-bold text-lg text-gradient-pink">£{selectedService?.base_price?.toFixed(2)}</p>
+                  <p className="font-bold text-lg text-gradient-pink">€{selectedService?.base_price?.toFixed(2)}</p>
                 </div>
 
                 <div 
