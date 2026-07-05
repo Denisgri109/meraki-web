@@ -30,6 +30,7 @@ const ownerNav = [
   { href: '/dashboard/finance', label: 'Finance', icon: DollarSign },
   { href: '/dashboard/services', label: 'Services', icon: Scissors },
   { href: '/dashboard/orders', label: 'Orders', icon: ShoppingBag },
+  { href: '/dashboard/qr-payments', label: 'QR Pay', icon: Smartphone },
   { href: '/dashboard/inventory', label: 'Inventory', icon: Package },
   { href: '/dashboard/supplies', label: 'Supplies', icon: Boxes },
   { href: '/dashboard/academy', label: 'Academy', icon: GraduationCap },

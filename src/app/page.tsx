@@ -2,7 +2,6 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import { Footer } from '@/components/Footer';
-import { MainNavbar } from '@/components/MainNavbar';
 import { DEFAULT_PRODUCT_IMAGE_HERO } from '@/lib/constants/images';
 
 export default async function LandingPage() {
@@ -17,8 +16,6 @@ export default async function LandingPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-white">
-      <MainNavbar transparent />
-
       {/* ── Hero Section ───────────────────────────────────────── */}
       <section className="relative h-screen min-h-[600px] flex items-center justify-center overflow-hidden">
         {/* Background Image */}

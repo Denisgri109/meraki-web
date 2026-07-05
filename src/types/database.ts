@@ -3392,6 +3392,148 @@ export type Database = {
           },
         ]
       }
+      // ── Voucher & QR-Payment System (migration 20260703) ──
+      vouchers: {
+        Row: {
+          id: string
+          code: string
+          discount_value: number
+          discount_type: 'percentage' | 'fixed'
+          package_id: string | null
+          max_uses: number
+          current_uses: number
+          is_active: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          code: string
+          discount_value: number
+          discount_type: 'percentage' | 'fixed'
+          package_id?: string | null
+          max_uses?: number
+          current_uses?: number
+          is_active?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          code?: string
+          discount_value?: number
+          discount_type?: 'percentage' | 'fixed'
+          package_id?: string | null
+          max_uses?: number
+          current_uses?: number
+          is_active?: boolean
+          created_at?: string
+        }
+        Relationships: []
+      }
+      user_vouchers: {
+        Row: {
+          id: string
+          user_id: string
+          voucher_id: string
+          created_at: string
+          expires_at: string
+          is_used: boolean
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          voucher_id: string
+          created_at?: string
+          expires_at?: string
+          is_used?: boolean
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          voucher_id?: string
+          created_at?: string
+          expires_at?: string
+          is_used?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'user_vouchers_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'user_vouchers_voucher_id_fkey'
+            columns: ['voucher_id']
+            isOneToOne: false
+            referencedRelation: 'vouchers'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      transactions: {
+        Row: {
+          id: string
+          user_id: string | null
+          stripe_session_id: string
+          amount: number
+          currency: string
+          status: 'pending' | 'completed' | 'failed'
+          product_name: string | null
+          product_id: string | null
+          discount_applied: number
+          voucher_id: string | null
+          metadata: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string | null
+          stripe_session_id: string
+          amount: number
+          currency?: string
+          status?: 'pending' | 'completed' | 'failed'
+          product_name?: string | null
+          product_id?: string | null
+          discount_applied?: number
+          voucher_id?: string | null
+          metadata?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string | null
+          stripe_session_id?: string
+          amount?: number
+          currency?: string
+          status?: 'pending' | 'completed' | 'failed'
+          product_name?: string | null
+          product_id?: string | null
+          discount_applied?: number
+          voucher_id?: string | null
+          metadata?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'transactions_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'transactions_voucher_id_fkey'
+            columns: ['voucher_id']
+            isOneToOne: false
+            referencedRelation: 'vouchers'
+            referencedColumns: ['id']
+          },
+        ]
+      }
     }
     Views: {
       low_stock_supplies: {

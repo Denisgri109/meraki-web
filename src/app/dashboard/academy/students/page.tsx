@@ -3,11 +3,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/Toast';
 import {
   ArrowLeft, Search, GraduationCap, DollarSign, Users, CheckCircle2,
-  ChevronRight, Loader2, X, Clock, Play, BookOpen, AlertTriangle
+  ChevronRight, Loader2, X, Clock, Play, BookOpen, AlertTriangle,
+  Gift, UserPlus, Mail, KeyRound, Tag, Sparkles, PartyPopper
 } from 'lucide-react';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -78,6 +80,109 @@ export default function AcademyStudentsPage() {
   const [modalLoading, setModalLoading] = useState(false);
   const [completedLessons, setCompletedLessons] = useState<CompletedLessonProgress[]>([]);
   const [allCourseLessons, setAllCourseLessons] = useState<Lesson[]>([]);
+
+  // ── Launch Day Voucher Registration ───────────────────────────────────────
+  // Help-desk flow: register a walk-in client and claim their prize-wheel voucher.
+  const [showVoucherModal, setShowVoucherModal] = useState(false);
+  const [voucherForm, setVoucherForm] = useState({
+    fullName: '',
+    email: '',
+    password: '',
+    code: 'LAUNCH50',
+  });
+  const [registering, setRegistering] = useState(false);
+  const [registerResult, setRegisterResult] = useState<{
+    ok: boolean;
+    email: string;
+    voucherCode: string;
+    discount: string;
+    expiresAt: string;
+  } | null>(null);
+
+  const handleRegisterAndClaim = async () => {
+    const { fullName, email, password, code } = voucherForm;
+
+    if (!fullName.trim()) { showToast('Enter the client\'s full name.', 'error'); return; }
+    if (!email.trim() || !email.includes('@')) { showToast('Enter a valid email address.', 'error'); return; }
+    if (password.length < 6) { showToast('Password must be at least 6 characters.', 'error'); return; }
+    if (!code.trim()) { showToast('Enter a voucher code.', 'error'); return; }
+
+    setRegistering(true);
+    setRegisterResult(null);
+
+    try {
+      // 1. Temporary client so the developer's own session is never overwritten.
+      const tempClient = createSupabaseClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        { auth: { persistSession: false } },
+      );
+
+      // 2. Register the new walk-in client.
+      const { data: signUpData, error: signUpError } = await tempClient.auth.signUp({
+        email: email.trim().toLowerCase(),
+        password,
+        options: { data: { full_name: fullName.trim(), role: 'client' } },
+      });
+
+      if (signUpError) {
+        if (signUpError.message.toLowerCase().includes('already') || signUpError.status === 422) {
+          throw new Error('This email is already registered. Ask the client to log in and claim their voucher from the app.');
+        }
+        throw signUpError;
+      }
+      if (!signUpData.user) {
+        throw new Error('Registration did not return a user. Email confirmation may be enabled — disable it in Supabase Auth settings for launch day.');
+      }
+
+      // 3. Claim the voucher using the new user's own session (claim-voucher
+      //    requires the caller's JWT to match the userId).
+      const { data: claimData, error: claimError } = await tempClient.functions.invoke('claim-voucher', {
+        body: { code: code.trim().toUpperCase(), userId: signUpData.user.id },
+      });
+
+      if (claimError) {
+        const msg = (claimError as any)?.message?.toLowerCase() || '';
+        if (msg.includes('not found') || msg.includes('invalid')) {
+          throw new Error('Voucher code not found. Check the code on the prize wheel.');
+        }
+        if (msg.includes('usage') || msg.includes('limit') || msg.includes('max')) {
+          throw new Error('This voucher has reached its usage limit.');
+        }
+        if (msg.includes('already')) {
+          throw new Error('This user has already claimed this voucher.');
+        }
+        if (msg.includes('expired')) {
+          throw new Error('This voucher has expired.');
+        }
+        throw claimError;
+      }
+
+      const claimed = claimData?.voucher || claimData;
+      setRegisterResult({
+        ok: true,
+        email: email.trim(),
+        voucherCode: claimed?.code || code.trim().toUpperCase(),
+        discount: claimed?.discount_type === 'percentage'
+          ? `${claimed.discount_value}% off`
+          : `€${Number(claimed?.discount_value || 0).toFixed(2)} off`,
+        expiresAt: claimData?.expires_at || claimed?.expires_at || '',
+      });
+      showToast(`${fullName.trim()} registered and voucher applied!`, 'success');
+    } catch (err: any) {
+      console.error('[Voucher Registration] error:', err);
+      showToast(err?.message || 'Registration failed. Please try again.', 'error');
+    } finally {
+      setRegistering(false);
+    }
+  };
+
+  const resetVoucherForm = () => {
+    setVoucherForm({ fullName: '', email: '', password: '', code: 'LAUNCH50' });
+    setRegisterResult(null);
+    setShowVoucherModal(false);
+  };
+
 
   const fetchStudentData = useCallback(async () => {
     if (!user) return;
@@ -322,6 +427,25 @@ export default function AcademyStudentsPage() {
           </div>
           <h1 className="text-3xl font-bold text-[var(--color-text-primary)]">Student Directory</h1>
           <p className="text-sm text-[var(--color-text-muted)] mt-1">Track and support student progress across your academy</p>
+        </div>
+        <button
+          onClick={() => setShowVoucherModal(true)}
+          className="btn-pink inline-flex items-center gap-2 px-5 py-3 text-sm font-bold shrink-0 shadow-md hover:shadow-lg transition-all"
+        >
+          <Gift size={16} /> Register Client & Voucher
+        </button>
+      </div>
+
+      {/* ── Launch Day Registration Banner ── */}
+      <div className="glass-card p-4 mb-8 flex items-center gap-4 border-l-4 border-[var(--color-brand-pink)]">
+        <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-pink-200 to-rose-200 flex items-center justify-center shrink-0">
+          <Sparkles size={20} className="text-[var(--color-brand-pink-dark)]" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="font-bold text-sm text-[var(--color-text-primary)]">Launch Day Help-Desk</p>
+          <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
+            Register walk-in clients and apply their prize-wheel voucher (e.g. <span className="font-mono font-semibold text-[var(--color-brand-pink-dark)]">LAUNCH50</span> — 50% off, valid 7 days).
+          </p>
         </div>
       </div>
 
@@ -568,6 +692,182 @@ export default function AcademyStudentsPage() {
                 Close Profile
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Launch Day Voucher Registration Modal ── */}
+      {showVoucherModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in overflow-y-auto"
+          onClick={resetVoucherForm}
+        >
+          <div
+            className="glass-card w-full max-w-md p-6 shadow-2xl my-8 relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-4 border-b border-[var(--color-border-light)]">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-pink-400 to-rose-500 flex items-center justify-center">
+                  <Gift size={18} className="text-white" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-[var(--color-text-primary)]">Register Client & Voucher</h2>
+                  <p className="text-[11px] text-[var(--color-text-muted)]">Launch day help-desk</p>
+                </div>
+              </div>
+              <button
+                onClick={resetVoucherForm}
+                className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {registerResult?.ok ? (
+              /* ── Success state ── */
+              <div className="py-6 text-center">
+                <style>{`
+                  @keyframes checkPop {
+                    0% { transform: scale(0); opacity: 0; }
+                    55% { transform: scale(1.2); opacity: 1; }
+                    100% { transform: scale(1); opacity: 1; }
+                  }
+                  .check-pop { animation: checkPop 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
+                `}</style>
+                <div className="check-pop w-20 h-20 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center mx-auto mb-4 shadow-xl shadow-emerald-500/30">
+                  <CheckCircle2 size={42} className="text-white" strokeWidth={2.5} />
+                </div>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 mb-3">
+                  <PartyPopper size={12} className="text-emerald-600" />
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">All Set</span>
+                </div>
+                <h3 className="text-xl font-bold text-[var(--color-text-primary)] mb-1">Client Registered!</h3>
+                <p className="text-sm text-[var(--color-text-secondary)] mb-5">
+                  <span className="font-semibold">{registerResult.email}</span> can now log in and pay on-site.
+                </p>
+
+                <div className="bg-[var(--color-surface-light)] rounded-xl p-4 text-left space-y-2 mb-5 border border-[var(--color-border-light)]">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)] flex items-center gap-1">
+                      <Tag size={11} /> Voucher
+                    </span>
+                    <span className="font-mono text-sm font-bold text-[var(--color-brand-pink-dark)]">{registerResult.voucherCode}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Discount</span>
+                    <span className="text-sm font-bold text-emerald-600">{registerResult.discount}</span>
+                  </div>
+                  {registerResult.expiresAt && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)] flex items-center gap-1">
+                        <Clock size={11} /> Expires
+                      </span>
+                      <span className="text-sm font-semibold text-[var(--color-text-primary)]">
+                        {new Date(registerResult.expiresAt).toLocaleDateString(undefined, { dateStyle: 'medium' })}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <p className="text-xs text-[var(--color-text-muted)] mb-5 leading-relaxed">
+                  The voucher is now active on their account and will be applied automatically when they scan a QR code to pay.
+                </p>
+
+                <div className="flex gap-3">
+                  <button onClick={resetVoucherForm} className="btn-outline flex-1 py-2.5 text-sm">Close</button>
+                  <button
+                    onClick={() => { setRegisterResult(null); setVoucherForm({ fullName: '', email: '', password: '', code: voucherForm.code }); }}
+                    className="btn-pink flex-1 py-2.5 text-sm"
+                  >
+                    Register Next
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* ── Registration form ── */
+              <div className="py-5 space-y-4">
+                <div>
+                  <label className="label-upper">Client Full Name *</label>
+                  <div className="relative mt-1">
+                    <UserPlus size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] pointer-events-none" />
+                    <input
+                      type="text"
+                      value={voucherForm.fullName}
+                      onChange={(e) => setVoucherForm({ ...voucherForm, fullName: e.target.value })}
+                      className="input-glass w-full pl-10"
+                      placeholder="e.g. Sofia Rossi"
+                      disabled={registering}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="label-upper">Email *</label>
+                  <div className="relative mt-1">
+                    <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] pointer-events-none" />
+                    <input
+                      type="email"
+                      value={voucherForm.email}
+                      onChange={(e) => setVoucherForm({ ...voucherForm, email: e.target.value })}
+                      className="input-glass w-full pl-10"
+                      placeholder="client@email.com"
+                      disabled={registering}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="label-upper">Password *</label>
+                  <div className="relative mt-1">
+                    <KeyRound size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] pointer-events-none" />
+                    <input
+                      type="password"
+                      value={voucherForm.password}
+                      onChange={(e) => setVoucherForm({ ...voucherForm, password: e.target.value })}
+                      className="input-glass w-full pl-10"
+                      placeholder="Min. 6 characters"
+                      disabled={registering}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="label-upper">Voucher Code (from prize wheel)</label>
+                  <div className="relative mt-1">
+                    <Tag size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] pointer-events-none" />
+                    <input
+                      type="text"
+                      value={voucherForm.code}
+                      onChange={(e) => setVoucherForm({ ...voucherForm, code: e.target.value.toUpperCase() })}
+                      className="input-glass w-full pl-10 font-mono uppercase tracking-wider"
+                      placeholder="LAUNCH50"
+                      disabled={registering}
+                    />
+                  </div>
+                  <p className="text-[11px] text-[var(--color-text-muted)] mt-1.5">
+                    The voucher applies a 7-day discount, enforced server-side. Expires exactly 7 days from activation.
+                  </p>
+                </div>
+
+                <button
+                  onClick={handleRegisterAndClaim}
+                  disabled={registering}
+                  className="btn-pink w-full py-3 text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed mt-2"
+                >
+                  {registering ? (
+                    <><Loader2 size={16} className="animate-spin" /> Registering & applying voucher…</>
+                  ) : (
+                    <><Gift size={16} /> Register & Apply Voucher</>
+                  )}
+                </button>
+
+                <p className="text-[11px] text-[var(--color-text-muted)] text-center leading-relaxed">
+                  Creates the client account and applies the voucher in one step. The client can then scan a QR code to pay with their discount.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       )}
