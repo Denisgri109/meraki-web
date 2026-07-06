@@ -8,6 +8,7 @@ import {
   EmbeddedCheckoutProvider, EmbeddedCheckout,
 } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
+import { FunctionsHttpError, FunctionsRelayError, FunctionsFetchError } from '@supabase/supabase-js';
 import {
   ArrowLeft, CheckCircle2, CreditCard, Loader2, MapPin, Package, ShoppingBag, Plus,
   ShieldCheck, Sparkles, Tag, AlertCircle, Lock, UserCircle,
@@ -32,6 +33,24 @@ function getErrorMessage(error: unknown) {
   if (error instanceof Error) return error.message;
   if (typeof error === 'string') return error;
   return 'Something went wrong';
+}
+
+async function resolveQrCheckoutError(error: unknown): Promise<string> {
+  if (error instanceof FunctionsHttpError) {
+    try {
+      const body = await error.context.json();
+      return body?.error || body?.message || 'The payment service returned an error.';
+    } catch {
+      return 'The payment service returned an error.';
+    }
+  }
+  if (error instanceof FunctionsFetchError) {
+    return 'Could not reach the payment service. Check your connection and try again.';
+  }
+  if (error instanceof FunctionsRelayError) {
+    return 'The payment service is temporarily unavailable. Please try again.';
+  }
+  return getErrorMessage(error);
 }
 
 function toCents(amount: number) {
@@ -159,7 +178,7 @@ function QrCheckoutFlow() {
       });
       setClientSecret(data.clientSecret);
     } catch (err) {
-      setCreateError(getErrorMessage(err));
+      setCreateError(await resolveQrCheckoutError(err));
     } finally {
       setCreating(false);
     }
