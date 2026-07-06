@@ -19,11 +19,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // radius-based master / service filter on booking, discover, etc.
   const { isLocationMissing, onLocationSaved } = useAutoLocation();
 
+  // The checkout page handles its own auth gate (with a "Continue as Guest"
+  // option for QR payments), so it must NOT be redirected to /login here.
+  const isCheckoutPage = pathname === '/dashboard/checkout';
+
   useEffect(() => {
-    if (!loading && !session) {
+    if (!loading && !session && !isCheckoutPage) {
       router.replace('/login');
     }
-  }, [loading, router, session]);
+  }, [loading, router, session, isCheckoutPage]);
 
   // Gate masters who haven't completed onboarding — mirrors mobile MasterOnboardingScreen
   useEffect(() => {
@@ -43,7 +47,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // Once a session exists, keep children mounted so transient `loading`
   // toggles (e.g. tab return / token refresh) don't unmount and reset
   // in-progress UI such as the booking flow.
-  if (loading && !session) {
+  // For checkout, always render children so guests can proceed.
+  if (loading && !session && !isCheckoutPage) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[var(--color-background)]">
         <div className="text-center animate-fade-in">
@@ -54,7 +59,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     );
   }
 
-  if (!session) {
+  if (!session && !isCheckoutPage) {
     return null;
   }
 

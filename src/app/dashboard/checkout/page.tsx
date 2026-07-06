@@ -10,7 +10,7 @@ import {
 import { loadStripe } from '@stripe/stripe-js';
 import {
   ArrowLeft, CheckCircle2, CreditCard, Loader2, MapPin, Package, ShoppingBag, Plus,
-  ShieldCheck, Sparkles, Tag, AlertCircle, Lock,
+  ShieldCheck, Sparkles, Tag, AlertCircle, Lock, UserCircle,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
@@ -69,6 +69,9 @@ function QrCheckoutFlow() {
   const [catalogProduct, setCatalogProduct] = useState<QrCatalogProduct | null>(null);
   const [resolvingProduct, setResolvingProduct] = useState(true);
 
+  // Guest checkout state — allows unauthenticated users to pay via QR
+  const [isGuest, setIsGuest] = useState(false);
+
   useEffect(() => {
     let cancelled = false;
     const resolve = async () => {
@@ -94,7 +97,7 @@ function QrCheckoutFlow() {
   const [sessionInfo, setSessionInfo] = useState<{ discountApplied: number; voucherCode: string | null } | null>(null);
 
   const handleCreateSession = async () => {
-    if (!user || !catalogProduct) return;
+    if ((!user && !isGuest) || !catalogProduct) return;
     if (!stripePublishableKey) {
       setCreateError('Stripe is not configured. Ask the salon staff for help.');
       return;
@@ -103,20 +106,49 @@ function QrCheckoutFlow() {
     setCreateError(null);
     try {
       // SECURITY: send productId only. The server resolves the real price/name
-      // from its own PRODUCT_CATALOG. We do not send priceInCents — the server
+      // from the products table. We do not send priceInCents — the server
       // ignores it even if a legacy client does.
-      const { data, error } = await supabase.functions.invoke<CreateSessionResponse>(
-        'create-stripe-session',
-        {
-          body: {
-            productId: catalogProduct.id,
-            userId: user.id,
-            uiMode: 'embedded',
-          },
-        },
-      );
+      let data: CreateSessionResponse;
 
-      if (error) throw error;
+      if (isGuest) {
+        // Guest flow: call the edge function directly via fetch (no auth token).
+        // The edge function accepts userId='guest' without an Authorization header.
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        if (!supabaseUrl || !supabaseAnonKey) {
+          throw new Error('Supabase configuration is missing.');
+        }
+        const res = await fetch(`${supabaseUrl}/functions/v1/create-stripe-session`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': supabaseAnonKey,
+          },
+          body: JSON.stringify({
+            productId: catalogProduct.id,
+            userId: 'guest',
+            uiMode: 'embedded',
+          }),
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || 'Could not create payment session.');
+        data = json as CreateSessionResponse;
+      } else {
+        // Authenticated flow: use supabase client (sends auth token automatically)
+        const { data: invokeData, error } = await supabase.functions.invoke<CreateSessionResponse>(
+          'create-stripe-session',
+          {
+            body: {
+              productId: catalogProduct.id,
+              userId: user!.id,
+              uiMode: 'embedded',
+            },
+          },
+        );
+        if (error) throw error;
+        data = invokeData!;
+      }
+
       if (!data?.clientSecret) {
         throw new Error('Stripe could not start the payment session. Please try again.');
       }
@@ -192,7 +224,10 @@ function QrCheckoutFlow() {
           </div>
           <h1 className="text-3xl font-black text-[var(--color-text-primary)] mb-2">Payment Successful!</h1>
           <p className="text-sm text-[var(--color-text-secondary)] mb-6">
-            Thank you{user?.email ? `, ${user.email.split('@')[0]}` : ''}! Your payment has been confirmed.
+            {isGuest
+              ? 'Thank you! Your payment has been confirmed.'
+              : `Thank you${user?.email ? `, ${user.email.split('@')[0]}` : ''}! Your payment has been confirmed.`
+            }
           </p>
 
           <div className="bg-[var(--color-surface-light)] rounded-2xl p-5 text-left space-y-2 mb-6 border border-[var(--color-border-light)]">
@@ -226,18 +261,18 @@ function QrCheckoutFlow() {
           </div>
 
           <button
-            onClick={() => router.push('/dashboard')}
+            onClick={() => isGuest ? window.close() : router.push('/dashboard')}
             className="btn-outline w-full py-3 text-sm"
           >
-            Done
+            {isGuest ? 'Close' : 'Done'}
           </button>
         </div>
       </div>
     );
   }
 
-  // ── Auth gate: customer must be logged in to pay ─────────────────────────
-  if (!authLoading && !user) {
+  // ── Auth gate: customer must be logged in to pay (or continue as guest) ──
+  if (!authLoading && !user && !isGuest) {
     const returnUrl = typeof window !== 'undefined' ? window.location.pathname + window.location.search : '/dashboard/checkout';
     return (
       <div className="animate-fade-in max-w-md mx-auto">
@@ -245,20 +280,31 @@ function QrCheckoutFlow() {
           <div className="w-16 h-16 rounded-3xl bg-gradient-to-br from-pink-200 to-rose-200 flex items-center justify-center mx-auto mb-5">
             <Lock size={28} className="text-[var(--color-brand-pink-dark)]" />
           </div>
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)] mb-2">Log in to pay</h1>
+          <h1 className="text-2xl font-bold text-[var(--color-text-primary)] mb-2">Ready to pay?</h1>
           <p className="text-sm text-[var(--color-text-muted)] mb-6">
-            Please sign in or register at the salon help-desk to complete your purchase.
+            Sign in for exclusive discounts, or continue as a guest to pay quickly.
           </p>
           <div className="flex flex-col gap-3">
             <Link href={`/login?redirect=${encodeURIComponent(returnUrl)}`} className="btn-pink px-6 py-3 text-sm">Log In</Link>
             <Link href={`/register?redirect=${encodeURIComponent(returnUrl)}`} className="btn-outline px-6 py-3 text-sm">Create Account</Link>
+            <button
+              onClick={() => setIsGuest(true)}
+              className="group flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-[var(--color-text-secondary)] rounded-2xl border-2 border-dashed border-[var(--color-border-light)] hover:border-[var(--color-brand-pink-muted)] hover:text-[var(--color-brand-pink-dark)] transition-all duration-200"
+            >
+              <UserCircle size={18} className="group-hover:scale-110 transition-transform" />
+              Continue as Guest
+            </button>
           </div>
+          <p className="text-[11px] text-[var(--color-text-muted)] mt-4 flex items-center justify-center gap-1">
+            <ShieldCheck size={12} className="text-emerald-500" />
+            Guest checkout is powered by Stripe — fast and secure.
+          </p>
         </div>
       </div>
     );
   }
 
-  if (authLoading) {
+  if (authLoading && !isGuest) {
     return (
       <div className="min-h-[400px] flex items-center justify-center">
         <Loader2 size={32} className="animate-spin text-[var(--color-brand-pink-dark)]" />
