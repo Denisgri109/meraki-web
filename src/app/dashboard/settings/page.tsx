@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/components/Toast';
 import { useModal } from '@/contexts/ModalContext';
-import { Settings, User, Shield, Save, Loader2, Camera, CreditCard, Mail, Dumbbell, AlertTriangle, X, Briefcase, Image as ImageIcon, Trash2, Plus, ExternalLink, MapPin, Crosshair } from 'lucide-react';
+import { Settings, User, Shield, Save, Loader2, Camera, CreditCard, Mail, Dumbbell, AlertTriangle, X, Briefcase, Image as ImageIcon, Trash2, Plus, ExternalLink, MapPin, Crosshair, Palette, Pencil, Check, RotateCcw, Eye, Monitor } from 'lucide-react';
 import pLimit from 'p-limit';
 import BusinessSettingsPanel from '@/components/BusinessSettingsPanel';
 import type { BusinessSettingsPanelRef } from '@/components/BusinessSettingsPanel';
@@ -22,6 +22,7 @@ import {
   validateFullName,
 } from '@/lib/validation';
 import CountryCodeDropdown from '@/components/CountryCodeDropdown';
+import { useEditMode } from '@/contexts/EditContext';
 
 const DELETE_PHRASE = 'DELETE MY ACCOUNT';
 
@@ -71,6 +72,7 @@ export default function SettingsPage() {
   const supabase = createClient();
   const { showToast } = useToast();
   const { showConfirm } = useModal();
+  const { isEditMode, canEdit: canEditMode, toggleEditMode, content, resetContent, refreshContent } = useEditMode();
   const searchParams = useSearchParams();
   const initialTab = searchParams.get('tab') || 'profile';
   const [activeSection, setActiveSection] = useState(initialTab);
@@ -158,10 +160,12 @@ export default function SettingsPage() {
   const [savingPhotoDesc, setSavingPhotoDesc] = useState(false);
   const canManagePilates = profile?.role === 'owner';
   const isMasterOrOwner = profile?.role === 'master' || profile?.role === 'owner';
+  const [resettingContent, setResettingContent] = useState(false);
   const navItems = [
     ...baseNavItems,
     ...(isMasterOrOwner ? masterNavItems : []),
     ...(canManagePilates ? [{ label: 'Pilates', value: 'pilates', icon: Dumbbell }] : []),
+    ...(canManagePilates ? [{ label: 'Customize', value: 'customize', icon: Palette }] : []),
   ];
 
   useEffect(() => {
@@ -671,6 +675,29 @@ export default function SettingsPage() {
     }
   };
 
+  const handleResetContent = async () => {
+    const confirmed = await showConfirm(
+      'This will reset ALL landing page content (text, images, layout) back to the original defaults. This cannot be undone.',
+      'Reset All Content',
+      'Reset Everything',
+      'Cancel',
+      'danger'
+    );
+    if (!confirmed) return;
+
+    setResettingContent(true);
+    try {
+      const { error } = await resetContent('landing.');
+      if (error) throw new Error(error);
+      await refreshContent();
+      showToast('All content reset to defaults!', 'success');
+    } catch (err) {
+      showToast(getErrorMessage(err, 'Failed to reset content'), 'error');
+    } finally {
+      setResettingContent(false);
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto animate-fade-in">
       <div className="mb-8 flex items-start justify-between">
@@ -682,7 +709,7 @@ export default function SettingsPage() {
           <p className="text-[var(--color-text-secondary)]">Manage your preferences</p>
         </div>
         {/* Global Save Button */}
-        {activeSection !== 'security' && activeSection !== 'billing' && activeSection !== 'portfolio' && (
+        {activeSection !== 'security' && activeSection !== 'billing' && activeSection !== 'portfolio' && activeSection !== 'customize' && (
           <button
             onClick={handleSaveAll}
             disabled={savingAll || saving || savingPilates}
@@ -1161,6 +1188,7 @@ export default function SettingsPage() {
                         className="h-5 w-5 accent-[var(--color-primary)]"
                       />
                     </label>
+
                     <label className="flex items-center justify-between gap-4 p-4 rounded-[var(--radius-lg)] bg-[var(--color-surface-light)] border border-[var(--color-border-light)] cursor-pointer">
                       <span>
                         <span className="block font-semibold text-sm text-[var(--color-text-primary)]">Health Declaration</span>
@@ -1203,6 +1231,159 @@ export default function SettingsPage() {
                   </button>
                 </div>
               )}
+            </div>
+          )}
+
+          {activeSection === 'customize' && canManagePilates && (
+            <div className="space-y-6">
+              {/* Edit Mode Toggle Card */}
+              <div className="glass-card p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <h2 className="text-lg font-semibold text-[var(--color-text-primary)] flex items-center gap-2">
+                      <Palette size={18} /> Customize Site
+                    </h2>
+                    <p className="text-sm text-[var(--color-text-secondary)] mt-1">
+                      Edit the landing page text, images, and layout. Changes are visible to all visitors immediately.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Edit mode toggle */}
+                <div className="flex items-center justify-between p-4 rounded-[var(--radius-lg)] bg-[var(--color-surface-light)] border border-[var(--color-border-light)] mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isEditMode ? 'bg-green-100' : 'bg-pink-100'}`}>
+                      {isEditMode ? <Check size={18} className="text-green-600" /> : <Pencil size={18} className="text-pink-600" />}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-sm text-[var(--color-text-primary)]">
+                        Edit Mode: {isEditMode ? 'ON' : 'OFF'}
+                      </p>
+                      <p className="text-xs text-[var(--color-text-muted)]">
+                        {isEditMode
+                          ? 'Editing is active. Go to the landing page to edit content.'
+                          : 'Turn on to edit text and images on the landing page.'}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={toggleEditMode}
+                    className={`px-5 py-2.5 rounded-full text-sm font-semibold transition-all cursor-pointer ${
+                      isEditMode
+                        ? 'bg-green-500 text-white shadow-md hover:bg-green-600'
+                        : 'btn-pink'
+                    }`}
+                  >
+                    {isEditMode ? 'Turn Off Editing' : 'Turn On Editing'}
+                  </button>
+                </div>
+
+                {/* Quick links */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    onClick={() => router.push('/')}
+                    className="flex items-center gap-3 p-4 rounded-[var(--radius-lg)] bg-[var(--color-surface-light)] border border-[var(--color-border-light)] hover:border-pink-300 transition-all cursor-pointer text-left"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-pink-100 flex items-center justify-center">
+                      <ExternalLink size={18} className="text-pink-600" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-sm text-[var(--color-text-primary)]">Go to Landing Page</p>
+                      <p className="text-xs text-[var(--color-text-muted)]">Edit content live on the public page</p>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => router.push('/dashboard/discover')}
+                    className="flex items-center gap-3 p-4 rounded-[var(--radius-lg)] bg-[var(--color-surface-light)] border border-[var(--color-border-light)] hover:border-pink-300 transition-all cursor-pointer text-left"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                      <Eye size={18} className="text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-sm text-[var(--color-text-primary)]">Client Dashboard Preview</p>
+                      <p className="text-xs text-[var(--color-text-muted)]">See what clients see after login</p>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Preview Card */}
+              <div className="glass-card p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <Monitor size={18} className="text-[var(--color-text-muted)]" />
+                  <h3 className="font-semibold text-sm text-[var(--color-text-primary)]">Live Preview</h3>
+                  <span className="text-xs text-[var(--color-text-muted)] ml-auto">
+                    {isEditMode ? 'Click text or images on the landing page to edit' : 'Enable edit mode to make changes'}
+                  </span>
+                </div>
+                <div className="rounded-[var(--radius-lg)] overflow-hidden border border-[var(--color-border-light)] bg-white shadow-inner">
+                  <div className="bg-[var(--color-surface-light)] px-4 py-2 border-b border-[var(--color-border-light)] flex items-center gap-2">
+                    <div className="flex gap-1.5">
+                      <div className="w-3 h-3 rounded-full bg-red-400" />
+                      <div className="w-3 h-3 rounded-full bg-yellow-400" />
+                      <div className="w-3 h-3 rounded-full bg-green-400" />
+                    </div>
+                    <div className="flex-1 mx-4">
+                      <div className="bg-white rounded-md px-3 py-1 text-xs text-[var(--color-text-muted)] truncate">
+                        {typeof window !== 'undefined' ? window.location.origin : 'https://meraki.app'}/
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => router.push('/')}
+                      className="text-xs text-pink-600 hover:text-pink-700 font-medium cursor-pointer"
+                    >
+                      Open full page →
+                    </button>
+                  </div>
+                  <div className="relative" style={{ height: '420px' }}>
+                    <iframe
+                      src="/"
+                      title="Landing Page Preview"
+                      className="w-full h-full border-0"
+                      style={{ pointerEvents: isEditMode ? 'auto' : 'none' }}
+                    />
+                    {!isEditMode && (
+                      <div className="absolute inset-0 bg-white/40 flex items-center justify-center">
+                        <div className="text-center">
+                          <Eye size={32} className="mx-auto text-[var(--color-text-muted)] mb-2" />
+                          <p className="text-sm font-medium text-[var(--color-text-secondary)]">Read-only preview</p>
+                          <p className="text-xs text-[var(--color-text-muted)] mt-1">Enable edit mode to interact</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Reset Card */}
+              <div className="glass-card p-6 border-red-200">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                      <RotateCcw size={18} className="text-red-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-sm text-[var(--color-text-primary)]">Reset All Content</h3>
+                      <p className="text-xs text-[var(--color-text-muted)] mt-1 max-w-md">
+                        Reset the entire landing page — all text, images, and layout changes — back to the original defaults.
+                        This affects what every visitor sees. This cannot be undone.
+                      </p>
+                      <p className="text-xs text-[var(--color-text-muted)] mt-2">
+                        Customized content keys: {Object.keys(content).filter(k => k.startsWith('landing.')).length} items
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleResetContent}
+                    disabled={resettingContent}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold bg-red-600 text-white hover:bg-red-700 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                  >
+                    {resettingContent ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
+                    {resettingContent ? 'Resetting...' : 'Reset Everything'}
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </div>

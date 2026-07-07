@@ -17,6 +17,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
 import { useNotifications } from '@/contexts/NotificationsContext';
+import { useEditMode } from '@/contexts/EditContext';
 
 jest.mock('@/contexts/AuthContext', () => ({
   useAuth: jest.fn(),
@@ -28,6 +29,10 @@ jest.mock('@/contexts/CartContext', () => ({
 
 jest.mock('@/contexts/NotificationsContext', () => ({
   useNotifications: jest.fn(),
+}));
+
+jest.mock('@/contexts/EditContext', () => ({
+  useEditMode: jest.fn(),
 }));
 
 const mockSignOut = jest.fn();
@@ -62,6 +67,16 @@ describe('MainNavbar', () => {
       notifications: [],
       unreadNotifications: 0,
       markNotificationsSeen: mockMarkNotificationsSeen,
+    });
+
+    (useEditMode as jest.Mock).mockReturnValue({
+      isEditMode: false,
+      canEdit: false,
+      toggleEditMode: jest.fn(),
+      content: {},
+      getContent: (_key: string, fallback: string) => fallback,
+      updateContent: jest.fn(),
+      refreshContent: jest.fn(),
     });
   });
 

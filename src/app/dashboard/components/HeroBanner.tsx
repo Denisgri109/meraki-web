@@ -8,19 +8,25 @@ interface HeroBannerProps {
 
 export function HeroBanner({ firstName, role }: HeroBannerProps) {
   return (
-    <div style={{ position: 'relative', borderRadius: 'var(--radius-2xl)', overflow: 'hidden', marginBottom: '40px', height: '300px' }}>
-      <img src="https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?w=1600&q=80&auto=format&fit=crop" alt="Beauty salon atmosphere" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.7), rgba(0,0,0,0.4), rgba(0,0,0,0.1))' }} />
-      <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', color: 'white', padding: '24px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-          <Sparkles size={18} style={{ color: 'var(--color-brand-pink)' }} />
-          <span style={{ fontSize: '12px', letterSpacing: '3px', textTransform: 'uppercase', color: 'var(--color-brand-pink)', fontWeight: 700 }}>Welcome Back</span>
-          <Sparkles size={18} style={{ color: 'var(--color-brand-pink)' }} />
+    <div className="relative rounded-[var(--radius-2xl)] overflow-hidden mb-8 sm:mb-10 h-[220px] sm:h-[280px] lg:h-[300px]">
+      <img
+        src="https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?w=1600&q=80&auto=format&fit=crop"
+        alt="Beauty salon atmosphere"
+        className="w-full h-full object-cover"
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-black/10" />
+      <div className="absolute inset-0 flex flex-col items-center justify-center text-center text-white p-4 sm:p-6">
+        <div className="flex items-center gap-2 mb-2 sm:mb-3">
+          <Sparkles size={16} className="text-[var(--color-brand-pink)] sm:size-5" />
+          <span className="text-[10px] sm:text-xs tracking-[3px] uppercase text-[var(--color-brand-pink)] font-bold">
+            Welcome Back
+          </span>
+          <Sparkles size={16} className="text-[var(--color-brand-pink)] sm:size-5" />
         </div>
-        <h1 style={{ fontSize: '48px', fontWeight: 700, marginBottom: '12px', textShadow: '0 2px 10px rgba(0,0,0,0.3)', margin: '0 0 12px 0' }}>
+        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-2 sm:mb-3 drop-shadow-lg leading-tight">
           Hello, {firstName}
         </h1>
-        <p style={{ color: 'rgba(255,255,255,0.9)', fontSize: '15px', maxWidth: '500px', fontWeight: 500 }}>
+        <p className="text-white/90 text-xs sm:text-sm lg:text-base max-w-xs sm:max-w-md lg:max-w-lg font-medium px-2">
           {role === 'master'
             ? "Here's your schedule overview for today."
             : role === 'owner'
@@ -29,10 +35,9 @@ export function HeroBanner({ firstName, role }: HeroBannerProps) {
         </p>
         <Link
           href="/dashboard/booking"
-          className="btn-pink"
-          style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginTop: '24px', padding: '12px 32px', fontSize: '14px', boxShadow: '0 4px 20px rgba(0,0,0,0.3)' }}
+          className="btn-pink inline-flex items-center gap-2 mt-4 sm:mt-6 px-6 sm:px-8 py-2.5 sm:py-3 text-xs sm:text-sm shadow-lg"
         >
-          Book Now <ArrowRight size={16} />
+          Book Now <ArrowRight size={14} className="sm:size-4" />
         </Link>
       </div>
     </div>

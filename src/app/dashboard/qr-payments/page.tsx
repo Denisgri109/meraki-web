@@ -40,7 +40,7 @@ interface FeedTransaction {
   updated_at: string;
 }
 
-const CHECKOUT_BASE_URL = 'https://meraki-ebon.vercel.app/dashboard/checkout';
+const CHECKOUT_BASE_URL = `${process.env.NEXT_PUBLIC_SITE_URL ?? ''}/dashboard/checkout`;
 
 const EMPTY_NEW_PRODUCT = {
   name: '',

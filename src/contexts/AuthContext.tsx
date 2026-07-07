@@ -98,6 +98,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [sessionError, setSessionError] = useState<AuthError | null>(null);
   const sessionRef = useRef<Session | null>(null);
   const userRef = useRef<User | null>(null);
+  const loadingRef = useRef(true);
+
+  // Keep loadingRef in sync so the timeout closure can read the latest value
+  useEffect(() => { loadingRef.current = loading; }, [loading]);
 
   // ── Fetch profile from Supabase ──────────────────────────────────────
   const fetchProfile = useCallback(
@@ -128,8 +132,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let isMounted = true;
 
-    const clearAuthState = () => {
+    const clearAuthState = async () => {
       if (!isMounted) return;
+      // Actually sign out from Supabase to clear stale tokens from
+      // localStorage and cookies.  Without this, a corrupted / expired
+      // session persists across reloads and causes an infinite white-screen
+      // loop until the user manually clears site data.
+      try {
+        await supabase.auth.signOut();
+      } catch {
+        // Best-effort — even if the network call fails we still clear local
+        // React state below.
+      }
       sessionRef.current = null;
       userRef.current = null;
       setSession(null);
@@ -139,6 +153,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     const loadInitialSession = async () => {
+      // Safety timeout — if Supabase auth calls hang (network issue, CORS,
+      // service worker interference), force-clear loading after 8 seconds so
+      // the user never gets stuck on a permanent splash / white screen.
+      const timeout = setTimeout(() => {
+        if (isMounted && loadingRef.current) {
+          console.warn('[Auth] Initial session load timed out — clearing state');
+          setLoading(false);
+        }
+      }, 8000);
+
       try {
         const { data: { session: initialSession }, error } = await supabase.auth.getSession();
         if (!isMounted) return;
@@ -149,7 +173,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         if (!initialSession) {
-          clearAuthState();
+          await clearAuthState();
           return;
         }
 
@@ -161,7 +185,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             console.error('Error verifying initial user:', userError);
             setSessionError(userError);
           }
-          clearAuthState();
+          // The token in localStorage is stale / expired.  clearAuthState()
+          // now calls supabase.auth.signOut() which removes the bad token
+          // so the next reload doesn't loop back into the same crash.
+          await clearAuthState();
           return;
         }
 
@@ -169,7 +196,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!isMounted) return;
 
         if (!verifiedSession) {
-          clearAuthState();
+          await clearAuthState();
           return;
         }
 
@@ -181,7 +208,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch (err) {
         if (!isMounted) return;
         console.error('Error getting initial session:', err);
-        clearAuthState();
+        await clearAuthState();
+      } finally {
+        clearTimeout(timeout);
       }
     };
 
@@ -190,9 +219,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, s) => {
+    } =     supabase.auth.onAuthStateChange((event, s) => {
       if (event === 'SIGNED_OUT' || !s?.user) {
-        clearAuthState();
+        // Don't call the async clearAuthState here (which calls signOut)
+        // because Supabase already cleared the session — just reset local
+        // React state to avoid a redundant network round-trip.
+        sessionRef.current = null;
+        userRef.current = null;
+        setSession(null);
+        setUser(null);
+        setProfile(null);
+        setLoading(false);
         setSessionError(null);
         return;
       }

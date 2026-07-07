@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { EditProvider } from "@/contexts/EditContext";
 import { CartProvider } from "@/contexts/CartContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import "./globals.css";
@@ -42,9 +43,11 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col font-[family-name:var(--font-inter)]">
         <ErrorBoundary name="root">
           <AuthProvider>
-            <CartProvider>
-              <ErrorBoundary name="app">{children}</ErrorBoundary>
-            </CartProvider>
+            <EditProvider>
+              <CartProvider>
+                <ErrorBoundary name="app">{children}</ErrorBoundary>
+              </CartProvider>
+            </EditProvider>
           </AuthProvider>
         </ErrorBoundary>
       </body>

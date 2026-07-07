@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
 import { useNotifications, type NotificationItem } from '@/contexts/NotificationsContext';
+import { EditModeToggle } from '@/components/editable/EditModeToggle';
 import {
   Home, Calendar, Search, ShoppingBag, GraduationCap, Gift,
   MessageSquare, Settings, LogOut, Menu, X, ChevronDown,
@@ -204,6 +205,8 @@ export function MainNavbar({ transparent = false }: MainNavbarProps) {
 
           {/* Right: Actions + Profile */}
           <div className="flex items-center gap-3">
+            <EditModeToggle />
+
             {role !== 'owner' && (
               <Link
                 href="/dashboard/cart"
