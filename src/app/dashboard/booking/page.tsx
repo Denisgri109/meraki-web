@@ -524,6 +524,10 @@ export default function BookingPage() {
     () => masters.find((master) => master.id === selectedMasterId) ?? null,
     [selectedMasterId, masters]
   );
+  const mastersById = useMemo(
+    () => new Map(masters.map((m) => [m.id, m])),
+    [masters]
+  );
   const selectedPilatesSession = useMemo(
     () => pilatesSessions.find((session) => session.id === selectedPilatesSessionId) ?? null,
     [pilatesSessions, selectedPilatesSessionId]
@@ -1056,7 +1060,7 @@ export default function BookingPage() {
                     {(() => {
                       const linkedIds = serviceProfessionalIds[service.id] || [];
                       const providers = linkedIds
-                        .map(id => masters.find(m => m.id === id))
+                        .map(id => mastersById.get(id))
                         .filter((m): m is Master => !!m);
                       if (providers.length === 0) return null;
 
