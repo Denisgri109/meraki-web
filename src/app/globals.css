@@ -765,6 +765,100 @@ body {
   color: #60A5FA;
 }
 
+/* ─── Section Switcher ─────────────────────────────────────────────── */
+.section-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--color-border-light);
+  box-shadow: var(--shadow-card);
+}
+
+.section-switcher-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 22px;
+  border-radius: var(--radius-full);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.section-switcher-btn:hover:not(.section-switcher-btn-active) {
+  background: var(--color-surface-light);
+  color: var(--color-text-primary);
+}
+
+.section-switcher-btn-active-beauty {
+  background: linear-gradient(135deg, #E8A0B4, #C47A90);
+  color: white;
+  box-shadow: 0 2px 12px rgba(232, 160, 180, 0.45);
+}
+
+.section-switcher-btn-active-pilates {
+  background: linear-gradient(135deg, #34D399, #10B981);
+  color: white;
+  box-shadow: 0 2px 12px rgba(52, 211, 153, 0.45);
+}
+
+.section-switcher-btn:hover:not(.section-switcher-btn-active-beauty):not(.section-switcher-btn-active-pilates) {
+  background: var(--color-surface-light);
+  color: var(--color-text-primary);
+}
+
+/* ─── Section Landing Cards ────────────────────────────────────────── */
+.section-landing-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-2xl);
+  cursor: pointer;
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.section-landing-card:hover {
+  transform: translateY(-8px) scale(1.02);
+}
+
+.section-landing-card-beauty {
+  background: linear-gradient(135deg, #FCEFF2 0%, #FDE8ED 40%, #F8F4FA 100%);
+  border: 1px solid rgba(232, 160, 180, 0.2);
+}
+
+.section-landing-card-beauty:hover {
+  box-shadow: 0 20px 60px rgba(232, 160, 180, 0.3);
+}
+
+.section-landing-card-pilates {
+  background: linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 40%, #F0FDFA 100%);
+  border: 1px solid rgba(52, 211, 153, 0.2);
+}
+
+.section-landing-card-pilates:hover {
+  box-shadow: 0 20px 60px rgba(52, 211, 153, 0.3);
+}
+
+/* ─── Section Content Transitions ──────────────────────────────────── */
+@keyframes sectionFadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-section-in {
+  animation: sectionFadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 /* Grouped messages spacing */
 .msg-grouped {
   margin-top: 1px !important;

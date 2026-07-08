@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { SectionProvider } from '@/contexts/SectionContext';
+import { SectionProvider, type Section } from '@/contexts/SectionContext';
 import { ToastProvider } from '@/components/Toast';
 import { Footer } from '@/components/Footer';
 import { MainNavbar } from '@/components/MainNavbar';
@@ -12,17 +12,19 @@ import { useAutoLocation } from '@/hooks/useAutoLocation';
 import LocationGateModal from '@/components/LocationGateModal';
 import { ModalProvider } from '@/contexts/ModalContext';
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+interface DashboardShellProps {
+  section: Section;
+  children: ReactNode;
+}
+
+export function DashboardShell({ section, children }: DashboardShellProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { loading, session, profile } = useAuth();
-  // Detect GPS coords + country once per signed-in profile, used by the
-  // radius-based master / service filter on booking, discover, etc.
   const { isLocationMissing, onLocationSaved } = useAutoLocation();
 
-  // The checkout page handles its own auth gate (with a "Continue as Guest"
-  // option for QR payments), so it must NOT be redirected to /login here.
-  const isCheckoutPage = pathname === '/dashboard/checkout';
+  const sectionPath = `/${section}`;
+  const isCheckoutPage = pathname?.startsWith(`${sectionPath}/checkout`);
 
   useEffect(() => {
     if (!loading && !session && !isCheckoutPage) {
@@ -30,32 +32,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   }, [loading, router, session, isCheckoutPage]);
 
-  // Redirect /dashboard → /beauty/dashboard (new route-based scoping)
-  useEffect(() => {
-    if (pathname === '/dashboard' && session) {
-      router.replace('/beauty/dashboard');
-    }
-  }, [pathname, router, session]);
-
-  // Gate masters who haven't completed onboarding — mirrors mobile MasterOnboardingScreen
   useEffect(() => {
     if (loading || !session || !profile) return;
     const isMaster = profile.role === 'master';
     const onboardingDone = profile.onboarding_completed === true;
-    const onOnboarding = pathname?.startsWith('/dashboard/onboarding');
+    const onOnboarding = pathname?.startsWith(`${sectionPath}/onboarding`);
 
     if (isMaster && !onboardingDone && !onOnboarding) {
-      router.replace('/dashboard/onboarding');
+      router.replace(`${sectionPath}/onboarding`);
     } else if ((!isMaster || onboardingDone) && onOnboarding) {
-      router.replace('/dashboard');
+      router.replace(`${sectionPath}/dashboard`);
     }
-  }, [loading, session, profile, pathname, router]);
+  }, [loading, session, profile, pathname, router, sectionPath]);
 
-  // Only show the full-screen splash on initial load (before any session).
-  // Once a session exists, keep children mounted so transient `loading`
-  // toggles (e.g. tab return / token refresh) don't unmount and reset
-  // in-progress UI such as the booking flow.
-  // For checkout, always render children so guests can proceed.
   if (loading && !session && !isCheckoutPage) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[var(--color-background)]">
@@ -72,10 +61,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <SectionProvider section="beauty">
+    <SectionProvider section={section}>
       <ModalProvider>
         <div className="min-h-screen flex flex-col gradient-mesh relative">
-          {/* Decorative background blobs */}
           <div className="absolute inset-0 overflow-hidden pointer-events-none">
             <div className="blob-pink -top-20 -right-20 opacity-40" />
             <div className="blob-purple -bottom-32 -left-20 opacity-30" />
@@ -85,14 +73,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <NotificationsProvider>
             <MainNavbar />
 
-            {/* ── Page Content ───────────────────────────────────────────── */}
             <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
               <ToastProvider>{children}</ToastProvider>
             </main>
             <Footer />
           </NotificationsProvider>
 
-          {/* Location gate — blocks dashboard until country/city is set */}
           {isLocationMissing && <LocationGateModal onSaved={onLocationSaved} />}
         </div>
       </ModalProvider>
