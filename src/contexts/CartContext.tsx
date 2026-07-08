@@ -73,13 +73,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
 
     setItems((currentItems) => {
-      const currentExisting = currentItems.find((item) => item.id === product.id);
-      if (currentExisting) {
-        return currentItems.map((item) =>
-          item.id === product.id
-            ? { ...item, quantity: Math.min(item.quantity + 1, stockCount), stock_count: stockCount, price: product.price }
-            : item
-        );
+      const index = currentItems.findIndex((item) => item.id === product.id);
+      if (index !== -1) {
+        const newItems = [...currentItems];
+        newItems[index] = {
+          ...newItems[index],
+          quantity: Math.min(newItems[index].quantity + 1, stockCount),
+          stock_count: stockCount,
+          price: product.price
+        };
+        return newItems;
       }
       return [...currentItems, { ...product, stock_count: stockCount, quantity: 1 }];
     });
@@ -97,13 +100,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    setItems((currentItems) =>
-      currentItems.map((item) =>
-        item.id === productId
-          ? { ...item, quantity: Math.min(quantity, item.stock_count) }
-          : item
-      )
-    );
+    setItems((currentItems) => {
+      const index = currentItems.findIndex((item) => item.id === productId);
+      if (index !== -1) {
+        const newItems = [...currentItems];
+        newItems[index] = {
+          ...newItems[index],
+          quantity: Math.min(quantity, newItems[index].stock_count)
+        };
+        return newItems;
+      }
+      return currentItems;
+    });
   };
 
   const clearCart = () => {
