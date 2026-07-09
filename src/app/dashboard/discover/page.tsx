@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSection } from '@/contexts/SectionContext';
 import { Search, MapPin, Sparkles } from 'lucide-react';
 import { isMasterWithinRange } from '@/lib/location';
 import { Master } from './types';
@@ -12,6 +13,7 @@ import { ProfessionalsGrid } from './components/ProfessionalsGrid';
 export default function DiscoverPage() {
   const supabase = createClient();
   const { profile, user } = useAuth();
+  const { isPilates } = useSection();
   const [search, setSearch] = useState('');
   const [masters, setMasters] = useState<Master[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,10 +29,35 @@ export default function DiscoverPage() {
   useEffect(() => {
     const fetchMasters = async () => {
       try {
+        const serviceQuery = supabase
+          .from('services')
+          .select('id, master_services!inner(master_id)')
+          .eq('is_active', true)
+          .eq('master_services.is_available', true);
+
+        if (isPilates) {
+          serviceQuery.ilike('category', '%pilates%');
+        } else {
+          serviceQuery.not('category', 'ilike', '%pilates%');
+        }
+
+        const { data: serviceData } = await serviceQuery;
+
+        const sectionMasterIds = new Set(
+          ((serviceData as unknown as Array<{ master_services: Array<{ master_id: string }> | null }>) || [])
+            .flatMap((s) => s.master_services?.map((ms) => ms.master_id) || [])
+        );
+
+        if (sectionMasterIds.size === 0) {
+          setMasters([]);
+          return;
+        }
+
         const { data, error } = await supabase
           .from('profiles')
           .select('id, full_name, avatar_url, specialties, city, country, state, state_code, latitude, longitude, bio')
           .eq('is_master', true)
+          .in('id', Array.from(sectionMasterIds))
           .limit(60);
 
         if (error) console.error('[Discover] masters error:', error);
@@ -60,7 +87,7 @@ export default function DiscoverPage() {
     };
     fetchMasters();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userCountry, userState, userStateCode]);
+  }, [userCountry, userState, userStateCode, isPilates]);
 
   const filtered = masters.filter((m) =>
     !search || m.full_name?.toLowerCase().includes(search.toLowerCase()) || m.specialties?.toLowerCase().includes(search.toLowerCase())
@@ -78,7 +105,7 @@ export default function DiscoverPage() {
             <span style={{ fontSize: '12px', letterSpacing: '3px', textTransform: 'uppercase', color: '#C4B5FD', fontWeight: 700 }}>Discover</span>
           </div>
           <h1 style={{ fontSize: '36px', fontWeight: 700, textShadow: '0 2px 10px rgba(0,0,0,0.3)', margin: 0 }}>Explore & Connect</h1>
-          <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: '14px', marginTop: '8px', maxWidth: '400px' }}>Find the perfect beauty professional near you</p>
+          <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: '14px', marginTop: '8px', maxWidth: '400px' }}>{isPilates ? 'Find the perfect Pilates instructor near you' : 'Find the perfect beauty professional near you'}</p>
         </div>
       </div>
 

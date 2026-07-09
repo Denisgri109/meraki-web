@@ -15,7 +15,7 @@ interface ProfessionalsGridProps {
 export function ProfessionalsGrid({ loading, filtered, search, userCountry }: ProfessionalsGridProps) {
   const router = useRouter();
   const { showToast } = useToast();
-  const { buildPath } = useSection();
+  const { buildPath, isPilates } = useSection();
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
 
   const handleToggleFavorite = (e: React.MouseEvent, masterId: string) => {
@@ -94,7 +94,7 @@ export function ProfessionalsGrid({ loading, filtered, search, userCountry }: Pr
         <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-400 to-purple-400 flex items-center justify-center">
           <Users size={14} className="text-white" />
         </div>
-        <h2 className="text-lg font-bold text-[var(--color-text-primary)]">Beauty Professionals</h2>
+        <h2 className="text-lg font-bold text-[var(--color-text-primary)]">{isPilates ? 'Pilates Instructors' : 'Beauty Professionals'}</h2>
       </div>
 
       {renderContent()}

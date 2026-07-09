@@ -437,7 +437,7 @@ export default function BookingPage() {
   const { user, profile } = useAuth();
   const router = useRouter();
   const supabase = createClient();
-  const { buildPath } = useSection();
+  const { buildPath, isPilates } = useSection();
   const draftStorageKey = user?.id ? `${BOOKING_DRAFT_STORAGE_PREFIX}${user.id}` : null;
   const initialBookingDraft = useMemo(() => {
     if (!draftStorageKey || typeof window === 'undefined') return null;
@@ -569,14 +569,21 @@ export default function BookingPage() {
       setLoading(true);
       try {
         // Fetch services with their linked professionals' location data
-        const servicesRes = await supabase
+        const serviceQuery = supabase
           .from('services')
           .select(
             '*, master_services!inner(is_available, master_id, master:profiles!master_services_master_id_fkey(country, state, state_code, latitude, longitude))'
           )
           .eq('is_active', true)
-          .eq('master_services.is_available', true)
-          .limit(60);
+          .eq('master_services.is_available', true);
+
+        if (isPilates) {
+          serviceQuery.ilike('category', '%pilates%');
+        } else {
+          serviceQuery.not('category', 'ilike', '%pilates%');
+        }
+
+        const servicesRes = await serviceQuery.limit(60);
 
         const userLoc = {
           country: userCountry,
@@ -664,7 +671,7 @@ export default function BookingPage() {
       }
     };
     fetchData();
-  }, [supabase, user?.id, userCountry, userState, userStateCode]);
+  }, [supabase, user?.id, userCountry, userState, userStateCode, isPilates]);
 
   useEffect(() => {
     const fetchPilatesSettings = async () => {
