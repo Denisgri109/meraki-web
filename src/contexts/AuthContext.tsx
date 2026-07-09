@@ -99,6 +99,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const sessionRef = useRef<Session | null>(null);
   const userRef = useRef<User | null>(null);
   const loadingRef = useRef(true);
+  // Gates the INITIAL_SESSION event from onAuthStateChange.  Until
+  // loadInitialSession() has verified the token via getUser(), we don't
+  // let the handler set session/user in React state — this prevents
+  // dashboard children from rendering with a stale/expired session and
+  // a null profile (the #1 WSOD race condition).
+  const bootstrappedRef = useRef(false);
 
   // Keep loadingRef in sync so the timeout closure can read the latest value
   useEffect(() => { loadingRef.current = loading; }, [loading]);
@@ -160,6 +166,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (isMounted && loadingRef.current) {
           console.warn('[Auth] Initial session load timed out — clearing state');
           setLoading(false);
+          bootstrappedRef.current = true;
         }
       }, 8000);
 
@@ -211,6 +218,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await clearAuthState();
       } finally {
         clearTimeout(timeout);
+        bootstrappedRef.current = true;
       }
     };
 
@@ -231,6 +239,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile(null);
         setLoading(false);
         setSessionError(null);
+        return;
+      }
+
+      // During bootstrap, the INITIAL_SESSION event fires synchronously
+      // when getSession() is called inside loadInitialSession().  At this
+      // point the session token has NOT been verified — it may be expired
+      // or stale.  Skip setting React state and let loadInitialSession()
+      // handle it after getUser() verification.  This prevents dashboard
+      // children from rendering with a stale session and null profile.
+      if (!bootstrappedRef.current && event === 'INITIAL_SESSION') {
+        sessionRef.current = s;
+        userRef.current = s.user;
         return;
       }
 

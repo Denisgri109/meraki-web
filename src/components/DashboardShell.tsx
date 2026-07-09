@@ -45,7 +45,17 @@ export function DashboardShell({ section, children }: DashboardShellProps) {
     }
   }, [loading, session, profile, pathname, router, sectionPath]);
 
-  if (loading && !session && !isCheckoutPage) {
+  // Show splash during initial load OR while profile is being fetched
+  // for a just-restored session.  The `session && !profile` guard closes
+  // a race condition: Supabase fires INITIAL_SESSION synchronously,
+  // setting `session` in React state before the token has been verified
+  // or the profile fetched.  Without this, dashboard children render
+  // with a potentially-stale session and null profile, which can throw.
+  const showSplash =
+    (!isCheckoutPage && loading && !session) ||
+    (!isCheckoutPage && session && !profile);
+
+  if (showSplash) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[var(--color-background)]">
         <div className="text-center animate-fade-in">

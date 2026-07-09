@@ -51,12 +51,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   }, [loading, session, profile, pathname, router]);
 
-  // Only show the full-screen splash on initial load (before any session).
-  // Once a session exists, keep children mounted so transient `loading`
-  // toggles (e.g. tab return / token refresh) don't unmount and reset
-  // in-progress UI such as the booking flow.
+  // Show the full-screen splash during initial load OR while the profile
+  // is being fetched for a just-restored session.  The second guard
+  // (session && !profile) closes a race condition: Supabase fires
+  // INITIAL_SESSION synchronously, which sets `session` in React state
+  // before `loadInitialSession()` has verified the token or fetched the
+  // profile.  Without this guard, dashboard children render with a
+  // potentially-stale session and a null profile, which can throw and
+  // trigger the ErrorBoundary (white screen).
   // For checkout, always render children so guests can proceed.
-  if (loading && !session && !isCheckoutPage) {
+  const showSplash =
+    (!isCheckoutPage && loading && !session) ||
+    (!isCheckoutPage && session && !profile);
+
+  if (showSplash) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[var(--color-background)]">
         <div className="text-center animate-fade-in">
