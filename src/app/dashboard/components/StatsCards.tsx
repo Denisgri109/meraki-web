@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Star, Calendar, TrendingUp, ArrowRight } from 'lucide-react';
+import { useSection } from '@/contexts/SectionContext';
 import { DashboardAppointment } from '../page';
 
 interface StatsCardsProps {
@@ -13,6 +14,7 @@ interface StatsCardsProps {
 }
 
 export function StatsCards({ loading, loyaltyPoints, stats }: StatsCardsProps) {
+  const { buildPath } = useSection();
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
       {/* Stats Cards */}
@@ -50,7 +52,7 @@ export function StatsCards({ loading, loyaltyPoints, stats }: StatsCardsProps) {
       <div className="glass-card p-6">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-bold text-[var(--color-text-primary)]">Upcoming</h2>
-          <Link href="/dashboard/appointments" className="text-sm font-semibold text-[var(--color-brand-pink-dark)] hover:opacity-80 transition-opacity">
+          <Link href={buildPath('appointments')} className="text-sm font-semibold text-[var(--color-brand-pink-dark)] hover:opacity-80 transition-opacity">
             View All →
           </Link>
         </div>
@@ -93,7 +95,7 @@ export function StatsCards({ loading, loyaltyPoints, stats }: StatsCardsProps) {
               <Calendar size={28} className="text-pink-300" />
             </div>
             <p className="text-sm text-[var(--color-text-secondary)] mb-4">No upcoming appointments</p>
-            <Link href="/dashboard/booking" className="btn-pink px-6 py-2.5 text-xs">
+            <Link href={buildPath('booking')} className="btn-pink px-6 py-2.5 text-xs">
               Book Now
             </Link>
           </div>

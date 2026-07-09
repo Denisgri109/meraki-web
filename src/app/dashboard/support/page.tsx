@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSection } from '@/contexts/SectionContext';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/components/Toast';
 import { useModal } from '@/contexts/ModalContext';
@@ -59,6 +60,7 @@ export default function SupportPage() {
   const { showToast } = useToast();
   const { showConfirm } = useModal();
   const isOwner = role === 'owner';
+  const { buildPath } = useSection();
 
   const [activeTab, setActiveTab] = useState<TabValue>('faq');
   const [loading, setLoading] = useState(true);
@@ -470,7 +472,7 @@ export default function SupportPage() {
               <h3 className="font-bold text-[var(--color-text-primary)]">Chat with us</h3>
               <p className="text-xs text-[var(--color-text-muted)]">Send a message through the in-app chat</p>
             </div>
-            <a href="/dashboard/chat" className="btn-pink px-4 py-2 text-sm flex items-center gap-2">
+            <a href={buildPath('chat')} className="btn-pink px-4 py-2 text-sm flex items-center gap-2">
               Open Chat
             </a>
           </div>

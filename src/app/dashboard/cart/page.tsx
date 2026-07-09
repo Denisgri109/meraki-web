@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { ArrowRight, Minus, Package, Plus, ShoppingBag, Trash2, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSection } from '@/contexts/SectionContext';
 import { useCart } from '@/contexts/CartContext';
 import { DEFAULT_PRODUCT_IMAGE } from '@/lib/constants/images';
 
@@ -12,11 +13,12 @@ export default function CartPage() {
   const router = useRouter();
   const { role, loading: authLoading } = useAuth();
   const { items, removeFromCart, updateQuantity, clearCart, getItemCount, getTotal } = useCart();
+  const { buildPath } = useSection();
   const subtotal = getTotal();
 
   useEffect(() => {
     if (!authLoading && role === 'owner') {
-      router.replace('/dashboard/inventory');
+      router.replace(buildPath('inventory'));
     }
   }, [authLoading, role, router]);
 
@@ -38,7 +40,7 @@ export default function CartPage() {
           </div>
           <h1 className="text-3xl font-bold text-[var(--color-text-primary)] mb-3">Your bag is empty</h1>
           <p className="text-[var(--color-text-secondary)] mb-8">Add curated beauty products from the shop before checkout.</p>
-          <Link href="/dashboard/shop" className="btn-pink inline-flex items-center gap-2 px-7 py-3 text-sm">
+          <Link href={buildPath('shop')} className="btn-pink inline-flex items-center gap-2 px-7 py-3 text-sm">
             Browse Shop <ArrowRight size={16} />
           </Link>
         </div>
@@ -121,10 +123,10 @@ export default function CartPage() {
             </div>
           </div>
 
-          <Link href="/dashboard/checkout" className="btn-primary w-full py-3 text-sm flex items-center justify-center gap-2">
+          <Link href={buildPath('checkout')} className="btn-primary w-full py-3 text-sm flex items-center justify-center gap-2">
             Checkout <ArrowRight size={16} />
           </Link>
-          <Link href="/dashboard/shop" className="btn-outline w-full py-3 text-sm flex items-center justify-center mt-3">
+          <Link href={buildPath('shop')} className="btn-outline w-full py-3 text-sm flex items-center justify-center mt-3">
             Continue Shopping
           </Link>
         </aside>

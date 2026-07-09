@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, ArrowRight, CheckCircle2, Loader2, Package, ShoppingBag, Truck } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSection } from '@/contexts/SectionContext';
 import { useCart } from '@/contexts/CartContext';
 import { useToast } from '@/components/Toast';
 import { createClient } from '@/lib/supabase/client';
@@ -44,13 +45,14 @@ export default function ShopProductPage() {
   const { role, loading: authLoading } = useAuth();
   const { addToCart } = useCart();
   const { showToast } = useToast();
+  const { buildPath } = useSection();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && role === 'owner') {
-      router.replace('/dashboard/inventory');
+      router.replace(buildPath('inventory'));
     }
   }, [authLoading, role, router]);
 
@@ -155,7 +157,7 @@ export default function ShopProductPage() {
           </div>
           <h1 className="text-3xl font-bold text-[var(--color-text-primary)] mb-3">Product unavailable</h1>
           <p className="text-[var(--color-text-secondary)] mb-8">{error || 'This shop item could not be loaded.'}</p>
-          <Link href="/dashboard/shop" className="btn-pink inline-flex items-center gap-2 px-7 py-3 text-sm">
+          <Link href={buildPath('shop')} className="btn-pink inline-flex items-center gap-2 px-7 py-3 text-sm">
             Back to Shop <ArrowRight size={16} />
           </Link>
         </div>
@@ -227,7 +229,7 @@ export default function ShopProductPage() {
           >
             <ShoppingBag size={16} /> {product.stock_count === 0 ? 'Out of Stock' : 'Add to Bag'}
           </button>
-          <Link href="/dashboard/cart" className="btn-outline w-full py-3 text-sm flex items-center justify-center gap-2 mt-3">
+          <Link href={buildPath('cart')} className="btn-outline w-full py-3 text-sm flex items-center justify-center gap-2 mt-3">
             View Cart <ArrowRight size={16} />
           </Link>
         </aside>

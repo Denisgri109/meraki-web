@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Users, Search, Heart, MapPin, ArrowRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/components/Toast';
+import { useSection } from '@/contexts/SectionContext';
 import { Master } from '../types';
 
 interface ProfessionalsGridProps {
@@ -14,6 +15,7 @@ interface ProfessionalsGridProps {
 export function ProfessionalsGrid({ loading, filtered, search, userCountry }: ProfessionalsGridProps) {
   const router = useRouter();
   const { showToast } = useToast();
+  const { buildPath } = useSection();
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
 
   const handleToggleFavorite = (e: React.MouseEvent, masterId: string) => {
@@ -79,7 +81,7 @@ export function ProfessionalsGrid({ loading, filtered, search, userCountry }: Pr
             idx={idx}
             isFavorite={favorites.has(master.id)}
             onToggleFavorite={handleToggleFavorite}
-            onClick={() => router.push(`/dashboard/booking?masterId=${master.id}`)}
+            onClick={() => router.push(buildPath(`booking?masterId=${master.id}`))}
           />
         ))}
       </div>

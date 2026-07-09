@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotifications } from '@/contexts/NotificationsContext';
+import { useSection } from '@/contexts/SectionContext';
 import { createClient } from '@/lib/supabase/client';
 import { Calendar, ShoppingBag, GraduationCap, Gift, Search, Heart, MessageSquare, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
@@ -12,14 +13,6 @@ import { StatsCards } from './components/StatsCards';
 
 import StaffDashboard from './StaffDashboard';
 import { DEFAULT_PRODUCT_IMAGE } from '@/lib/constants/images';
-
-const quickActions = [
-  { href: '/dashboard/booking', label: 'Book Now', icon: Calendar, gradient: 'from-pink-400 to-rose-300', img: 'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=400&q=80&auto=format&fit=crop' },
-  { href: '/dashboard/discover', label: 'Discover', icon: Search, gradient: 'from-violet-400 to-purple-300', img: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=400&q=80&auto=format&fit=crop' },
-  { href: '/dashboard/shop', label: 'Shop', icon: ShoppingBag, gradient: 'from-amber-400 to-orange-300', img: DEFAULT_PRODUCT_IMAGE },
-  { href: '/dashboard/academy', label: 'Academy', icon: GraduationCap, gradient: 'from-blue-400 to-cyan-300', img: 'https://images.unsplash.com/photo-1487412912498-0447578fcca8?w=400&q=80&auto=format&fit=crop' },
-  { href: '/dashboard/loyalty', label: 'Rewards', icon: Gift, gradient: 'from-emerald-400 to-teal-300', img: 'https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=400&q=80&auto=format&fit=crop' },
-];
 
 export interface DashboardAppointment {
   id: string;
@@ -44,6 +37,7 @@ export default function DashboardPage() {
 function ClientHome() {
   const { profile, role, user } = useAuth();
   const { unreadMessages } = useNotifications();
+  const { buildPath } = useSection();
   const supabase = createClient();
   const [stats, setStats] = useState({ bookings: 0, services: 0, appointments: [] as DashboardAppointment[] });
   const [loading, setLoading] = useState(true);
@@ -128,6 +122,14 @@ function ClientHome() {
 
   const firstName = profile?.full_name?.split(' ')[0] || 'there';
 
+  const quickActions = [
+    { href: buildPath('booking'), label: 'Book Now', icon: Calendar, gradient: 'from-pink-400 to-rose-300', img: 'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=400&q=80&auto=format&fit=crop' },
+    { href: buildPath('discover'), label: 'Discover', icon: Search, gradient: 'from-violet-400 to-purple-300', img: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=400&q=80&auto=format&fit=crop' },
+    { href: buildPath('shop'), label: 'Shop', icon: ShoppingBag, gradient: 'from-amber-400 to-orange-300', img: DEFAULT_PRODUCT_IMAGE },
+    { href: buildPath('academy'), label: 'Academy', icon: GraduationCap, gradient: 'from-blue-400 to-cyan-300', img: 'https://images.unsplash.com/photo-1487412912498-0447578fcca8?w=400&q=80&auto=format&fit=crop' },
+    { href: buildPath('loyalty'), label: 'Rewards', icon: Gift, gradient: 'from-emerald-400 to-teal-300', img: 'https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=400&q=80&auto=format&fit=crop' },
+  ];
+
   return (
     <div className="animate-fade-in">
       <HeroBanner firstName={firstName} role={role} />
@@ -143,7 +145,7 @@ function ClientHome() {
       {unreadMessages > 0 && (
         <div className="mb-8">
           <Link
-            href="/dashboard/chat"
+            href={buildPath('chat')}
             className="glass-card p-4 flex items-center justify-between border border-pink-100 hover:shadow-md transition-all bg-gradient-to-r from-pink-50/80 to-rose-50/40"
           >
             <div className="flex items-center gap-3">
@@ -185,7 +187,7 @@ function ClientHome() {
               Browse our curated collection of beauty services, shop premium products, and learn from expert courses.
             </p>
           </div>
-          <Link href="/dashboard/discover" className="btn-primary px-6 py-3 text-sm whitespace-nowrap shrink-0">
+          <Link href={buildPath('discover')} className="btn-primary px-6 py-3 text-sm whitespace-nowrap shrink-0">
             Explore Now
           </Link>
         </div>

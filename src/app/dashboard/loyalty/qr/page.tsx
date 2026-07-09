@@ -8,10 +8,12 @@ import { QRCodeSVG } from 'qrcode.react';
 import {
   ArrowLeft, Maximize2, Minimize2, Ticket, Loader2,
 } from 'lucide-react';
+import { useSection } from '@/contexts/SectionContext';
 
 export default function LoyaltyQrPage() {
   const router = useRouter();
   const { user, role, profile, loading: authLoading } = useAuth();
+  const { buildPath } = useSection();
 
   const isMasterOrOwner = role === 'master' || role === 'owner';
 
@@ -22,7 +24,7 @@ export default function LoyaltyQrPage() {
   // Role guard
   useEffect(() => {
     if (authLoading) return;
-    if (!isMasterOrOwner) router.replace('/dashboard/loyalty');
+    if (!isMasterOrOwner) router.replace(buildPath('loyalty'));
   }, [authLoading, isMasterOrOwner, router]);
 
   // Fullscreen handlers
@@ -68,7 +70,7 @@ export default function LoyaltyQrPage() {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <Link
-            href="/dashboard/loyalty"
+            href={buildPath('loyalty')}
             className="w-10 h-10 rounded-full bg-[var(--color-surface-light)] hover:bg-[var(--color-brand-pink-light)] flex items-center justify-center transition-colors"
           >
             <ArrowLeft size={18} />

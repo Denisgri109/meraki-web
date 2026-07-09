@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { Activity, ArrowLeft, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSection } from '@/contexts/SectionContext';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/components/Toast';
 import { PilatesTimetableManager } from '@/components/PilatesTimetableManager';
@@ -18,6 +19,7 @@ export default function PilatesStudioPage() {
   const { user, profile, loading: authLoading } = useAuth();
   const supabase = useMemo(() => createClient(), []);
   const { showToast } = useToast();
+  const { buildPath } = useSection();
   const [service, setService] = useState<Service | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -57,7 +59,7 @@ export default function PilatesStudioPage() {
   // Non-owners are redirected back; only owners manage timetable.
   useEffect(() => {
     if (!authLoading && profile && !isOwner) {
-      router.replace('/dashboard/services');
+      router.replace(buildPath('services'));
     }
   }, [authLoading, profile, isOwner, router]);
 
@@ -83,7 +85,7 @@ export default function PilatesStudioPage() {
             <p className="mt-1 text-sm text-[var(--color-text-muted)]">This Pilates studio doesn&apos;t exist or you don&apos;t have access to manage it.</p>
           </div>
           <Link
-            href="/dashboard/services"
+            href={buildPath('services')}
             className="btn-primary inline-flex items-center gap-2 px-5 py-2.5 text-sm"
           >
             <ArrowLeft size={16} /> Back to services
@@ -121,7 +123,7 @@ export default function PilatesStudioPage() {
         <div className="absolute inset-0 flex flex-col justify-between p-6 text-white">
           <div>
             <Link
-              href="/dashboard/services"
+              href={buildPath('services')}
               className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-xs font-bold uppercase tracking-widest text-white backdrop-blur-sm hover:bg-white/25 transition-all"
             >
               <ArrowLeft size={12} /> Services

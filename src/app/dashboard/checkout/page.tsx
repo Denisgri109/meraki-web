@@ -14,6 +14,7 @@ import {
   ShieldCheck, Sparkles, Tag, AlertCircle, Lock, UserCircle,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSection } from '@/contexts/SectionContext';
 import { useCart } from '@/contexts/CartContext';
 import { useToast } from '@/components/Toast';
 import { createClient } from '@/lib/supabase/client';
@@ -75,6 +76,7 @@ function QrCheckoutFlow() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const supabase = createClient();
+  const { buildPath } = useSection();
 
   const productId = searchParams.get('productId');
   // `price` and `name` from the URL are display hints ONLY. The authoritative
@@ -210,7 +212,7 @@ function QrCheckoutFlow() {
           <p className="text-sm text-[var(--color-text-muted)] mb-6">
             This QR code is missing product details. Please ask the salon staff to generate a new QR code.
           </p>
-          <Link href="/dashboard" className="btn-pink inline-flex px-6 py-3 text-sm">Go Home</Link>
+          <Link href={buildPath()} className="btn-pink inline-flex px-6 py-3 text-sm">Go Home</Link>
         </div>
       </div>
     );
@@ -280,7 +282,7 @@ function QrCheckoutFlow() {
           </div>
 
           <button
-            onClick={() => isGuest ? window.close() : router.push('/dashboard')}
+            onClick={() => isGuest ? window.close() : router.push(buildPath())}
             className="btn-outline w-full py-3 text-sm"
           >
             {isGuest ? 'Close' : 'Done'}
@@ -292,7 +294,7 @@ function QrCheckoutFlow() {
 
   // ── Auth gate: customer must be logged in to pay (or continue as guest) ──
   if (!authLoading && !user && !isGuest) {
-    const returnUrl = typeof window !== 'undefined' ? window.location.pathname + window.location.search : '/dashboard/checkout';
+    const returnUrl = typeof window !== 'undefined' ? window.location.pathname + window.location.search : buildPath('checkout');
     return (
       <div className="animate-fade-in max-w-md mx-auto">
         <div className="glass-card p-10 text-center">
@@ -429,6 +431,7 @@ function CartCheckoutForm() {
   const { user, profile } = useAuth();
   const { items, getTotal, clearCart } = useCart();
   const { showToast } = useToast();
+  const { buildPath } = useSection();
   const [submitting, setSubmitting] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
   const [shippingName, setShippingName] = useState(profile?.full_name || '');
@@ -627,7 +630,7 @@ function CartCheckoutForm() {
         <h1 className="text-3xl font-bold text-[var(--color-text-primary)] mb-3">Order Confirmed</h1>
         <p className="text-[var(--color-text-secondary)] mb-2">Your order #{orderId.slice(0, 8).toUpperCase()} has been placed.</p>
         <p className="text-sm text-[var(--color-text-muted)] mb-8">We'll prepare your package and update shipping soon.</p>
-        <button onClick={() => router.push('/dashboard/shop')} className="btn-pink px-8 py-3 text-sm">
+        <button onClick={() => router.push(buildPath('shop'))} className="btn-pink px-8 py-3 text-sm">
           Continue Shopping
         </button>
       </div>
@@ -789,7 +792,7 @@ function CartCheckoutForm() {
         <button onClick={handlePlaceOrder} disabled={submitting || !stripe || items.length === 0 || (!usingSavedCard && !elements)} className="btn-primary w-full py-3 text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
           {submitting ? <><Loader2 size={16} className="animate-spin" /> Processing...</> : 'Pay & Place Order'}
         </button>
-        <Link href="/dashboard/cart" className="btn-outline w-full py-3 text-sm flex items-center justify-center gap-2 mt-3">
+        <Link href={buildPath('cart')} className="btn-outline w-full py-3 text-sm flex items-center justify-center gap-2 mt-3">
           <ArrowLeft size={16} /> Back to Cart
         </Link>
       </aside>
@@ -801,10 +804,11 @@ function CartCheckoutPage() {
   const { items } = useCart();
   const { role, loading: authLoading } = useAuth();
   const router = useRouter();
+  const { buildPath } = useSection();
 
   useEffect(() => {
     if (!authLoading && role === 'owner') {
-      router.replace('/dashboard/inventory');
+      router.replace(buildPath('inventory'));
     }
   }, [authLoading, role, router]);
 
@@ -825,7 +829,7 @@ function CartCheckoutPage() {
           </div>
           <h1 className="text-3xl font-bold text-[var(--color-text-primary)] mb-3">Nothing to checkout</h1>
           <p className="text-[var(--color-text-secondary)] mb-8">Your cart is empty.</p>
-          <Link href="/dashboard/shop" className="btn-pink inline-flex px-7 py-3 text-sm">Browse Shop</Link>
+          <Link href={buildPath('shop')} className="btn-pink inline-flex px-7 py-3 text-sm">Browse Shop</Link>
         </div>
       </div>
     );
@@ -834,7 +838,7 @@ function CartCheckoutPage() {
   return (
     <div className="animate-fade-in">
       <div className="mb-8">
-        <Link href="/dashboard/cart" className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] mb-4">
+        <Link href={buildPath('cart')} className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] mb-4">
           <ArrowLeft size={16} /> Back to Cart
         </Link>
         <p className="text-xs font-bold uppercase tracking-[0.25em] text-[var(--color-brand-pink-dark)] mb-2">Secure Checkout</p>

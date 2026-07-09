@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/Toast';
+import { useSection } from '@/contexts/SectionContext';
 import {
   ArrowLeft, Search, GraduationCap, DollarSign, Users, CheckCircle2,
   ChevronRight, Loader2, X, Clock, Play, BookOpen, AlertTriangle,
@@ -57,10 +58,11 @@ export default function AcademyStudentsPage() {
   const router = useRouter();
   const supabase = createClient();
   const { showToast } = useToast();
+  const { buildPath } = useSection();
 
   useEffect(() => {
     if (role && role !== 'owner') {
-      router.replace('/dashboard/academy');
+      router.replace(buildPath('academy'));
     }
   }, [role, router]);
 
@@ -413,7 +415,7 @@ export default function AcademyStudentsPage() {
     <div className="animate-fade-in pb-20">
       {/* Header */}
       <button
-        onClick={() => router.push('/dashboard/academy')}
+        onClick={() => router.push(buildPath('academy'))}
         className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] mb-6 transition-colors"
       >
         <ArrowLeft size={16} /> Back to Academy

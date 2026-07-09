@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotifications } from '@/contexts/NotificationsContext';
+import { useSection } from '@/contexts/SectionContext';
 import { createClient } from '@/lib/supabase/client';
 import {
   Calendar,
@@ -62,6 +63,7 @@ const formatCurrency = (amount: number, currency: string | null | undefined) => 
 export default function StaffDashboard() {
   const { profile, user, role } = useAuth();
   const { unreadMessages } = useNotifications();
+  const { buildPath } = useSection();
   const supabase = createClient();
   const isOwner = role === 'owner';
 
@@ -253,26 +255,26 @@ export default function StaffDashboard() {
 
   const businessActions = isOwner
     ? [
-        { href: '/dashboard/masters', icon: Users, label: 'Masters', color: '#EE2B5B' },
-        { href: '/dashboard/orders', icon: Package, label: 'Orders', color: '#F472B6' },
-        { href: '/dashboard/services', icon: Calendar, label: 'Services', color: '#60A5FA' },
-        { href: '/dashboard/availability', icon: Clock, label: 'Availability', color: '#F472B6' },
-        { href: '/dashboard/inventory', icon: Package, label: 'Inventory', color: '#F19A3E' },
-        { href: '/dashboard/shop', icon: ShoppingBag, label: 'Shop', color: '#34D399' },
-        { href: '/dashboard/analytics', icon: BarChart3, label: 'Analytics', color: '#8B5CF6' },
-        { href: '/dashboard/loyalty', icon: Gift, label: 'Loyalty', color: '#FBBF24' },
-        { href: '/dashboard/academy', icon: GraduationCap, label: 'Academy', color: '#06B6D4' },
-        { href: '/dashboard/settings', icon: Settings, label: 'Settings', color: '#94A3B8' },
+        { href: buildPath('masters'), icon: Users, label: 'Masters', color: '#EE2B5B' },
+        { href: buildPath('orders'), icon: Package, label: 'Orders', color: '#F472B6' },
+        { href: buildPath('services'), icon: Calendar, label: 'Services', color: '#60A5FA' },
+        { href: buildPath('availability'), icon: Clock, label: 'Availability', color: '#F472B6' },
+        { href: buildPath('inventory'), icon: Package, label: 'Inventory', color: '#F19A3E' },
+        { href: buildPath('shop'), icon: ShoppingBag, label: 'Shop', color: '#34D399' },
+        { href: buildPath('analytics'), icon: BarChart3, label: 'Analytics', color: '#8B5CF6' },
+        { href: buildPath('loyalty'), icon: Gift, label: 'Loyalty', color: '#FBBF24' },
+        { href: buildPath('academy'), icon: GraduationCap, label: 'Academy', color: '#06B6D4' },
+        { href: buildPath('settings'), icon: Settings, label: 'Settings', color: '#94A3B8' },
       ]
     : [
-        { href: '/dashboard/consultations', icon: MessageSquare, label: 'Consultations', color: '#8B5CF6' },
-        { href: '/dashboard/services', icon: Calendar, label: 'Services', color: '#60A5FA' },
-        { href: '/dashboard/availability', icon: Clock, label: 'Availability', color: '#F472B6' },
-        { href: '/dashboard/appointments', icon: Calendar, label: 'Appointments', color: '#EE2B5B' },
-        { href: '/dashboard/loyalty', icon: Gift, label: 'Loyalty', color: '#FBBF24' },
-        { href: '/dashboard/earnings', icon: TrendingUp, label: 'Earnings', color: '#F59E0B' },
-        { href: '/dashboard/academy', icon: GraduationCap, label: 'Academy', color: '#06B6D4' },
-        { href: '/dashboard/settings', icon: Settings, label: 'Settings', color: '#94A3B8' },
+        { href: buildPath('consultations'), icon: MessageSquare, label: 'Consultations', color: '#8B5CF6' },
+        { href: buildPath('services'), icon: Calendar, label: 'Services', color: '#60A5FA' },
+        { href: buildPath('availability'), icon: Clock, label: 'Availability', color: '#F472B6' },
+        { href: buildPath('appointments'), icon: Calendar, label: 'Appointments', color: '#EE2B5B' },
+        { href: buildPath('loyalty'), icon: Gift, label: 'Loyalty', color: '#FBBF24' },
+        { href: buildPath('earnings'), icon: TrendingUp, label: 'Earnings', color: '#F59E0B' },
+        { href: buildPath('academy'), icon: GraduationCap, label: 'Academy', color: '#06B6D4' },
+        { href: buildPath('settings'), icon: Settings, label: 'Settings', color: '#94A3B8' },
       ];
 
   return (
@@ -325,7 +327,7 @@ export default function StaffDashboard() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
           {unreadMessages > 0 && (
             <Link
-              href="/dashboard/chat"
+              href={buildPath('chat')}
               className="glass-card p-4 flex items-center justify-between border border-pink-100 hover:shadow-md transition-all bg-gradient-to-r from-pink-50/80 to-rose-50/40"
             >
               <div className="flex items-center gap-3">
@@ -344,7 +346,7 @@ export default function StaffDashboard() {
           )}
           {isOwner && stats.lowStockCount > 0 && (
             <Link
-              href="/dashboard/inventory"
+              href={buildPath('inventory')}
               className="glass-card p-4 flex items-center justify-between border border-amber-100 hover:shadow-md transition-all bg-gradient-to-r from-amber-50/80 to-orange-50/40"
             >
               <div className="flex items-center gap-3">
@@ -371,7 +373,7 @@ export default function StaffDashboard() {
             Upcoming Appointments
           </h2>
           <Link
-            href="/dashboard/appointments"
+            href={buildPath('appointments')}
             className="text-xs font-semibold text-[var(--color-brand-pink-dark)] hover:opacity-80 inline-flex items-center gap-1"
           >
             View all <ChevronRight size={14} />
@@ -398,7 +400,7 @@ export default function StaffDashboard() {
               return (
                 <Link
                   key={apt.id}
-                  href="/dashboard/appointments"
+                  href={buildPath('appointments')}
                   className="glass-card p-4 flex items-center gap-4 hover:shadow-lg hover:-translate-y-0.5 transition-all"
                 >
                   <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-pink-50 to-purple-50 border border-pink-100 flex flex-col items-center justify-center shrink-0">

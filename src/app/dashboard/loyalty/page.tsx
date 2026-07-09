@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/components/Toast';
 import Link from 'next/link';
+import { useSection } from '@/contexts/SectionContext';
 
 export interface StampCard {
   stamp_id: string;
@@ -248,6 +249,7 @@ function ClientView({
   expiredCredits: UserCredit[];
   onRedeemStampCard: (c: StampCard) => void;
 }) {
+  const { buildPath } = useSection();
   const displayedCredits = activeCreditsTab === 'active' ? activeCredits : expiredCredits;
 
   const activeStampCardsCount = stampCards.filter(c => c.stamps_collected < c.stamps_required).length;
@@ -265,7 +267,7 @@ function ClientView({
           </div>
           <div className="flex flex-col gap-2">
             <Link
-              href="/dashboard/loyalty/scan"
+              href={buildPath('loyalty/scan')}
               className="flex items-center gap-2 px-6 py-3 rounded-full bg-white text-gray-900 text-sm font-bold hover:bg-gray-100 hover:scale-105 transition-all shadow-lg cursor-pointer"
             >
               <Camera size={16} />
@@ -297,6 +299,7 @@ function MasterView({
 }: {
   stampsToday: number;
 }) {
+  const { buildPath } = useSection();
   return (
     <>
       {/* QR + Stats Card */}
@@ -310,14 +313,14 @@ function MasterView({
           </div>
           <div className="flex flex-col gap-2">
             <Link
-              href="/dashboard/loyalty/qr"
+              href={buildPath('loyalty/qr')}
               className="flex items-center gap-2 px-6 py-3 rounded-full bg-white text-gray-900 text-sm font-bold hover:bg-gray-100 hover:scale-105 transition-all shadow-lg cursor-pointer"
             >
               <QrCode size={16} />
               Show my QR
             </Link>
             <Link
-              href="/dashboard/loyalty/cards"
+              href={buildPath('loyalty/cards')}
               className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-sm font-semibold transition-all backdrop-blur-sm cursor-pointer"
             >
               <Layers size={14} />

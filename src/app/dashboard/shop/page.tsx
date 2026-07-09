@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
+import { useSection } from '@/contexts/SectionContext';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/components/Toast';
 import {
@@ -37,6 +38,7 @@ export default function ShopPage() {
   const { role, loading: authLoading } = useAuth();
   const { addToCart } = useCart();
   const { showToast } = useToast();
+  const { buildPath } = useSection();
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -46,7 +48,7 @@ export default function ShopPage() {
 
   useEffect(() => {
     if (!authLoading && role === 'owner') {
-      router.replace('/dashboard/inventory');
+      router.replace(buildPath('inventory'));
     }
   }, [authLoading, role, router]);
 
@@ -237,10 +239,10 @@ export default function ShopPage() {
               data-row-id={product.id}
               role="button"
               tabIndex={0}
-              onClick={() => router.push(`/dashboard/shop/${product.id}`)}
+              onClick={() => router.push(buildPath(`shop/${product.id}`))}
               onKeyDown={(e) => {
                 if (e.target !== e.currentTarget) return;
-                if (e.key === 'Enter' || e.key === ' ') router.push(`/dashboard/shop/${product.id}`);
+                if (e.key === 'Enter' || e.key === ' ') router.push(buildPath(`shop/${product.id}`));
               }}
               className={`glass-card card-accent-stripe overflow-hidden hover:shadow-lg hover:-translate-y-2 transition-all duration-300 cursor-pointer group animate-scale-in stagger-${Math.min(idx + 1, 6)}`}
               style={{ animationFillMode: 'both' }}

@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/components/Toast';
 import { useModal } from '@/contexts/ModalContext';
+import { useSection } from '@/contexts/SectionContext';
 import {
   ArrowLeft, Plus, Pencil, Trash2, Pause, Play, X, Loader2, Ticket, Star, Save,
 } from 'lucide-react';
@@ -52,6 +53,7 @@ export default function LoyaltyCardsPage() {
   const supabase = createClient();
   const { showToast } = useToast();
   const { showConfirm } = useModal();
+  const { buildPath } = useSection();
 
   const isMasterOrOwner = role === 'master' || role === 'owner';
 
@@ -90,7 +92,7 @@ export default function LoyaltyCardsPage() {
   useEffect(() => {
     if (authLoading) return;
     if (!isMasterOrOwner) {
-      router.replace('/dashboard/loyalty');
+      router.replace(buildPath('loyalty'));
       return;
     }
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -210,7 +212,7 @@ export default function LoyaltyCardsPage() {
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-3">
           <Link
-            href="/dashboard/loyalty"
+            href={buildPath('loyalty')}
             className="w-10 h-10 rounded-full bg-[var(--color-surface-light)] hover:bg-[var(--color-brand-pink-light)] flex items-center justify-center transition-colors"
           >
             <ArrowLeft size={18} />

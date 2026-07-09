@@ -23,6 +23,7 @@ import {
 } from '@/lib/validation';
 import CountryCodeDropdown from '@/components/CountryCodeDropdown';
 import { useEditMode } from '@/contexts/EditContext';
+import { useSection } from '@/contexts/SectionContext';
 
 const DELETE_PHRASE = 'DELETE MY ACCOUNT';
 
@@ -74,6 +75,7 @@ export default function SettingsPage() {
   const { showConfirm } = useModal();
   const { isEditMode, canEdit: canEditMode, toggleEditMode, content, resetContent, refreshContent } = useEditMode();
   const searchParams = useSearchParams();
+  const { buildPath } = useSection();
   const initialTab = searchParams.get('tab') || 'profile';
   const [activeSection, setActiveSection] = useState(initialTab);
   const [saving, setSaving] = useState(false);
@@ -476,7 +478,7 @@ export default function SettingsPage() {
     setUpdatingEmail(true);
     try {
       // Route confirmation links through our auth callback so PKCE codes are exchanged.
-      const emailRedirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent('/dashboard/settings?email_changed=1')}`;
+      const emailRedirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(buildPath('settings?email_changed=1'))}`;
       const { error } = await supabase.auth.updateUser(
         { email: trimmed },
         { emailRedirectTo }
@@ -901,7 +903,7 @@ export default function SettingsPage() {
                     <p className="text-xs text-[var(--color-text-muted)]">See what clients see when they view your profile</p>
                   </div>
                   <button
-                    onClick={() => router.push(`/dashboard/masters/${profile.id}`)}
+                    onClick={() => router.push(buildPath(`masters/${profile.id}`))}
                     className="btn-outline text-sm px-4 py-2 border-slate-300 flex items-center gap-2 cursor-pointer"
                   >
                     <ExternalLink size={14} /> View Public Profile
@@ -1294,7 +1296,7 @@ export default function SettingsPage() {
                   </button>
 
                   <button
-                    onClick={() => router.push('/dashboard/discover')}
+                    onClick={() => router.push(buildPath('discover'))}
                     className="flex items-center gap-3 p-4 rounded-[var(--radius-lg)] bg-[var(--color-surface-light)] border border-[var(--color-border-light)] hover:border-pink-300 transition-all cursor-pointer text-left"
                   >
                     <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">

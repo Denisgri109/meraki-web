@@ -10,6 +10,7 @@ import {
   ArrowLeft, Camera, Radio, Loader2, X, Sparkles, Gift, Star, RefreshCw, ScanLine,
 } from 'lucide-react';
 import { parseScanCode, shouldDebounceScan } from '@/lib/loyalty/scan';
+import { useSection } from '@/contexts/SectionContext';
 
 // html5-qrcode is browser-only; load lazily
 type Html5QrcodeModule = typeof import('html5-qrcode');
@@ -48,7 +49,7 @@ export default function LoyaltyScanPage() {
   const { user, role, loading: authLoading } = useAuth();
   const supabase = createClient();
   const { showToast } = useToast();
-
+  const { buildPath } = useSection();
   const isClient = role === 'client';
 
   // Mode: camera | nfc
@@ -76,7 +77,7 @@ export default function LoyaltyScanPage() {
   useEffect(() => {
     if (authLoading) return;
     if (role && role !== 'client') {
-      router.replace('/dashboard/loyalty');
+      router.replace(buildPath('loyalty'));
     }
   }, [authLoading, role, router]);
 
@@ -297,7 +298,7 @@ export default function LoyaltyScanPage() {
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <Link
-          href="/dashboard/loyalty"
+          href={buildPath('loyalty')}
           className="w-10 h-10 rounded-full bg-[var(--color-surface-light)] hover:bg-[var(--color-brand-pink-light)] flex items-center justify-center transition-colors"
         >
           <ArrowLeft size={18} />

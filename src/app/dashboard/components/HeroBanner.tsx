@@ -1,5 +1,6 @@
 import { Sparkles, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
+import { useSection } from '@/contexts/SectionContext';
 
 interface HeroBannerProps {
   firstName: string;
@@ -7,6 +8,7 @@ interface HeroBannerProps {
 }
 
 export function HeroBanner({ firstName, role }: HeroBannerProps) {
+  const { buildPath } = useSection();
   return (
     <div className="relative rounded-[var(--radius-2xl)] overflow-hidden mb-8 sm:mb-10 h-[220px] sm:h-[280px] lg:h-[300px]">
       <img
@@ -34,7 +36,7 @@ export function HeroBanner({ firstName, role }: HeroBannerProps) {
               : 'Ready to book your next beauty experience?'}
         </p>
         <Link
-          href="/dashboard/booking"
+          href={buildPath('booking')}
           className="btn-pink inline-flex items-center gap-2 mt-4 sm:mt-6 px-6 sm:px-8 py-2.5 sm:py-3 text-xs sm:text-sm shadow-lg"
         >
           Book Now <ArrowRight size={14} className="sm:size-4" />

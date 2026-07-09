@@ -10,6 +10,7 @@ import {
   ChevronRight, Loader2, X, Save, DollarSign, FileText, AlertTriangle, Upload,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useSection } from '@/contexts/SectionContext';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface CourseRow extends Course {
@@ -61,6 +62,7 @@ function OwnerAcademyView() {
   const router = useRouter();
   const supabase = createClient();
   const { showToast } = useToast();
+  const { buildPath } = useSection();
 
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
@@ -260,12 +262,12 @@ function OwnerAcademyView() {
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
         <StatCard label="Courses" value={courses.length} accent="from-cyan-400 to-blue-400" />
-        <button onClick={() => router.push('/dashboard/academy/students')} className="text-left glass-card p-4 hover:shadow-md transition-all relative">
+        <button onClick={() => router.push(buildPath('academy/students'))} className="text-left glass-card p-4 hover:shadow-md transition-all relative">
           <div className="w-2 h-2 rounded-full bg-gradient-to-br from-pink-400 to-rose-400 mb-3" />
           <p className="text-2xl font-bold text-[var(--color-text-primary)] tracking-tight">{stats.totalEnrollments}</p>
           <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)] mt-1">Enrollments</p>
         </button>
-        <button onClick={() => router.push('/dashboard/academy/homework')} className="text-left glass-card p-4 hover:shadow-md transition-all relative">
+        <button onClick={() => router.push(buildPath('academy/homework'))} className="text-left glass-card p-4 hover:shadow-md transition-all relative">
           <div className="w-2 h-2 rounded-full bg-gradient-to-br from-amber-400 to-orange-400 mb-3" />
           <p className="text-2xl font-bold text-[var(--color-text-primary)] tracking-tight">{stats.pendingHomework}</p>
           <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)] mt-1">Homework</p>
@@ -273,7 +275,7 @@ function OwnerAcademyView() {
             <span className="absolute top-3 right-3 w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
           )}
         </button>
-        <button onClick={() => router.push('/dashboard/academy/qa')} className="text-left glass-card p-4 hover:shadow-md transition-all relative">
+        <button onClick={() => router.push(buildPath('academy/qa'))} className="text-left glass-card p-4 hover:shadow-md transition-all relative">
           <div className="w-2 h-2 rounded-full bg-gradient-to-br from-violet-400 to-purple-400 mb-3" />
           <p className="text-2xl font-bold text-[var(--color-text-primary)] tracking-tight">{stats.pendingQA}</p>
           <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)] mt-1">Q&A</p>
@@ -329,7 +331,7 @@ function OwnerAcademyView() {
               {/* Thumbnail */}
               <div
                 className="aspect-video relative cursor-pointer overflow-hidden"
-                onClick={() => router.push(`/dashboard/academy/${course.id}`)}
+                onClick={() => router.push(buildPath(`academy/${course.id}`))}
                 style={{ background: 'linear-gradient(135deg, rgba(59,130,246,0.1), rgba(6,182,212,0.1))' }}
               >
                 {course.thumbnail_url ? (
@@ -350,7 +352,7 @@ function OwnerAcademyView() {
               <div className="p-5">
                 <h3
                   className="font-bold text-[var(--color-text-primary)] truncate cursor-pointer hover:text-cyan-600 transition-colors"
-                  onClick={() => router.push(`/dashboard/academy/${course.id}`)}
+                  onClick={() => router.push(buildPath(`academy/${course.id}`))}
                 >
                   {course.title}
                 </h3>
@@ -367,7 +369,7 @@ function OwnerAcademyView() {
                 {/* Actions */}
                 <div className="flex items-center gap-2 mt-4 pt-4 border-t border-[var(--color-border-light)]">
                   <button
-                    onClick={() => router.push(`/dashboard/academy/${course.id}`)}
+                    onClick={() => router.push(buildPath(`academy/${course.id}`))}
                     className="flex-1 text-xs font-semibold px-3 py-2 rounded-lg bg-cyan-50 text-cyan-700 hover:bg-cyan-100 transition-colors flex items-center justify-center gap-1"
                   >
                     <Edit3 size={13} /> Edit
@@ -493,6 +495,7 @@ function ClientAcademyView() {
   const router = useRouter();
   const supabase = createClient();
   const { showToast } = useToast();
+  const { buildPath } = useSection();
 
   const [tab, setTab] = useState<'browse' | 'my-courses'>('browse');
   const [loading, setLoading] = useState(true);
@@ -658,7 +661,7 @@ function ClientAcademyView() {
           You are now enrolled in <span className="font-bold text-[var(--color-text-primary)]">{selectedCourse.title}</span>.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <button onClick={() => router.push(`/dashboard/academy/learn/${selectedCourse.id}`)} className="btn-primary px-8 py-3">Start Learning Now</button>
+          <button onClick={() => router.push(buildPath(`academy/learn/${selectedCourse.id}`))} className="btn-primary px-8 py-3">Start Learning Now</button>
           <button onClick={() => { setIsSuccess(false); setSelectedCourse(null); }} className="px-8 py-3 rounded-xl font-bold bg-[var(--color-surface-light)] hover:bg-[var(--color-border)] text-[var(--color-text-primary)] transition-colors">Browse More</button>
         </div>
       </div>
@@ -714,7 +717,7 @@ function ClientAcademyView() {
                 <div className="flex gap-3 items-start"><CheckCircle2 size={18} className="text-emerald-500 shrink-0 mt-0.5" /><span className="text-sm text-[var(--color-text-secondary)]">Official Merakí Certification</span></div>
               </div>
               {alreadyEnrolled ? (
-                <button onClick={() => router.push(`/dashboard/academy/learn/${selectedCourse.id}`)} className="w-full btn-primary py-4 text-lg font-bold" style={{ background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)' }}>
+                <button onClick={() => router.push(buildPath(`academy/learn/${selectedCourse.id}`))} className="w-full btn-primary py-4 text-lg font-bold" style={{ background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)' }}>
                   Continue Learning
                 </button>
               ) : (
@@ -834,7 +837,7 @@ function ClientAcademyView() {
             {myEnrollments.map((enrollment) => (
               <div
                 key={enrollment.id}
-                onClick={() => router.push(`/dashboard/academy/learn/${enrollment.course.id}`)}
+                onClick={() => router.push(buildPath(`academy/learn/${enrollment.course.id}`))}
                 className="glass-card p-5 flex items-center gap-5 hover:shadow-lg hover:-translate-y-0.5 transition-all cursor-pointer group"
               >
                 {/* Thumbnail */}

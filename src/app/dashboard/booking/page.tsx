@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, type Dispatch, type SetStateAction } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSection } from '@/contexts/SectionContext';
 import { useModal } from '@/contexts/ModalContext';
 import { Search, Star, Clock, ArrowRight, ArrowLeft, Calendar, CheckCircle2, Sparkles, User, Scissors, SlidersHorizontal, Loader2, ChevronLeft, ChevronRight, AlertCircle, CreditCard, Plus, MapPin } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -436,6 +437,7 @@ export default function BookingPage() {
   const { user, profile } = useAuth();
   const router = useRouter();
   const supabase = createClient();
+  const { buildPath } = useSection();
   const draftStorageKey = user?.id ? `${BOOKING_DRAFT_STORAGE_PREFIX}${user.id}` : null;
   const initialBookingDraft = useMemo(() => {
     if (!draftStorageKey || typeof window === 'undefined') return null;
@@ -1573,7 +1575,7 @@ export default function BookingPage() {
             Your appointment with <span className="font-bold text-[var(--color-text-primary)]">{selectedMaster?.full_name}</span> has been confirmed for <span className="font-bold text-[var(--color-text-primary)]">{selectedDateLabel}</span> at <span className="font-bold text-[var(--color-text-primary)]">{selectedTime}</span>.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button onClick={() => router.push('/dashboard/appointments')} className="btn-primary px-8 py-3">
+            <button onClick={() => router.push(buildPath('appointments'))} className="btn-primary px-8 py-3">
               View My Appointments
             </button>
             <button onClick={() => setStep(1)} className="px-8 py-3 rounded-xl font-bold bg-[var(--color-surface-light)] hover:bg-[var(--color-border)] text-[var(--color-text-primary)] transition-colors">

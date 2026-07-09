@@ -4,6 +4,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSection } from '@/contexts/SectionContext';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/components/Toast';
 import {
@@ -90,6 +91,7 @@ export default function OrdersPage() {
   const { showToast } = useToast();
   const isOwner = role === 'owner';
   const router = useRouter();
+  const { buildPath } = useSection();
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -366,7 +368,7 @@ export default function OrdersPage() {
   const redirectToFullChat = () => {
     if (!conversationId) return;
     localStorage.setItem('meraki_active_chat_convo_id', conversationId);
-    router.push('/dashboard/chat');
+    router.push(buildPath('chat'));
   };
 
   const filtered = orders.filter(o => {

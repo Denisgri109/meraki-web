@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/components/Toast';
 import { QRCodeSVG } from 'qrcode.react';
 import { DEFAULT_PRODUCT_IMAGE } from '@/lib/constants/images';
+import { useSection } from '@/contexts/SectionContext';
 import {
   ArrowLeft, Maximize2, Minimize2, ShoppingBag, Loader2, Smartphone,
   Radio, CheckCircle2, Clock, XCircle, TrendingUp, Package, Plus,
@@ -40,8 +41,6 @@ interface FeedTransaction {
   updated_at: string;
 }
 
-const CHECKOUT_BASE_URL = `${process.env.NEXT_PUBLIC_SITE_URL ?? ''}/dashboard/checkout`;
-
 const EMPTY_NEW_PRODUCT = {
   name: '',
   description: '',
@@ -65,6 +64,7 @@ export default function QrPaymentsPage() {
   const { role, loading: authLoading } = useAuth();
   const supabase = createClient();
   const { showToast } = useToast();
+  const { buildPath } = useSection();
 
   const [selectedProduct, setSelectedProduct] = useState<QrProduct | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -288,7 +288,7 @@ export default function QrPaymentsPage() {
 
   // The QR URL encodes the real product id; the server resolves the price.
   const qrUrl = selectedProduct
-    ? `${CHECKOUT_BASE_URL}?productId=${encodeURIComponent(selectedProduct.id)}&price=${Math.round(selectedProduct.retail_price * 100)}&name=${encodeURIComponent(selectedProduct.name)}`
+    ? `${process.env.NEXT_PUBLIC_SITE_URL ?? ''}${buildPath('checkout')}?productId=${encodeURIComponent(selectedProduct.id)}&price=${Math.round(selectedProduct.retail_price * 100)}&name=${encodeURIComponent(selectedProduct.name)}`
     : '';
 
   const filteredShopProducts = shopProducts.filter((p) => {

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSection } from '@/contexts/SectionContext';
 import { useToast } from '@/components/Toast';
 import { useModal } from '@/contexts/ModalContext';
 import {
@@ -132,6 +133,7 @@ function SelectField({ value, onChange, options, className }: {
 
 const BusinessSettingsPanel = forwardRef<BusinessSettingsPanelRef>(function BusinessSettingsPanel(_props, ref) {
   const { profile } = useAuth();
+  const { buildPath } = useSection();
   const supabase = createClient();
   const { showToast } = useToast();
   const { showConfirm } = useModal();
@@ -308,7 +310,7 @@ const BusinessSettingsPanel = forwardRef<BusinessSettingsPanelRef>(function Busi
 
             <div className="p-3 rounded-[var(--radius-md)] bg-amber-50 border border-amber-200 text-xs text-amber-800">
               <strong>Per-Service Deposit Override:</strong> You can override deposit settings for individual services from the{' '}
-              <a href="/dashboard/services" className="underline font-semibold hover:text-amber-900">Service Management</a> page (Phase 4).
+              <a href={buildPath('services')} className="underline font-semibold hover:text-amber-900">Service Management</a> page (Phase 4).
             </div>
           </div>
         )}

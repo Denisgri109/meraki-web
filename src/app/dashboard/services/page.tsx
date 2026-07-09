@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSection } from '@/contexts/SectionContext';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/components/Toast';
 import {
@@ -37,6 +38,7 @@ export default function ServicesPage() {
   const router = useRouter();
   const supabase = createClient();
   const { showToast } = useToast();
+  const { buildPath } = useSection();
   const [services, setServices] = useState<ServiceWithConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const isOwner = profile?.role === 'owner';
@@ -310,7 +312,7 @@ export default function ServicesPage() {
       showToast('Pilates studio created!', 'success');
       await fetchAll();
       setShowPilatesHub(false);
-      router.push(`/dashboard/services/pilates/${serviceData.id}`);
+      router.push(buildPath(`services/pilates/${serviceData.id}`));
     } catch (err: unknown) {
       showToast(err instanceof Error ? err.message : 'Failed to create Pilates studio', 'error');
     } finally {
@@ -639,7 +641,7 @@ export default function ServicesPage() {
                       </button>
                       {service.category === 'Pilates' && isOwner && (
                         <button
-                          onClick={() => router.push(`/dashboard/services/pilates/${service.id}`)}
+                          onClick={() => router.push(buildPath(`services/pilates/${service.id}`))}
                           className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white hover:shadow-sm transition-all text-emerald-600 hover:text-emerald-700 cursor-pointer"
                           title="Manage Pilates timetable"
                         >
@@ -1076,7 +1078,7 @@ export default function ServicesPage() {
                     key={service.id}
                     onClick={() => {
                       setShowPilatesHub(false);
-                      router.push(`/dashboard/services/pilates/${service.id}`);
+                      router.push(buildPath(`services/pilates/${service.id}`));
                     }}
                     className="w-full text-left flex items-center gap-3 p-4 rounded-xl border border-[var(--color-border-light)] hover:border-emerald-300 hover:bg-emerald-50/40 transition-all cursor-pointer"
                   >

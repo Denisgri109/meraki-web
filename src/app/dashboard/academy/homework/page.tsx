@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/Toast';
+import { useSection } from '@/contexts/SectionContext';
 import {
   ArrowLeft, Inbox, CheckCircle2, Clock, Loader2, X, Send,
   Image, FileText, ChevronRight, Eye, Filter, GraduationCap,
@@ -48,9 +49,10 @@ export default function HomeworkInboxPage() {
   const router = useRouter();
   const supabase = createClient();
   const { showToast } = useToast();
+  const { buildPath } = useSection();
 
   useEffect(() => {
-    if (role && role !== 'owner') router.replace('/dashboard/academy');
+    if (role && role !== 'owner') router.replace(buildPath('academy'));
   }, [role, router]);
 
   const [submissions, setSubmissions] = useState<Submission[]>([]);
@@ -154,7 +156,7 @@ export default function HomeworkInboxPage() {
   return (
     <div className="animate-fade-in pb-20">
       {/* Header */}
-      <button onClick={() => router.push('/dashboard/academy')} className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] mb-6 transition-colors">
+      <button onClick={() => router.push(buildPath('academy'))} className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] mb-6 transition-colors">
         <ArrowLeft size={16} /> Back to Academy
       </button>
 

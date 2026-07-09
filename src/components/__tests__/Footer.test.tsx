@@ -19,13 +19,13 @@ describe('Footer', () => {
     render(<Footer />);
 
     const bookServicesLink = screen.getByRole('link', { name: /book services/i });
-    expect(bookServicesLink).toHaveAttribute('href', '/dashboard/booking');
+    expect(bookServicesLink).toHaveAttribute('href', '/beauty/booking');
 
     const shopProductsLink = screen.getByRole('link', { name: /shop products/i });
-    expect(shopProductsLink).toHaveAttribute('href', '/dashboard/shop');
+    expect(shopProductsLink).toHaveAttribute('href', '/beauty/shop');
 
     const academyCoursesLink = screen.getByRole('link', { name: /academy courses/i });
-    expect(academyCoursesLink).toHaveAttribute('href', '/dashboard/academy');
+    expect(academyCoursesLink).toHaveAttribute('href', '/beauty/academy');
   });
 
   it('renders company links correctly', () => {

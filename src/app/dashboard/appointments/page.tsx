@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSection } from '@/contexts/SectionContext';
 import { createClient } from '@/lib/supabase/client';
 import { 
   Calendar, Clock, User, ChevronRight, ArrowRight, X,
@@ -217,6 +218,7 @@ function getStatusColor(status: string) {
 export default function AppointmentsPage() {
   const { user, role } = useAuth();
   const supabase = createClient();
+  const { buildPath } = useSection();
   const [activeTab, setActiveTab] = useState<TabValue>('upcoming');
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -482,7 +484,7 @@ export default function AppointmentsPage() {
 
       // Store in localStorage to trigger auto-activation on the messages page
       localStorage.setItem('meraki_active_chat_convo_id', convo.id);
-      window.location.href = '/dashboard/chat';
+      window.location.href = buildPath('chat');
     } catch (err: unknown) {
       showToast(err instanceof Error ? err.message : 'Failed to initiate chat', 'error');
     }
@@ -1067,7 +1069,7 @@ export default function AppointmentsPage() {
             {activeTab === 'upcoming' ? 'Book a service with our specialists today!' : 'Your history will appear here'}
           </p>
           {activeTab === 'upcoming' && role !== 'master' && (
-            <Link href="/dashboard/booking" className="btn-pink px-8 py-3 text-sm inline-flex items-center gap-2">
+            <Link href={buildPath('booking')} className="btn-pink px-8 py-3 text-sm inline-flex items-center gap-2">
               Book Now <ArrowRight size={16} />
             </Link>
           )}
@@ -1659,7 +1661,7 @@ export default function AppointmentsPage() {
                     <div className="space-y-3">
                       {selectedAppointment.service_category === 'Pilates' ? (
                         <Link
-                          href={`/dashboard/services/pilates/${selectedAppointment.service_id}`}
+                          href={buildPath(`services/pilates/${selectedAppointment.service_id}`)}
                           className="w-full py-3 rounded-xl bg-violet-600 text-white font-bold hover:bg-violet-700 text-sm cursor-pointer transition-all flex items-center justify-center gap-2"
                         >
                           <Settings size={16} /> Studio Configuration
