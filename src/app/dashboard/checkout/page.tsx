@@ -117,6 +117,72 @@ function QrCheckoutFlow() {
   const [showSuccess, setShowSuccess] = useState(isSuccessParam);
   const [sessionInfo, setSessionInfo] = useState<{ discountApplied: number; voucherCode: string | null } | null>(null);
 
+  const [voucherCode, setVoucherCode] = useState('');
+  const [voucherValidating, setVoucherValidating] = useState(false);
+  const [voucherResult, setVoucherResult] = useState<{
+    valid: boolean;
+    message: string;
+    discountAmountCents: number;
+    newTotalCents: number;
+    discountType: string;
+  } | null>(null);
+
+  const handleValidateVoucher = async () => {
+    if (!voucherCode.trim() || voucherCode.trim().length < 3) return;
+    setVoucherValidating(true);
+    setVoucherResult(null);
+    try {
+      const priceCents = Math.round(priceEuros * 100);
+      const res = await fetch('/api/vouchers/redeem', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: voucherCode.trim(), amount_cents: priceCents }),
+      });
+      const data = await res.json() as {
+        success?: boolean;
+        message?: string;
+        discount_amount_cents?: number;
+        new_total_cents?: number;
+        discount_type?: string;
+        error?: string;
+      };
+      if (!res.ok || data.success === false) {
+        setVoucherResult({
+          valid: false,
+          message: data.message ?? data.error ?? 'Invalid voucher code.',
+          discountAmountCents: 0,
+          newTotalCents: priceCents,
+          discountType: '',
+        });
+      } else {
+        setVoucherResult({
+          valid: true,
+          message: data.message ?? 'Voucher applied!',
+          discountAmountCents: data.discount_amount_cents ?? 0,
+          newTotalCents: data.new_total_cents ?? priceCents,
+          discountType: data.discount_type ?? '',
+        });
+      }
+    } catch {
+      setVoucherResult({
+        valid: false,
+        message: 'Could not validate voucher. Please try again.',
+        discountAmountCents: 0,
+        newTotalCents: Math.round(priceEuros * 100),
+        discountType: '',
+      });
+    } finally {
+      setVoucherValidating(false);
+    }
+  };
+
+  const effectiveTotalEuros = voucherResult?.valid
+    ? voucherResult.newTotalCents / 100
+    : priceEuros;
+  const discountEuros = voucherResult?.valid
+    ? voucherResult.discountAmountCents / 100
+    : 0;
+
   const handleCreateSession = async () => {
     if ((!user && !isGuest) || !catalogProduct) return;
     if (!stripePublishableKey) {
@@ -149,6 +215,7 @@ function QrCheckoutFlow() {
             productId: catalogProduct.id,
             userId: 'guest',
             uiMode: 'embedded',
+            voucherCode: voucherResult?.valid ? voucherCode.trim() : undefined,
           }),
         });
         const json = await res.json();
@@ -163,6 +230,7 @@ function QrCheckoutFlow() {
               productId: catalogProduct.id,
               userId: user!.id,
               uiMode: 'embedded',
+              voucherCode: voucherResult?.valid ? voucherCode.trim() : undefined,
             },
           },
         );
@@ -354,9 +422,26 @@ function QrCheckoutFlow() {
             <p className="text-xs text-[var(--color-text-muted)] mt-1">Product ID: {productId}</p>
           </div>
           <div className="text-right shrink-0">
-            <p className="text-3xl font-black text-[var(--color-text-primary)]">€{priceEuros.toFixed(2)}</p>
+            {discountEuros > 0 ? (
+              <>
+                <p className="text-lg text-[var(--color-text-muted)] line-through">€{priceEuros.toFixed(2)}</p>
+                <p className="text-3xl font-black text-emerald-600">€{effectiveTotalEuros.toFixed(2)}</p>
+              </>
+            ) : (
+              <p className="text-3xl font-black text-[var(--color-text-primary)]">€{priceEuros.toFixed(2)}</p>
+            )}
           </div>
         </div>
+
+        {discountEuros > 0 && (
+          <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200">
+            <Tag size={14} className="text-emerald-600" />
+            <span className="text-xs font-semibold text-emerald-700">
+              Voucher <span className="font-mono">{voucherCode.trim()}</span> applied — you saved €{discountEuros.toFixed(2)}!
+            </span>
+          </div>
+        )}
+
         {sessionInfo?.discountApplied ? (
           <div className="mt-4 flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200">
             <Tag size={14} className="text-emerald-600" />
@@ -366,6 +451,59 @@ function QrCheckoutFlow() {
           </div>
         ) : null}
       </div>
+
+      {/* Redeem Voucher */}
+      {!isGuest && !clientSecret && (
+        <div className="glass-card p-5 mb-6">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-pink-200 to-rose-200 flex items-center justify-center">
+              <Tag size={16} className="text-[var(--color-brand-pink-dark)]" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-[var(--color-text-primary)]">Have a voucher code?</p>
+              <p className="text-xs text-[var(--color-text-muted)]">Apply it before paying to see your discount</p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={voucherCode}
+              onChange={(e) => {
+                setVoucherCode(e.target.value.toUpperCase());
+                setVoucherResult(null);
+              }}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !voucherValidating) handleValidateVoucher(); }}
+              className="input-glass flex-1 font-mono"
+              placeholder="SUMMER50"
+              disabled={voucherValidating}
+            />
+            <button
+              onClick={handleValidateVoucher}
+              disabled={voucherValidating || !voucherCode.trim() || voucherCode.trim().length < 3}
+              className="btn-pink px-5 py-2.5 text-sm font-bold whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+            >
+              {voucherValidating ? (
+                <><Loader2 size={14} className="animate-spin" /> Checking…</>
+              ) : (
+                <>Apply</>
+              )}
+            </button>
+          </div>
+          {voucherResult && (
+            <div className={`mt-3 flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold ${
+              voucherResult.valid
+                ? 'bg-emerald-50 border border-emerald-200 text-emerald-700'
+                : 'bg-red-50 border border-red-200 text-red-600'
+            }`}>
+              {voucherResult.valid ? (
+                <><CheckCircle2 size={14} className="shrink-0" /> {voucherResult.message}</>
+              ) : (
+                <><AlertCircle size={14} className="shrink-0" /> {voucherResult.message}</>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Error state */}
       {createError && (
@@ -405,7 +543,7 @@ function QrCheckoutFlow() {
           {creating ? (
             <><Loader2 size={18} className="animate-spin" /> Preparing secure payment…</>
           ) : (
-            <><Lock size={16} /> Pay €{priceEuros.toFixed(2)} Now</>
+            <><Lock size={16} /> Pay €{effectiveTotalEuros.toFixed(2)} Now</>
           )}
         </button>
       )}

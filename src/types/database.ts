@@ -2874,6 +2874,7 @@ export type Database = {
           id: string
           invite_accepted_at: string | null
           invited_by: string | null
+          is_authorized_instructor: boolean | null
           is_master: boolean | null
           is_verified: boolean | null
           latitude: number | null
@@ -2918,6 +2919,7 @@ export type Database = {
           id: string
           invite_accepted_at?: string | null
           invited_by?: string | null
+          is_authorized_instructor?: boolean | null
           is_master?: boolean | null
           is_verified?: boolean | null
           latitude?: number | null
@@ -2962,6 +2964,7 @@ export type Database = {
           id?: string
           invite_accepted_at?: string | null
           invited_by?: string | null
+          is_authorized_instructor?: boolean | null
           is_master?: boolean | null
           is_verified?: boolean | null
           latitude?: number | null
@@ -3448,42 +3451,133 @@ export type Database = {
           },
         ]
       }
-      // ── Voucher & QR-Payment System (migration 20260703) ──
+      // ── Voucher & QR-Payment System (migration 20260703 + 20260713) ──
       vouchers: {
         Row: {
           id: string
           code: string
           discount_value: number
-          discount_type: 'percentage' | 'fixed'
+          discount_type: 'free_month' | 'percentage' | 'free_trial' | 'fixed_amount' | 'fixed'
           package_id: string | null
           max_uses: number
           current_uses: number
           is_active: boolean
           created_at: string
+          created_by: string | null
+          expires_at: string
+          benefit_expires_days: number
+          updated_at: string
+          description: string | null
         }
         Insert: {
           id?: string
           code: string
           discount_value: number
-          discount_type: 'percentage' | 'fixed'
+          discount_type: 'free_month' | 'percentage' | 'free_trial' | 'fixed_amount' | 'fixed'
           package_id?: string | null
           max_uses?: number
           current_uses?: number
           is_active?: boolean
           created_at?: string
+          created_by?: string | null
+          expires_at?: string
+          benefit_expires_days?: number
+          updated_at?: string
+          description?: string | null
         }
         Update: {
           id?: string
           code?: string
           discount_value?: number
-          discount_type?: 'percentage' | 'fixed'
+          discount_type?: 'free_month' | 'percentage' | 'free_trial' | 'fixed_amount' | 'fixed'
           package_id?: string | null
           max_uses?: number
           current_uses?: number
           is_active?: boolean
           created_at?: string
+          created_by?: string | null
+          expires_at?: string
+          benefit_expires_days?: number
+          updated_at?: string
+          description?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: 'vouchers_created_by_fkey'
+            columns: ['created_by']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      voucher_redemptions: {
+        Row: {
+          id: string
+          voucher_id: string
+          user_id: string
+          redeemed_at: string
+          benefit_expires_at: string | null
+          appointment_id: string | null
+          order_id: string | null
+          status: 'active' | 'used' | 'expired'
+          discount_applied: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          voucher_id: string
+          user_id: string
+          redeemed_at?: string
+          benefit_expires_at?: string | null
+          appointment_id?: string | null
+          order_id?: string | null
+          status?: 'active' | 'used' | 'expired'
+          discount_applied?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          voucher_id?: string
+          user_id?: string
+          redeemed_at?: string
+          benefit_expires_at?: string | null
+          appointment_id?: string | null
+          order_id?: string | null
+          status?: 'active' | 'used' | 'expired'
+          discount_applied?: number
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'voucher_redemptions_voucher_id_fkey'
+            columns: ['voucher_id']
+            isOneToOne: false
+            referencedRelation: 'vouchers'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'voucher_redemptions_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'voucher_redemptions_appointment_id_fkey'
+            columns: ['appointment_id']
+            isOneToOne: false
+            referencedRelation: 'appointments'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'voucher_redemptions_order_id_fkey'
+            columns: ['order_id']
+            isOneToOne: false
+            referencedRelation: 'orders'
+            referencedColumns: ['id']
+          },
+        ]
       }
       user_vouchers: {
         Row: {
@@ -3928,6 +4022,14 @@ export type Database = {
         Args: { p_conversation_id: string }
         Returns: number
       }
+      redeem_voucher: {
+        Args: { p_code: string; p_user_id: string; p_amount_cents?: number | null }
+        Returns: Json
+      }
+      expire_voucher_redemptions: {
+        Args: never
+        Returns: number
+      }
     }
     Enums: {
       appointment_status:
@@ -4113,3 +4215,5 @@ export type LoyaltyReward = Database['public']['Tables']['loyalty_rewards']['Row
 export type BlockedSlot = Database['public']['Tables']['blocked_slots']['Row'];
 export type Appointment = Database['public']['Tables']['appointments']['Row'];
 export type PilatesWaiver = Database['public']['Tables']['pilates_waivers']['Row'];
+export type Voucher = Database['public']['Tables']['vouchers']['Row'];
+export type VoucherRedemption = Database['public']['Tables']['voucher_redemptions']['Row'];

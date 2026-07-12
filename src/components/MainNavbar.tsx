@@ -11,7 +11,7 @@ import {
   Home, Calendar, ShoppingBag, GraduationCap, Gift,
   MessageSquare, Settings, LogOut, Menu, X, ChevronDown,
   Scissors, Clock, Package, Boxes, DollarSign, Wallet,
-  Bell, ShoppingCart, CalendarCheck, Inbox, ClipboardList, HelpCircle, Smartphone, Eye
+  Bell, ShoppingCart, CalendarCheck, Inbox, ClipboardList, HelpCircle, Smartphone, Eye, Ticket
 } from 'lucide-react';
 
 type LucideIcon = typeof Home;
@@ -40,6 +40,7 @@ const ownerNav: NavItem[] = [
   { path: 'services', label: 'Services', icon: Scissors },
   { path: 'orders', label: 'Orders', icon: ShoppingBag },
   { path: 'qr-payments', label: 'QR Pay', icon: Smartphone },
+  { path: 'vouchers', label: 'Vouchers', icon: Ticket },
   { path: 'inventory', label: 'Inventory', icon: Package },
   { path: 'supplies', label: 'Supplies', icon: Boxes },
   { path: 'academy', label: 'Academy', icon: GraduationCap },
