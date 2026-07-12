@@ -77,16 +77,27 @@ create policy "pilates_waivers_update_own"
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
--- Studio owners/masters can read waivers for their clients
--- (comment out or adjust the role check if your schema uses different role values)
+-- ── Owner + explicitly authorized masters can read all waivers ──────
+-- The old policy allowed any master to read waivers.  The new policy
+-- requires is_authorized_instructor = true for masters.
+-- The Owner always has full access regardless of the flag.
 drop policy if exists "pilates_waivers_select_staff" on public.pilates_waivers;
-create policy "pilates_waivers_select_staff"
+drop policy if exists "pilates_waivers_select_authorized_staff" on public.pilates_waivers;
+create policy "pilates_waivers_select_authorized_staff"
   on public.pilates_waivers for select
   using (
+    -- Owner always has full access
     exists (
       select 1 from public.profiles p
       where p.id = auth.uid()
-        and p.role in ('owner', 'master')
+        and p.role = 'owner'
+    )
+    -- Master only if explicitly authorized by the Owner
+    or exists (
+      select 1 from public.profiles p
+      where p.id = auth.uid()
+        and p.role = 'master'
+        and p.is_authorized_instructor = true
     )
   );
 
@@ -95,4 +106,6 @@ create policy "pilates_waivers_select_staff"
 -- ============================================================================
 comment on table public.pilates_waivers is
   'Pilates injury disclosure and liability waiver. One row per user. '
-  'Checked before allowing Pilates class bookings.';
+  'Checked before allowing Pilates class bookings. '
+  'Only the Owner and explicitly authorized masters (is_authorized_instructor = true) '
+  'can read waivers from other clients.';

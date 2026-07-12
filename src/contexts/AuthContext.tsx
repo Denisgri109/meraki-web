@@ -15,6 +15,7 @@ export interface Profile {
   phone: string | null;
   role: UserRole;
   is_master: boolean;
+  is_authorized_instructor: boolean | null;
   avatar_url: string | null;
   bio: string | null;
   city: string | null;
@@ -71,6 +72,7 @@ function createFallbackProfile(authUser: User): Profile {
     phone: authUser.phone ?? null,
     role,
     is_master: role === 'master',
+    is_authorized_instructor: false,
     avatar_url: null,
     bio: null,
     city: null,

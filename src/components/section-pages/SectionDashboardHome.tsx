@@ -9,6 +9,7 @@ import { useNotifications } from '@/contexts/NotificationsContext';
 import {
   Calendar, ShoppingBag, Gift, Search,
   MessageSquare, ChevronRight, Activity, Sparkles,
+  FileText, ShieldCheck,
 } from 'lucide-react';
 
 interface DashboardAppointment {
@@ -28,6 +29,8 @@ export function SectionDashboardHome() {
   const [loading, setLoading] = useState(true);
 
   const isStaff = role === 'owner' || role === 'master';
+  const isPilatesStaff = isPilates && isStaff;
+  const canViewWaivers = role === 'owner' || profile?.is_authorized_instructor === true;
 
   const fetchDashboardInfo = useCallback(async () => {
     if (!user?.id) return;
@@ -151,6 +154,46 @@ export function SectionDashboardHome() {
             <p className="mt-2 text-sm text-[var(--color-text-secondary)]">Profile & business</p>
           </div>
         </div>
+
+        {/* ── Pilates staff: Waivers & Instructors ─────────────────────── */}
+        {isPilatesStaff && canViewWaivers && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {canViewWaivers && (
+              <Link
+                href={buildPath('waivers')}
+                className="glass-card p-5 flex items-center gap-4 hover:shadow-lg transition-all hover:-translate-y-0.5"
+              >
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center shrink-0">
+                  <FileText size={22} className="text-white" />
+                </div>
+                <div>
+                  <p className="font-bold text-[var(--color-text-primary)]">Signed Waivers</p>
+                  <p className="text-xs text-[var(--color-text-muted)]">
+                    View client Injury Disclosure &amp; Liability forms
+                  </p>
+                </div>
+                <ChevronRight size={18} className="text-[var(--color-text-muted)] ml-auto shrink-0" />
+              </Link>
+            )}
+            {role === 'owner' && (
+              <Link
+                href={buildPath('instructors')}
+                className="glass-card p-5 flex items-center gap-4 hover:shadow-lg transition-all hover:-translate-y-0.5"
+              >
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-teal-400 to-cyan-500 flex items-center justify-center shrink-0">
+                  <ShieldCheck size={22} className="text-white" />
+                </div>
+                <div>
+                  <p className="font-bold text-[var(--color-text-primary)]">Instructors</p>
+                  <p className="text-xs text-[var(--color-text-muted)]">
+                    Authorize masters to view client waivers
+                  </p>
+                </div>
+                <ChevronRight size={18} className="text-[var(--color-text-muted)] ml-auto shrink-0" />
+              </Link>
+            )}
+          </div>
+        )}
 
         <div className="glass-card p-6">
           <h2 className="text-lg font-bold text-[var(--color-text-primary)] mb-4">Upcoming appointments</h2>

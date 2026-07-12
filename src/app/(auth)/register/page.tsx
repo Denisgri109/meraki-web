@@ -29,7 +29,7 @@ import {
   Check,
   MapPin,
 } from 'lucide-react';
-import { getAllCountries, getCitiesOfCountry, type Country, type City } from '@/lib/locationApi';
+import { getAllCountries, getStatesOfCountry, type Country, type State } from '@/lib/locationApi';
 
 type FieldErrors = {
   fullName?: string;
@@ -38,7 +38,7 @@ type FieldErrors = {
   password?: string;
   confirmPassword?: string;
   country?: string;
-  city?: string;
+  state?: string;
 };
 
 export default function RegisterPage() {
@@ -69,29 +69,35 @@ export default function RegisterPage() {
   // Location fields
   const [selectedCountry, setSelectedCountry] = useState('');
   const [selectedCountryCode, setSelectedCountryCode] = useState('');
-  const [selectedCity, setSelectedCity] = useState('');
   const [countries, setCountries] = useState<Country[]>([]);
-  const [cities, setCities] = useState<City[]>([]);
+  const [states, setStates] = useState<State[]>([]);
+  const [selectedStateName, setSelectedStateName] = useState('');
+  const [selectedStateCode, setSelectedStateCode] = useState('');
   const [loadingCountries, setLoadingCountries] = useState(true);
-  const [loadingCities, setLoadingCities] = useState(false);
+  const [loadingStates, setLoadingStates] = useState(false);
   const [countrySearch, setCountrySearch] = useState('');
-  const [citySearch, setCitySearch] = useState('');
+  const [stateSearch, setStateSearch] = useState('');
   const [showCountryDropdown, setShowCountryDropdown] = useState(false);
-  const [showCityDropdown, setShowCityDropdown] = useState(false);
+  const [showStateDropdown, setShowStateDropdown] = useState(false);
 
   // Load countries on mount
-  useState(() => {
+  useEffect(() => {
+    let isMounted = true;
     getAllCountries().then((data) => {
+      if (!isMounted) return;
       setCountries(data);
       setLoadingCountries(false);
-    }).catch(() => setLoadingCountries(false));
-  });
+    }).catch(() => {
+      if (isMounted) setLoadingCountries(false);
+    });
+    return () => { isMounted = false; };
+  }, []);
 
   // Close dropdowns on click outside
   useEffect(() => {
     const handler = () => {
       setShowCountryDropdown(false);
-      setShowCityDropdown(false);
+      setShowStateDropdown(false);
     };
     document.addEventListener('click', handler);
     return () => document.removeEventListener('click', handler);
@@ -125,7 +131,7 @@ export default function RegisterPage() {
     }
 
     if (!selectedCountry.trim()) next.country = 'Please select your country';
-    if (!selectedCity.trim()) next.city = 'Please enter your city';
+    if (states.length > 0 && !selectedStateName.trim()) next.state = 'Please select your state';
 
     const emailRes = validateEmail(email);
     if (!emailRes.valid) next.email = emailRes.error;
@@ -214,6 +220,8 @@ export default function RegisterPage() {
         .update({
           country: selectedCountry,
           country_code: selectedCountryCode,
+          state: selectedStateName || null,
+          state_code: selectedStateCode || null,
           city: selectedCity,
           phone: normalizedPhone,
         })
@@ -295,6 +303,7 @@ export default function RegisterPage() {
       {/* Form */}
       <form
         onSubmit={handleRegister}
+        noValidate
         style={{ display: 'flex', flexDirection: 'column', gap: '18px', width: '100%' }}
       >
         {isInvited && (
@@ -543,12 +552,16 @@ export default function RegisterPage() {
                         setShowCountryDropdown(false);
                         setSelectedCity('');
                         setCitySearch('');
+                        setSelectedStateName('');
+                        setSelectedStateCode('');
+                        setStateSearch('');
+                        setCities([]);
                         clearError('country');
-                        setLoadingCities(true);
-                        getCitiesOfCountry(c.iso2).then(data => {
-                          setCities(data);
-                          setLoadingCities(false);
-                        }).catch(() => setLoadingCities(false));
+                        setLoadingStates(true);
+                        getStatesOfCountry(c.iso2).then(data => {
+                          setStates(data);
+                          setLoadingStates(false);
+                        }).catch(() => setLoadingStates(false));
                       }}
                       style={{
                         padding: '10px 16px',
@@ -567,6 +580,84 @@ export default function RegisterPage() {
           {errors.country && <p style={fieldErrorStyle}>{errors.country}</p>}
         </div>
 
+        {/* State / Region */}
+        {states.length > 0 && (
+          <div style={{ width: '100%' }} onClick={(e) => e.stopPropagation()}>
+            <label style={labelStyle}>State / Region</label>
+            <div style={{ position: 'relative', width: '100%' }}>
+              <MapPin size={18} style={iconStyle} />
+              <input
+                type="text"
+                value={stateSearch || selectedStateName}
+                onChange={(e) => {
+                  setStateSearch(e.target.value);
+                  setShowStateDropdown(true);
+                  clearError('state');
+                }}
+                onFocus={() => setShowStateDropdown(true)}
+                placeholder={loadingStates ? 'Loading...' : 'Select your state'}
+                className="input-glass"
+                style={{
+                  paddingLeft: '44px',
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  borderColor: errors.state ? '#FCA5A5' : undefined,
+                }}
+              />
+              {showStateDropdown && (
+                <div style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  right: 0,
+                  maxHeight: '180px',
+                  overflow: 'auto',
+                  background: 'white',
+                  border: '1px solid rgba(0,0,0,0.1)',
+                  borderRadius: '12px',
+                  marginTop: '4px',
+                  zIndex: 50,
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                }}>
+                  {states
+                    .filter(s => !stateSearch || s.name.toLowerCase().includes(stateSearch.toLowerCase()))
+                    .slice(0, 30)
+                    .map(s => (
+                      <div
+                        key={s.id}
+                        onClick={() => {
+                          setSelectedStateName(s.name);
+                          setSelectedStateCode(s.iso2);
+                          setStateSearch('');
+                          setShowStateDropdown(false);
+                          setSelectedCity('');
+                          setCitySearch('');
+                          setCities([]);
+                          clearError('state');
+                          setLoadingCities(true);
+                          getCitiesOfState(selectedCountryCode, s.iso2).then(data => {
+                            setCities(data);
+                            setLoadingCities(false);
+                          }).catch(() => setLoadingCities(false));
+                        }}
+                        style={{
+                          padding: '10px 16px',
+                          cursor: 'pointer',
+                          fontSize: '14px',
+                          borderBottom: '1px solid rgba(0,0,0,0.04)',
+                          background: selectedStateName === s.name ? 'rgba(139,92,246,0.06)' : undefined,
+                        }}
+                      >
+                        {s.name}
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+            {errors.state && <p style={fieldErrorStyle}>{errors.state}</p>}
+          </div>
+        )}
+
         {/* City */}
         <div style={{ width: '100%' }} onClick={(e) => e.stopPropagation()}>
           <label style={labelStyle}>City</label>
@@ -581,15 +672,25 @@ export default function RegisterPage() {
                 clearError('city');
               }}
               onFocus={() => { if (cities.length > 0) setShowCityDropdown(true); }}
-              placeholder={!selectedCountry ? 'Select country first' : loadingCities ? 'Loading cities...' : 'Select your city'}
-              disabled={!selectedCountry}
+              placeholder={
+                !selectedCountry
+                  ? 'Select country first'
+                  : states.length > 0 && !selectedStateName
+                  ? 'Select state first'
+                  : loadingCities
+                  ? 'Loading cities...'
+                  : cities.length > 0
+                  ? 'Select your city'
+                  : 'Enter your city'
+              }
+              disabled={!selectedCountry || (states.length > 0 && !selectedStateName)}
               className="input-glass"
               style={{
                 paddingLeft: '44px',
                 width: '100%',
                 boxSizing: 'border-box',
                 borderColor: errors.city ? '#FCA5A5' : undefined,
-                opacity: selectedCountry ? 1 : 0.6,
+                opacity: selectedCountry && (states.length === 0 || selectedStateName) ? 1 : 0.6,
               }}
             />
             {showCityDropdown && cities.length > 0 && (
