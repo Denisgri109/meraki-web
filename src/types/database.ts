@@ -2647,6 +2647,59 @@ export type Database = {
           },
         ]
       }
+      pilates_waivers: {
+        Row: {
+          created_at: string | null
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
+          emergency_contact_relationship: string | null
+          has_injuries: boolean
+          id: string
+          injury_details: string | null
+          signed_at: string
+          signature_name: string
+          terms_version: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          emergency_contact_relationship?: string | null
+          has_injuries: boolean
+          id?: string
+          injury_details?: string | null
+          signed_at?: string
+          signature_name: string
+          terms_version?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          emergency_contact_relationship?: string | null
+          has_injuries?: boolean
+          id?: string
+          injury_details?: string | null
+          signed_at?: string
+          signature_name?: string
+          terms_version?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pilates_waivers_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pilates_settings: {
         Row: {
           buffer_minutes: number
@@ -4059,3 +4112,4 @@ export type PhotoConsultation = Database['public']['Tables']['photo_consultation
 export type LoyaltyReward = Database['public']['Tables']['loyalty_rewards']['Row'];
 export type BlockedSlot = Database['public']['Tables']['blocked_slots']['Row'];
 export type Appointment = Database['public']['Tables']['appointments']['Row'];
+export type PilatesWaiver = Database['public']['Tables']['pilates_waivers']['Row'];

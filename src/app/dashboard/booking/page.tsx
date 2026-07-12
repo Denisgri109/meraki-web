@@ -13,6 +13,8 @@ import type { Tables } from '@/types/database';
 import type { SavedCard } from '@/components/PaymentMethodsManager';
 import { CardBrandBadge } from '@/components/PaymentMethodsManager';
 import { isMasterWithinRange } from '@/lib/location';
+import { usePilatesWaiver } from '@/hooks/usePilatesWaiver';
+import PilatesWaiverFormSheet from '@/components/PilatesWaiverFormSheet';
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY as string);
 
@@ -452,6 +454,8 @@ export default function BookingPage() {
   const [profileModalMaster, setProfileModalMaster] = useState<Master | null>(null);
   const [portfolioPhotos, setPortfolioPhotos] = useState<any[]>([]);
   const [activePhotoUrl, setActivePhotoUrl] = useState<string | null>(null);
+  const [showWaiverSheet, setShowWaiverSheet] = useState(false);
+  const { checkWaiver: checkPilatesWaiver } = usePilatesWaiver();
 
   const fetchAndShowProfile = async (profileId: string) => {
     if (!profileId) return;
@@ -879,8 +883,22 @@ export default function BookingPage() {
     setSelectedTime('');
   };
 
-  const handleContinueToConfirmation = () => {
+  const handleContinueToConfirmation = async () => {
     if (!canContinueToConfirmation) return;
+
+    if (isPilatesService) {
+      const hasWaiver = await checkPilatesWaiver();
+      if (!hasWaiver) {
+        setShowWaiverSheet(true);
+        return;
+      }
+    }
+
+    setStep(4);
+  };
+
+  const handleWaiverSigned = () => {
+    setShowWaiverSheet(false);
     setStep(4);
   };
 
@@ -1765,6 +1783,13 @@ export default function BookingPage() {
           </div>
         </div>
       )}
+
+      {/* Pilates waiver form sheet — shown when booking Pilates without a signed waiver */}
+      <PilatesWaiverFormSheet
+        open={showWaiverSheet}
+        onSigned={handleWaiverSigned}
+        onDismiss={() => setShowWaiverSheet(false)}
+      />
 
     </div>
   );
