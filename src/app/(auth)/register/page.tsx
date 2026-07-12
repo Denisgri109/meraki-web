@@ -29,7 +29,14 @@ import {
   Check,
   MapPin,
 } from 'lucide-react';
-import { getAllCountries, getStatesOfCountry, type Country, type State } from '@/lib/locationApi';
+import {
+  getAllCountries,
+  getStatesOfCountry,
+  getCitiesOfState,
+  type Country,
+  type State,
+  type City,
+} from '@/lib/locationApi';
 
 type FieldErrors = {
   fullName?: string;
@@ -39,6 +46,7 @@ type FieldErrors = {
   confirmPassword?: string;
   country?: string;
   state?: string;
+  city?: string;
 };
 
 export default function RegisterPage() {
@@ -79,6 +87,11 @@ export default function RegisterPage() {
   const [stateSearch, setStateSearch] = useState('');
   const [showCountryDropdown, setShowCountryDropdown] = useState(false);
   const [showStateDropdown, setShowStateDropdown] = useState(false);
+  const [showCityDropdown, setShowCityDropdown] = useState(false);
+  const [cities, setCities] = useState<City[]>([]);
+  const [selectedCity, setSelectedCity] = useState('');
+  const [citySearch, setCitySearch] = useState('');
+  const [loadingCities, setLoadingCities] = useState(false);
 
   // Load countries on mount
   useEffect(() => {
