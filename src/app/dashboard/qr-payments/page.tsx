@@ -6,13 +6,14 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/components/Toast';
+import { QrPayMethodsManager } from '@/components/QrPayMethodsManager';
 import { QRCodeSVG } from 'qrcode.react';
 import { DEFAULT_PRODUCT_IMAGE } from '@/lib/constants/images';
 import { useSection } from '@/contexts/SectionContext';
 import {
   ArrowLeft, Maximize2, Minimize2, ShoppingBag, Loader2, Smartphone,
   Radio, CheckCircle2, Clock, XCircle, TrendingUp, Package, Plus,
-  Tag, X, Search, Image as ImageIcon, Store, Trash2
+  Tag, X, Search, Image as ImageIcon, Store, Trash2, CreditCard,
 } from 'lucide-react';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -41,6 +42,16 @@ interface FeedTransaction {
   updated_at: string;
 }
 
+// Payment-method QR asset an authorized instructor presents to clients.
+interface QrPayCode {
+  id: string;
+  provider_name: string;
+  qr_image_url: string | null;
+  qr_payload: string | null;
+  display_order: number;
+  is_active: boolean;
+}
+
 const EMPTY_NEW_PRODUCT = {
   name: '',
   description: '',
@@ -61,10 +72,25 @@ function formatTime(iso: string): string {
 
 export default function QrPaymentsPage() {
   const router = useRouter();
-  const { role, loading: authLoading } = useAuth();
+  const { role, profile, loading: authLoading } = useAuth();
   const supabase = createClient();
   const { showToast } = useToast();
   const { buildPath } = useSection();
+
+  const canViewQrPay = profile?.can_view_qr_pay === true;
+  // Owner sees the full board + a Payment Methods tab. An authorized
+  // instructor (master + can_view_qr_pay) sees a read-only viewer. Anyone
+  // else is redirected.
+  const isOwner = role === 'owner';
+  const isAuthorizedInstructor = role === 'master' && canViewQrPay;
+
+  // Owner tab: 'board' (checkout board) | 'methods' (payment-method assets)
+  const [ownerTab, setOwnerTab] = useState<'board' | 'methods'>('board');
+
+  // Instructor viewer state
+  const [payCodes, setPayCodes] = useState<QrPayCode[]>([]);
+  const [codesLoading, setCodesLoading] = useState(true);
+  const [fullscreenCode, setFullscreenCode] = useState<QrPayCode | null>(null);
 
   const [selectedProduct, setSelectedProduct] = useState<QrProduct | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -88,13 +114,38 @@ export default function QrPaymentsPage() {
   const [feedLoading, setFeedLoading] = useState(true);
   const [stats, setStats] = useState({ totalSales: 0, completedCount: 0, pendingCount: 0 });
 
-  // ── Auth guard (owner-only) ──────────────────────────────────────────────
+  // ── Auth guard ───────────────────────────────────────────────────────────
+  // Owner → full board + Payment Methods tab. Authorized instructor →
+  // read-only viewer. Anyone else → redirect to dashboard.
   useEffect(() => {
     if (authLoading) return;
-    if (role !== 'owner') {
+    if (!isOwner && !isAuthorizedInstructor) {
       router.replace('/dashboard');
     }
-  }, [authLoading, role, router]);
+  }, [authLoading, isOwner, isAuthorizedInstructor, router]);
+
+  // ── Instructor: fetch active payment-method QR codes ─────────────────────
+  useEffect(() => {
+    if (!isAuthorizedInstructor) return;
+    let cancelled = false;
+    const fetchCodes = async () => {
+      try {
+        const res = await fetch('/api/qr-pay-codes');
+        const data = await res.json();
+        if (cancelled) return;
+        if (!res.ok) throw new Error(data.error || 'Failed to load');
+        setPayCodes((data.codes as QrPayCode[]) || []);
+      } catch (err) {
+        if (!cancelled) {
+          showToast(err instanceof Error ? err.message : 'Failed to load QR codes', 'error');
+        }
+      } finally {
+        if (!cancelled) setCodesLoading(false);
+      }
+    };
+    fetchCodes();
+    return () => { cancelled = true; };
+  }, [isAuthorizedInstructor, showToast]);
 
   // ── Fetch products (qr_enabled + shop) ───────────────────────────────────
   const fetchProducts = useCallback(async () => {
@@ -278,13 +329,107 @@ export default function QrPaymentsPage() {
   };
 
   // ── Render gates ─────────────────────────────────────────────────────────
-  if (authLoading || role !== 'owner') {
+  // Loading or about-to-redirect: show the spinner.
+  if (authLoading || (!isOwner && !isAuthorizedInstructor)) {
     return (
       <div className="max-w-7xl mx-auto p-8 flex items-center justify-center min-h-[50vh]">
         <Loader2 className="animate-spin text-[var(--color-brand-pink-dark)]" size={32} />
       </div>
     );
   }
+
+  // ── Authorized instructor: read-only payment-method viewer ───────────────
+  // No board, no feed, no product management — only the QR assets the Owner
+  // shared, presented large for showing a client in-person.
+  if (isAuthorizedInstructor) {
+    return (
+      <div className="max-w-5xl mx-auto p-4 sm:p-6 animate-fade-in">
+        <div className="flex items-center gap-3 mb-6">
+          <Link
+            href={buildPath('dashboard')}
+            className="w-10 h-10 rounded-full bg-[var(--color-surface-light)] hover:bg-[var(--color-brand-pink-light)] flex items-center justify-center transition-colors border border-[var(--color-border-light)]"
+          >
+            <ArrowLeft size={18} />
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">QR Payment Codes</h1>
+            <p className="text-sm text-[var(--color-text-secondary)]">
+              Tap a code to enlarge it for your client
+            </p>
+          </div>
+        </div>
+
+        {codesLoading ? (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 size={28} className="animate-spin text-[var(--color-brand-pink-dark)]" />
+          </div>
+        ) : payCodes.length === 0 ? (
+          <div className="glass-card p-16 text-center">
+            <Smartphone size={44} className="mx-auto text-[var(--color-text-muted)] mb-3" />
+            <p className="text-lg font-medium text-[var(--color-text-secondary)]">
+              No payment codes available
+            </p>
+            <p className="text-sm text-[var(--color-text-muted)] mt-1">
+              The studio owner hasn&apos;t shared any active QR codes yet.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {payCodes.map((code) => (
+              <button
+                key={code.id}
+                onClick={() => setFullscreenCode(code)}
+                className="glass-card p-5 flex flex-col items-center text-center transition-all hover:shadow-lg hover:-translate-y-0.5 cursor-pointer"
+              >
+                <p className="font-bold text-sm text-[var(--color-text-primary)] mb-3">
+                  {code.provider_name}
+                </p>
+                <div className="bg-white p-3 rounded-2xl border border-[var(--color-border-light)]">
+                  {code.qr_image_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={code.qr_image_url} alt={code.provider_name} className="w-36 h-36 object-contain" />
+                  ) : (
+                    <QRCodeSVG value={code.qr_payload || code.provider_name} size={144} level="M" />
+                  )}
+                </div>
+                <span className="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)] mt-3 flex items-center gap-1">
+                  <Maximize2 size={10} /> Tap to enlarge
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Fullscreen overlay for presenting a single code in-person */}
+        {fullscreenCode && (
+          <div
+            className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-6 animate-fade-in"
+            onClick={() => setFullscreenCode(null)}
+          >
+            <button
+              onClick={() => setFullscreenCode(null)}
+              className="absolute top-5 right-5 w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+              aria-label="Close"
+            >
+              <X size={22} />
+            </button>
+            <p className="text-white font-bold text-2xl mb-1 text-center">{fullscreenCode.provider_name}</p>
+            <p className="text-white/60 text-sm mb-6">Show this to your client</p>
+            <div className="bg-white p-5 rounded-3xl shadow-2xl">
+              {fullscreenCode.qr_image_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={fullscreenCode.qr_image_url} alt={fullscreenCode.provider_name} className="w-72 h-72 sm:w-80 sm:h-80 object-contain" />
+              ) : (
+                <QRCodeSVG value={fullscreenCode.qr_payload || fullscreenCode.provider_name} size={320} level="H" />
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── Owner: continue to the checkout board + Payment Methods tab below ────
 
   // The QR URL encodes the real product id; the server resolves the price.
   const qrUrl = selectedProduct
@@ -336,6 +481,38 @@ export default function QrPaymentsPage() {
         </div>
       </div>
 
+      {/* Owner tab switcher */}
+      <div className="flex items-center gap-2 mb-6">
+        <button
+          onClick={() => setOwnerTab('board')}
+          className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold transition-all cursor-pointer ${
+            ownerTab === 'board'
+              ? 'bg-[var(--color-brand-pink-dark)] text-white shadow-md'
+              : 'bg-[var(--color-surface-light)] text-[var(--color-text-secondary)] hover:bg-[var(--color-brand-pink-light)]'
+          }`}
+        >
+          <ShoppingBag size={15} /> Checkout Board
+        </button>
+        <button
+          onClick={() => setOwnerTab('methods')}
+          className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold transition-all cursor-pointer ${
+            ownerTab === 'methods'
+              ? 'bg-[var(--color-brand-pink-dark)] text-white shadow-md'
+              : 'bg-[var(--color-surface-light)] text-[var(--color-text-secondary)] hover:bg-[var(--color-brand-pink-light)]'
+          }`}
+        >
+          <CreditCard size={15} /> Payment Methods
+        </button>
+      </div>
+
+      {/* Payment Methods tab — owner manages Revolut/Bizum/bank-transfer QRs */}
+      {ownerTab === 'methods' && (
+        <QrPayMethodsManager />
+      )}
+
+      {/* Checkout Board tab — existing on-site product board + live feed */}
+      {ownerTab === 'board' && (
+        <>
       {/* Stats bar */}
       <div className="grid grid-cols-3 gap-3 mb-6">
         <div className="glass-card p-4">
@@ -645,6 +822,8 @@ export default function QrPaymentsPage() {
           </div>
         </div>
       </div>
+        </>
+      )}
 
       {/* ── Add Product Modal ─────────────────────────────────────────────── */}
       {showAddModal && (

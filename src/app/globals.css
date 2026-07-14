@@ -374,6 +374,15 @@ body {
   background: var(--color-text-muted);
 }
 
+/* ─── Scrollbar Hide (horizontal nav scroll) ────────────────────────── */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
 /* ─── Custom Utility Overrides ──────────────────────────────────────── */
 .text-gradient-pink {
   background: linear-gradient(135deg, #E8A0B4, #C47A90);
@@ -816,6 +825,93 @@ body {
 .section-switcher-btn:hover:not(.section-switcher-btn-active-beauty):not(.section-switcher-btn-active-pilates) {
   background: var(--color-surface-light);
   color: var(--color-text-primary);
+}
+
+/* ─── Section Toggle (top-right pill with sliding thumb) ───────────── */
+.section-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--color-border-light);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
+  --toggle-btn-w: 92px;
+}
+@media (min-width: 1280px) {
+  .section-toggle { --toggle-btn-w: 120px; }
+}
+
+.section-toggle-thumb {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: var(--toggle-btn-w, 120px);
+  height: calc(100% - 8px);
+  border-radius: var(--radius-full);
+  transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1),
+              background 0.45s ease,
+              box-shadow 0.45s ease;
+  z-index: 0;
+}
+
+.section-toggle-thumb--beauty {
+  background: linear-gradient(135deg, #E8A0B4, #C47A90);
+  box-shadow: 0 2px 14px rgba(232, 160, 180, 0.55);
+}
+
+.section-toggle-thumb--pilates {
+  background: linear-gradient(135deg, #34D399, #10B981);
+  box-shadow: 0 2px 14px rgba(52, 211, 153, 0.55);
+}
+
+.section-toggle-btn {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: var(--toggle-btn-w, 120px);
+  padding: 9px 0;
+  border-radius: var(--radius-full);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  transition: color 0.3s ease;
+}
+
+.section-toggle-btn--active {
+  color: white;
+}
+
+.section-toggle-btn:not(.section-toggle-btn--active):hover {
+  color: var(--color-text-primary);
+}
+
+.section-toggle-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1),
+              opacity 0.3s ease;
+}
+
+.section-toggle-btn--active .section-toggle-icon {
+  transform: scale(1.18) rotate(-8deg);
+}
+
+.section-toggle-btn:not(.section-toggle-btn--active) .section-toggle-icon {
+  transform: scale(0.9);
+  opacity: 0.65;
 }
 
 /* ─── Section Landing Cards ────────────────────────────────────────── */

@@ -1,63 +1,21 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
 import { useSection } from '@/contexts/SectionContext';
 import { useNotifications, type NotificationItem } from '@/contexts/NotificationsContext';
+import { SectionSwitcher, type SectionId } from '@/components/SectionSwitcher';
 import {
-  Home, Calendar, ShoppingBag, GraduationCap, Gift,
-  MessageSquare, Settings, LogOut, Menu, X, ChevronDown,
-  Scissors, Clock, Package, Boxes, DollarSign, Wallet,
-  Bell, ShoppingCart, CalendarCheck, Inbox, ClipboardList, HelpCircle, Smartphone, Eye, Ticket
+  clientNav, ownerPrimaryNav, masterPrimaryNav, qrPayNavItem,
+  type NavItem,
+} from '@/lib/nav-items';
+import {
+  Calendar, MessageSquare, Settings, LogOut, Menu, X, ChevronDown,
+  Bell, ShoppingCart, Inbox, HelpCircle, Smartphone, Eye
 } from 'lucide-react';
-
-type LucideIcon = typeof Home;
-
-interface NavItem {
-  path: string;
-  label: string;
-  icon: LucideIcon;
-}
-
-// ─── Navigation items (sub-paths, prefixed at render with section) ──
-const clientNav: NavItem[] = [
-  { path: 'dashboard', label: 'Home', icon: Home },
-  { path: 'booking', label: 'Book', icon: Calendar },
-  { path: 'shop', label: 'Shop', icon: ShoppingBag },
-  { path: 'orders', label: 'Orders', icon: Package },
-  { path: 'academy', label: 'Academy', icon: GraduationCap },
-  { path: 'loyalty', label: 'Rewards', icon: Gift },
-  { path: 'consultations', label: 'Consults', icon: ClipboardList },
-];
-
-const ownerNav: NavItem[] = [
-  { path: 'dashboard', label: 'Home', icon: Home },
-  { path: 'appointments', label: 'Bookings', icon: CalendarCheck },
-  { path: 'finance', label: 'Finance', icon: DollarSign },
-  { path: 'services', label: 'Services', icon: Scissors },
-  { path: 'orders', label: 'Orders', icon: ShoppingBag },
-  { path: 'qr-payments', label: 'QR Pay', icon: Smartphone },
-  { path: 'vouchers', label: 'Vouchers', icon: Ticket },
-  { path: 'inventory', label: 'Inventory', icon: Package },
-  { path: 'supplies', label: 'Supplies', icon: Boxes },
-  { path: 'academy', label: 'Academy', icon: GraduationCap },
-  { path: 'loyalty', label: 'Rewards', icon: Gift },
-  { path: 'consultations', label: 'Consults', icon: ClipboardList },
-];
-
-const masterNav: NavItem[] = [
-  { path: 'dashboard', label: 'Home', icon: Home },
-  { path: 'appointments', label: 'Bookings', icon: CalendarCheck },
-  { path: 'earnings', label: 'Earnings', icon: Wallet },
-  { path: 'availability', label: 'Schedule', icon: Clock },
-  { path: 'services', label: 'Services', icon: Scissors },
-  { path: 'supplies', label: 'Supplies', icon: Boxes },
-  { path: 'loyalty', label: 'Rewards', icon: Gift },
-  { path: 'consultations', label: 'Consults', icon: ClipboardList },
-];
 
 interface MainNavbarProps {
   transparent?: boolean;
@@ -86,7 +44,7 @@ export function MainNavbar({ transparent = false }: MainNavbarProps) {
   const isClientPreview = searchParams?.get('preview') === 'client';
   const { user, profile, role, signOut, loading } = useAuth();
   const { getItemCount } = useCart();
-  const { buildPath } = useSection();
+  const { section, buildPath } = useSection();
   const { unreadMessages, notifications, unreadNotifications, markNotificationsSeen } = useNotifications();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -118,12 +76,16 @@ export function MainNavbar({ transparent = false }: MainNavbarProps) {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const allNav = useMemo(() => {
+  const allNav = useMemo((): NavItem[] => {
     if (isClientPreview) return clientNav;
-    if (role === 'owner') return ownerNav;
-    if (role === 'master') return masterNav;
+    if (role === 'owner') return ownerPrimaryNav;
+    if (role === 'master') {
+      return profile?.can_view_qr_pay === true
+        ? [...masterPrimaryNav, qrPayNavItem]
+        : masterPrimaryNav;
+    }
     return clientNav;
-  }, [role, isClientPreview]);
+  }, [role, isClientPreview, profile?.can_view_qr_pay]);
 
   const withPreview = (href: string) =>
     isClientPreview ? `${href}?preview=client` : href;
@@ -147,6 +109,22 @@ export function MainNavbar({ transparent = false }: MainNavbarProps) {
     router.refresh();
   };
 
+  const handleSectionSwitch = useCallback(
+    (next: SectionId) => {
+      if (next === section) return;
+      const currentPrefix = `/${section}`;
+      const nextPrefix = `/${next}`;
+      const query = isClientPreview ? '?preview=client' : '';
+      if (pathname?.startsWith(currentPrefix)) {
+        const rest = pathname.slice(currentPrefix.length) || '/dashboard';
+        router.push(`${nextPrefix}${rest}${query}`);
+      } else {
+        router.push(`${nextPrefix}/dashboard${query}`);
+      }
+    },
+    [section, pathname, router, isClientPreview]
+  );
+
   if (loading) {
     return <header className={`h-16 ${transparent ? 'absolute top-0 left-0 right-0 z-50' : 'sticky top-0 z-50 border-b border-gray-100 bg-white/80'}`} />;
   }
@@ -155,7 +133,7 @@ export function MainNavbar({ transparent = false }: MainNavbarProps) {
     return (
       <>
         <header className={`${transparent ? 'absolute top-0 left-0 right-0 z-50' : 'sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100'}`}>
-          <div className="h-16 flex items-center justify-between px-6 lg:px-12">
+          <div className="h-16 flex items-center justify-between px-4 sm:px-6 lg:px-8">
             <Link href="/" className={`text-2xl font-[family-name:var(--font-playfair)] italic drop-shadow-sm ${transparent ? 'text-white drop-shadow-md' : 'text-[var(--color-primary)]'}`}>
               Merakí
             </Link>
@@ -191,15 +169,15 @@ export function MainNavbar({ transparent = false }: MainNavbarProps) {
     <>
     <header className={`${transparent ? 'relative' : 'sticky'} top-0 z-50 bg-white/70 backdrop-blur-2xl border-b border-[var(--color-brand-pink)]/20 shadow-[0_2px_10px_rgba(232,160,180,0.05)]`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+        <div className="flex items-center justify-between h-16 gap-2">
           {/* Left: Logo + Nav */}
-          <div className="flex items-center gap-8">
+          <div className="flex items-center gap-4 lg:gap-8 min-w-0 flex-1">
             <Link href={pathname === '/' ? '/' : withPreview(buildPath('dashboard'))} className="flex items-center gap-2 shrink-0">
               <span className="text-2xl font-[family-name:var(--font-playfair)] italic text-[var(--color-primary)]">Merakí</span>
             </Link>
 
             {/* Desktop nav links */}
-            <nav className="hidden lg:flex items-center gap-1">
+            <nav className="hidden lg:flex items-center gap-1 overflow-x-auto scrollbar-hide min-w-0 flex-1">
               {allNav.map((item) => {
                 const itemHref = withPreview(buildPath(item.path));
                 const isActive = isItemActive(item.path);
@@ -208,7 +186,7 @@ export function MainNavbar({ transparent = false }: MainNavbarProps) {
                   <Link
                     key={item.path}
                     href={itemHref}
-                    className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                    className={`flex items-center gap-1.5 px-2.5 py-2 rounded-full text-sm font-medium transition-all duration-200 whitespace-nowrap shrink-0 ${
                       isActive
                         ? 'nav-active-gradient'
                         : 'text-[var(--color-text-secondary)] hover:text-[var(--color-brand-pink-dark)] hover:bg-[var(--color-brand-pink-light)]'
@@ -223,7 +201,7 @@ export function MainNavbar({ transparent = false }: MainNavbarProps) {
           </div>
 
           {/* Right: Actions + Profile */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1 sm:gap-2 lg:gap-3 shrink-0">
             {isClientPreview && (
               <span className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full bg-violet-100 text-violet-700">
                 <Eye size={14} />
@@ -324,7 +302,7 @@ export function MainNavbar({ transparent = false }: MainNavbarProps) {
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setProfileOpen(!profileOpen)}
-                className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-full hover:bg-[var(--color-brand-pink-light)] transition-all cursor-pointer"
+                className="flex items-center gap-2 pl-1.5 pr-2 sm:pl-2 sm:pr-3 py-1.5 rounded-full hover:bg-[var(--color-brand-pink-light)] transition-all cursor-pointer"
                 aria-label="Toggle profile menu"
                 aria-expanded={profileOpen}
               >
@@ -339,7 +317,7 @@ export function MainNavbar({ transparent = false }: MainNavbarProps) {
                 <span className="hidden sm:block text-sm font-medium text-[var(--color-text-primary)] max-w-[100px] truncate">
                   {displayName.split(' ')[0] || 'User'}
                 </span>
-                <ChevronDown size={14} className={`text-[var(--color-text-muted)] transition-transform ${profileOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown size={14} className={`hidden sm:block text-[var(--color-text-muted)] transition-transform ${profileOpen ? 'rotate-180' : ''}`} />
               </button>
 
               {profileOpen && (
@@ -374,6 +352,10 @@ export function MainNavbar({ transparent = false }: MainNavbarProps) {
               )}
             </div>
 
+            <div className="hidden lg:block ml-1">
+              <SectionSwitcher activeSection={section} onSwitch={handleSectionSwitch} />
+            </div>
+
             <button
               onClick={() => setMobileOpen(!mobileOpen)}
               className="lg:hidden w-9 h-9 flex items-center justify-center rounded-full hover:bg-[var(--color-brand-pink-light)] transition-colors text-[var(--color-text-secondary)] hover:text-[var(--color-brand-pink-dark)]"
@@ -388,28 +370,33 @@ export function MainNavbar({ transparent = false }: MainNavbarProps) {
 
       {/* ── Mobile Nav Dropdown ────────────────────────────────────── */}
       {mobileOpen && (
-        <div className="lg:hidden border-t border-[var(--color-border-light)] bg-white animate-fade-in absolute w-full left-0 z-40 shadow-md">
-          <nav className="max-w-7xl mx-auto px-4 py-3 grid grid-cols-3 gap-2">
-            {allNav.map((item) => {
-              const isActive = isItemActive(item.path);
-              const Icon = item.icon;
-              return (
-                <Link
-                  key={item.path}
-                  href={withPreview(buildPath(item.path))}
-                  onClick={() => setMobileOpen(false)}
-                  className={`flex flex-col items-center gap-1 p-3 rounded-[var(--radius-lg)] text-xs font-medium transition-all ${
-                    isActive
-                      ? 'nav-active-gradient'
-                      : 'text-[var(--color-text-secondary)] hover:text-[var(--color-brand-pink-dark)] hover:bg-[var(--color-brand-pink-light)]'
-                  }`}
-                >
-                  <Icon size={20} />
-                  <span>{item.label}</span>
-                </Link>
-              );
-            })}
-          </nav>
+        <div className="lg:hidden border-t border-[var(--color-border-light)] bg-white animate-fade-in absolute w-full left-0 z-40 shadow-md max-h-[80vh] overflow-y-auto scrollbar-hide">
+          <div className="max-w-7xl mx-auto px-4 py-3">
+            <div className="flex justify-center pb-3 mb-2 border-b border-[var(--color-border-light)]">
+              <SectionSwitcher activeSection={section} onSwitch={handleSectionSwitch} />
+            </div>
+            <nav className="grid grid-cols-3 gap-2">
+              {allNav.map((item) => {
+                const isActive = isItemActive(item.path);
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.path}
+                    href={withPreview(buildPath(item.path))}
+                    onClick={() => setMobileOpen(false)}
+                    className={`flex flex-col items-center gap-1 p-3 rounded-[var(--radius-lg)] text-xs font-medium transition-all ${
+                      isActive
+                        ? 'nav-active-gradient'
+                        : 'text-[var(--color-text-secondary)] hover:text-[var(--color-brand-pink-dark)] hover:bg-[var(--color-brand-pink-light)]'
+                    }`}
+                  >
+                    <Icon size={20} />
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+          </div>
         </div>
       )}
     </header>

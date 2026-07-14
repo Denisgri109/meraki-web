@@ -72,8 +72,8 @@ export function LandingPageClient({ isOwner }: LandingPageClientProps) {
         </div>
       )}
 
-      {/* ── Persistent Section Switcher ────────────────────────── */}
-      <div className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-gray-100">
+      {/* ── Floating Top-Right Section Toggle ───────────────────── */}
+      <div className={`fixed right-4 z-50 ${isOwner ? 'top-[4.5rem]' : 'top-4'}`}>
         <SectionSwitcher activeSection={view} onSwitch={handleSwitch} />
       </div>
 

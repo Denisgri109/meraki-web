@@ -1,4 +1,4 @@
-import { proxy } from './proxy';
+import { proxy, config } from './proxy';
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
@@ -123,5 +123,68 @@ describe('proxy', () => {
     const mockSet = lastResult.cookies.set;
 
     expect(mockSet).toHaveBeenCalledWith('test-cookie', 'test-value', { path: '/', httpOnly: true });
+  });
+});
+
+describe('proxy exports', () => {
+  it('exports proxy as a function', () => {
+    expect(typeof proxy).toBe('function');
+  });
+
+  it('exports config with a matcher', () => {
+    expect(config).toBeDefined();
+    expect(config.matcher).toBeDefined();
+    expect(Array.isArray(config.matcher)).toBe(true);
+    expect(config.matcher.length).toBeGreaterThan(0);
+  });
+});
+
+describe('extended route protection', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://localhost';
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anon-key';
+  });
+
+  const createMockRequest = (pathname: string) => {
+    return {
+      cookies: {
+        getAll: jest.fn(() => []),
+        set: jest.fn(),
+      },
+      nextUrl: {
+        pathname,
+        clone: () => ({ pathname }),
+      },
+    } as unknown as NextRequest;
+  };
+
+  it('redirects unauthenticated users from /beauty/dashboard to login', async () => {
+    mockGetUser.mockResolvedValueOnce({ data: { user: null } });
+    const req = createMockRequest('/beauty/dashboard');
+
+    const response = await proxy(req);
+
+    expect(NextResponse.redirect).toHaveBeenCalled();
+    expect(response).toEqual({ type: 'redirect', url: '/login' });
+  });
+
+  it('redirects unauthenticated users from /pilates/dashboard to login', async () => {
+    mockGetUser.mockResolvedValueOnce({ data: { user: null } });
+    const req = createMockRequest('/pilates/dashboard');
+
+    const response = await proxy(req);
+
+    expect(NextResponse.redirect).toHaveBeenCalled();
+    expect(response).toEqual({ type: 'redirect', url: '/login' });
+  });
+
+  it('allows authenticated users to access /beauty/dashboard', async () => {
+    mockGetUser.mockResolvedValueOnce({ data: { user: { id: '123' } } });
+    const req = createMockRequest('/beauty/dashboard');
+
+    const response = await proxy(req);
+
+    expect(response).toHaveProperty('type', 'next');
   });
 });

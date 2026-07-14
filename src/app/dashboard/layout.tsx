@@ -76,7 +76,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   if (!session && !isCheckoutPage) {
-    return null;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[var(--color-background)]">
+        <div className="text-center animate-fade-in">
+          <h1 className="text-3xl font-[family-name:var(--font-playfair)] italic text-[var(--color-primary)] mb-2">Merakí</h1>
+          <div className="w-8 h-8 border-2 border-[var(--color-brand-pink)] border-t-transparent rounded-full animate-spin mx-auto mt-4" />
+        </div>
+      </div>
+    );
   }
 
   return (

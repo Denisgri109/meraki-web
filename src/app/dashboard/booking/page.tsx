@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSection } from '@/contexts/SectionContext';
 import { useModal } from '@/contexts/ModalContext';
-import { Search, Star, Clock, ArrowRight, ArrowLeft, Calendar, CheckCircle2, Sparkles, User, Scissors, SlidersHorizontal, Loader2, ChevronLeft, ChevronRight, AlertCircle, CreditCard, Plus, MapPin } from 'lucide-react';
+import { Search, Star, Clock, ArrowRight, ArrowLeft, Calendar, CheckCircle2, Sparkles, User, Scissors, SlidersHorizontal, Loader2, ChevronLeft, ChevronRight, AlertCircle, CreditCard, Plus, MapPin, Ticket } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
@@ -27,6 +27,14 @@ type BookingError = Error & {
 type BookingUser = {
   id: string;
 };
+
+/** Short human label for a pass expiry, e.g. "expires in 12 days". */
+function formatExpiryShort(expiresAt: string): string {
+  const days = Math.ceil((new Date(expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+  if (days <= 0) return 'expired';
+  if (days === 1) return 'expires tomorrow';
+  return `expires in ${days} days`;
+}
 
 type BookingDraft = {
   step: number;
@@ -63,20 +71,46 @@ function CheckoutForm({ user, profile, selectedService, selectedMaster, selected
   const [loadingCards, setLoadingCards] = useState(true);
   const [selectedPm, setSelectedPm] = useState<string>('new');
 
+  // ── Class pass / credit redemption (Pilates only) ──────────────────────
+  // When booking a Pilates session, clients with an active class pass can
+  // pay with 1 credit instead of a card. The redeem_class_credit RPC does
+  // the atomic decrement + booking server-side.
+  const isPilatesService = selectedService?.category === 'Pilates';
+  type PassSummary = {
+    user_pass_id: string;
+    name: string;
+    remaining_credits: number;
+    expires_at: string | null;
+  };
+  const [activePasses, setActivePasses] = useState<PassSummary[]>([]);
+  const [useCredit, setUseCredit] = useState(false);
+  const totalCredits = activePasses.reduce((s, p) => s + p.remaining_credits, 0);
+
   useEffect(() => {
-    const load = async () => {
+    if (!user || !isPilatesService) {
+      setActivePasses([]);
+      setUseCredit(false);
+      return;
+    }
+    let cancelled = false;
+    const loadPasses = async () => {
       try {
-        const { data, error } = await supabase.functions.invoke('list-payment-methods', { body: {} });
-        if (!error && data?.paymentMethods?.length) {
-          setSavedCards(data.paymentMethods);
-          const def = data.paymentMethods.find((c: SavedCard) => c.isDefault);
-          setSelectedPm(def ? def.id : data.paymentMethods[0].id);
-        }
-      } catch { /* ignore */ }
-      setLoadingCards(false);
+        const { data, error } = await supabase.rpc('get_active_pass_summary', {});
+        if (cancelled || error) return;
+        const summaries = (data ?? []) as PassSummary[];
+        setActivePasses(summaries);
+        // Auto-select credit if the user has credits (most convenient default).
+        setUseCredit(summaries.reduce((s, p) => s + p.remaining_credits, 0) > 0);
+      } catch { /* ignore — paid path still works */ }
     };
-    load();
-  }, [supabase]);
+    loadPasses();
+    return () => { cancelled = true; };
+  }, [user, isPilatesService, supabase]);
+
+  useEffect(() => {
+    // If the user toggles between credit and card, keep selectedPm valid.
+    if (useCredit) return;
+  }, [useCredit]);
 
   const usingSavedCard = selectedPm !== 'new';
 
@@ -132,8 +166,7 @@ function CheckoutForm({ user, profile, selectedService, selectedMaster, selected
   };
 
   const handleBook = async () => {
-    if (!stripe || !user || !selectedService || !selectedDate || !selectedTime) return;
-    if (!usingSavedCard && !elements) return;
+    if (!user || !selectedService || !selectedDate || !selectedTime) return;
     const isPilates = selectedService.category === 'Pilates';
     if (isPilates && !selectedPilatesSession) return;
     if (!isPilates && !selectedMaster) return;
@@ -149,8 +182,26 @@ function CheckoutForm({ user, profile, selectedService, selectedMaster, selected
       await showAlert('You cannot book an appointment with yourself.', 'Booking Verification');
       return;
     }
+
+    // Card path needs Stripe + Elements.
+    if (!useCredit) {
+      if (!stripe || (!usingSavedCard && !elements)) return;
+    }
+
     setSubmitting(true);
     try {
+      // ── Credit path: skip Stripe entirely, redeem 1 credit atomically.
+      if (useCredit && isPilates && selectedPilatesSession && activePasses[0]) {
+        const { error: redeemError } = await supabase.rpc('redeem_class_credit', {
+          p_session_id: selectedPilatesSession.id,
+          p_user_pass_id: activePasses[0].user_pass_id,
+        });
+        if (redeemError) throw redeemError;
+        onBookSuccess();
+        return;
+      }
+
+      // ── Paid path: charge via Stripe, then create the booking.
       const { setupIntentId, paymentIntentData } = await processStripePayment(bookingMasterId, bookingHostName);
 
       const { error: bookError } = isPilates && selectedPilatesSession
@@ -191,6 +242,55 @@ function CheckoutForm({ user, profile, selectedService, selectedMaster, selected
 
   return (
     <div className="w-full">
+      {/* ── Class credit option (Pilates only) ─────────────────────────── */}
+      {isPilatesService && (
+        <div className="p-4 bg-white/60 border border-white rounded-xl mb-4 shadow-sm">
+          <h4 className="font-bold text-[var(--color-text-primary)] mb-3 flex items-center gap-2">
+            <Ticket size={18} /> Class Pass
+          </h4>
+          {totalCredits > 0 ? (
+            <label
+              className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
+                useCredit
+                  ? 'border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500/20'
+                  : 'border-[var(--color-border-light)] hover:border-emerald-400/40'
+              }`}
+            >
+              <input
+                type="checkbox"
+                checked={useCredit}
+                onChange={(e) => setUseCredit(e.target.checked)}
+                className="accent-emerald-600"
+              />
+              <div className="flex-1">
+                <span className="font-semibold text-sm text-[var(--color-text-primary)]">
+                  Book with 1 class credit
+                </span>
+                <p className="text-xs text-[var(--color-text-muted)]">
+                  {totalCredits} credit{totalCredits === 1 ? '' : 's'} available
+                  {activePasses[0]?.expires_at ? ` · ${formatExpiryShort(activePasses[0].expires_at)}` : ''}
+                </p>
+              </div>
+              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
+                Free
+              </span>
+            </label>
+          ) : (
+            <div className="p-3 rounded-lg border border-dashed border-[var(--color-border-light)] bg-[var(--color-surface-light)]/40">
+              <p className="text-sm text-[var(--color-text-secondary)]">No class credits available.</p>
+              <a
+                href="/dashboard/passes"
+                className="text-xs font-bold text-[var(--color-brand-pink-dark)] hover:underline"
+              >
+                Buy a class pass →
+              </a>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Payment details (hidden when redeeming a credit) ───────────── */}
+      {!useCredit && (
       <div className="p-4 bg-white/60 border border-white rounded-xl mb-6 shadow-sm">
          <h4 className="font-bold text-[var(--color-text-primary)] mb-4 flex items-center gap-2">
             <CreditCard size={18} /> Payment Details
@@ -263,12 +363,13 @@ function CheckoutForm({ user, profile, selectedService, selectedMaster, selected
            You will be charged €{selectedService?.base_price ?? 0} today for your booking.
          </p>
       </div>
+      )}
       <button
         onClick={handleBook}
-        disabled={submitting || !stripe || (!usingSavedCard && !elements)}
+        disabled={submitting || (!useCredit && (!stripe || (!usingSavedCard && !elements)))}
         className="w-full btn-primary py-4 text-lg font-bold shadow-xl shadow-pink-500/20 hover:shadow-2xl hover:shadow-pink-500/30 hover:-translate-y-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {submitting ? 'Confirming Appointment...' : 'Confirm & Book Appointment'}
+        {submitting ? 'Confirming Appointment...' : useCredit ? 'Book with 1 Credit' : 'Confirm & Book Appointment'}
       </button>
     </div>
   );

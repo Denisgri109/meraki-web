@@ -7,6 +7,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSection } from '@/contexts/SectionContext';
 import { useNotifications } from '@/contexts/NotificationsContext';
 import {
+  ownerSecondaryNav, masterSecondaryNav, qrPayNavItem,
+  type NavItem,
+} from '@/lib/nav-items';
+import {
   Calendar, ShoppingBag, Gift, Search,
   MessageSquare, ChevronRight, Activity, Sparkles,
   FileText, ShieldCheck,
@@ -101,6 +105,17 @@ export function SectionDashboardHome() {
   const firstName = profile?.full_name?.split(' ')[0] ?? 'there';
   const accentTextClass = isPilates ? 'text-emerald-600' : 'text-[var(--color-brand-pink-dark)]';
   const accentBgClass = isPilates ? 'from-emerald-500 to-teal-600' : 'from-[#E8A0B4] to-[#C47A90]';
+  const secondaryGradient = isPilates
+    ? 'from-emerald-400 to-teal-500'
+    : 'from-[#E8A0B4] to-[#C47A90]';
+
+  const secondaryNav: NavItem[] = role === 'owner'
+    ? ownerSecondaryNav
+    : role === 'master'
+      ? profile?.can_view_qr_pay === true
+        ? [...masterSecondaryNav, qrPayNavItem]
+        : masterSecondaryNav
+      : [];
 
   // Section-specific quick actions
   const quickActions = isPilates
@@ -154,6 +169,30 @@ export function SectionDashboardHome() {
             <p className="mt-2 text-sm text-[var(--color-text-secondary)]">Profile & business</p>
           </div>
         </div>
+
+        {/* ── Quick Access (secondary nav items moved from navbar) ────── */}
+        {secondaryNav.length > 0 && (
+          <div>
+            <h2 className="text-lg font-bold text-[var(--color-text-primary)] mb-4">Quick Access</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+              {secondaryNav.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.path}
+                    href={buildPath(item.path)}
+                    className="group glass-card p-5 hover:shadow-lg transition-all hover:-translate-y-0.5"
+                  >
+                    <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${secondaryGradient} flex items-center justify-center mb-3 group-hover:scale-110 transition-transform`}>
+                      <Icon size={22} className="text-white" />
+                    </div>
+                    <p className="font-bold text-[var(--color-text-primary)]">{item.label}</p>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* ── Pilates staff: Waivers & Instructors ─────────────────────── */}
         {isPilatesStaff && canViewWaivers && (

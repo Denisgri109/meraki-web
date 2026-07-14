@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Sparkles, Activity, ArrowRight } from 'lucide-react';
 import { EditModeToggle } from '@/components/editable/EditModeToggle';
-import type { Section } from '@/contexts/SectionContext';
+import { SectionSwitcher, type SectionId } from '@/components/SectionSwitcher';
 
 const STORAGE_KEY = 'meraki:active-section';
 
@@ -13,12 +13,67 @@ interface RootPortalProps {
   isOwner: boolean;
 }
 
+const SECTION_CARDS: Record<
+  SectionId,
+  {
+    icon: typeof Sparkles;
+    title: string;
+    description: string;
+    cta: string;
+    cardClass: string;
+    iconBg: string;
+    ctaClass: string;
+  }
+> = {
+  beauty: {
+    icon: Sparkles,
+    title: 'Beauty Section',
+    description:
+      'Book salon appointments, shop curated products, and learn from expert courses — all your beauty needs in one place.',
+    cta: 'Enter Beauty',
+    cardClass: 'section-landing-card-beauty',
+    iconBg: 'from-[#E8A0B4] to-[#C47A90]',
+    ctaClass: 'text-[var(--color-brand-pink-dark)]',
+  },
+  pilates: {
+    icon: Activity,
+    title: 'Pilates Section',
+    description:
+      'Join group classes, view weekly schedules, and book sessions with expert instructors for every level.',
+    cta: 'Enter Pilates',
+    cardClass: 'section-landing-card-pilates',
+    iconBg: 'from-[#34D399] to-[#10B981]',
+    ctaClass: 'text-emerald-700',
+  },
+};
+
 export function RootPortal({ isOwner }: RootPortalProps) {
   const router = useRouter();
-  const [navigating, setNavigating] = useState<Section | null>(null);
+  const [view, setView] = useState<SectionId>('beauty');
+  const [navigating, setNavigating] = useState<SectionId | null>(null);
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(STORAGE_KEY);
+      if (saved === 'beauty' || saved === 'pilates') {
+        setView(saved);
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }, []);
+
+  const handleSwitch = useCallback((section: SectionId) => {
+    setView(section);
+    try {
+      window.localStorage.setItem(STORAGE_KEY, section);
+    } catch {
+      // ignore storage errors
+    }
+  }, []);
 
   const handleSelect = useCallback(
-    (section: Section) => {
+    (section: SectionId) => {
       setNavigating(section);
       try {
         window.localStorage.setItem(STORAGE_KEY, section);
@@ -29,6 +84,9 @@ export function RootPortal({ isOwner }: RootPortalProps) {
     },
     [router]
   );
+
+  const card = SECTION_CARDS[view];
+  const Icon = card.icon;
 
   return (
     <div className="min-h-screen flex flex-col bg-white">
@@ -43,6 +101,11 @@ export function RootPortal({ isOwner }: RootPortalProps) {
           </div>
         </div>
       )}
+
+      {/* ── Floating Top-Right Section Toggle ───────────────────── */}
+      <div className={`fixed right-4 z-50 ${isOwner ? 'top-[4.5rem]' : 'top-4'}`}>
+        <SectionSwitcher activeSection={view} onSwitch={handleSwitch} />
+      </div>
 
       {/* ── Selection Screen ────────────────────────────────────── */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-16 gradient-mesh relative overflow-hidden">
@@ -64,51 +127,27 @@ export function RootPortal({ isOwner }: RootPortalProps) {
           </p>
         </div>
 
-        <div className="relative z-10 grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-3xl w-full animate-scale-in">
+        <div key={view} className="relative z-10 w-full max-w-lg animate-scale-in">
           <button
-            onClick={() => handleSelect('beauty')}
+            onClick={() => handleSelect(view)}
             disabled={navigating !== null}
-            className="section-landing-card section-landing-card-beauty p-8 sm:p-10 text-left group disabled:opacity-60"
+            className={`section-landing-card ${card.cardClass} p-8 sm:p-10 text-left group disabled:opacity-60 w-full`}
           >
-            <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-[#E8A0B4] to-[#C47A90] shadow-lg mb-6 group-hover:scale-110 transition-transform duration-300">
-              {navigating === 'beauty' ? (
+            <div className={`flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br ${card.iconBg} shadow-lg mb-6 group-hover:scale-110 transition-transform duration-300`}>
+              {navigating === view ? (
                 <div className="w-7 h-7 border-2 border-white border-t-transparent rounded-full animate-spin" />
               ) : (
-                <Sparkles size={28} className="text-white" />
+                <Icon size={28} className="text-white" />
               )}
             </div>
             <h2 className="text-2xl font-bold text-[var(--color-text-primary)] mb-2">
-              Beauty Section
+              {card.title}
             </h2>
             <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed mb-6">
-              Book salon appointments, shop curated products, and learn from expert courses — all your beauty needs in one place.
+              {card.description}
             </p>
-            <span className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-brand-pink-dark)] group-hover:gap-3 transition-all">
-              Enter Beauty
-              <ArrowRight size={16} />
-            </span>
-          </button>
-
-          <button
-            onClick={() => handleSelect('pilates')}
-            disabled={navigating !== null}
-            className="section-landing-card section-landing-card-pilates p-8 sm:p-10 text-left group disabled:opacity-60"
-          >
-            <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-[#34D399] to-[#10B981] shadow-lg mb-6 group-hover:scale-110 transition-transform duration-300">
-              {navigating === 'pilates' ? (
-                <div className="w-7 h-7 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <Activity size={28} className="text-white" />
-              )}
-            </div>
-            <h2 className="text-2xl font-bold text-[var(--color-text-primary)] mb-2">
-              Pilates Section
-            </h2>
-            <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed mb-6">
-              Join group classes, view weekly schedules, and book sessions with expert instructors for every level.
-            </p>
-            <span className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-700 group-hover:gap-3 transition-all">
-              Enter Pilates
+            <span className={`inline-flex items-center gap-2 text-sm font-semibold ${card.ctaClass} group-hover:gap-3 transition-all`}>
+              {card.cta}
               <ArrowRight size={16} />
             </span>
           </button>

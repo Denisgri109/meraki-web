@@ -357,6 +357,30 @@ export default function AppointmentsPage() {
       const isLate = isLateCancellation(selectedAppointment.start_time);
       const chargePercent = settingsData?.cancellation_charge_percent ?? 50;
       const penaltyAmount = isLate ? Number(((selectedAppointment.price * chargePercent) / 100).toFixed(2)) : 0;
+      const isPilates = selectedAppointment.service_category === 'Pilates';
+
+      // ── Pilates credit-funded bookings go through the atomic cancel RPC,
+      // which also refunds the class credit if outside the late window.
+      if (isPilates) {
+        const windowHours = settingsData?.late_cancellation_window_hours ?? 24;
+        const { data: cancelResult, error: cancelError } = await supabase.rpc('cancel_pilates_booking', {
+          p_appointment_id: selectedAppointment.id,
+          p_refund_window_hours: windowHours,
+        });
+        if (cancelError) throw cancelError;
+        const result = (cancelResult ?? {}) as { refunded?: boolean; reason?: string };
+        showToast(
+          result.refunded
+            ? 'Class cancelled — 1 credit refunded to your pass.'
+            : result.reason === 'Late cancellation — no refund'
+              ? 'Class cancelled. Late cancellation — no credit refund.'
+              : 'Appointment cancelled successfully.',
+          'success'
+        );
+        setSelectedAppointment(null);
+        fetchAppointments();
+        return;
+      }
 
       const { error } = await supabase
         .from('appointments')
@@ -371,12 +395,12 @@ export default function AppointmentsPage() {
       if (error) throw error;
 
       showToast(
-        isLate 
+        isLate
           ? `Appointment cancelled. Late fee of €${penaltyAmount.toFixed(2)} recorded.`
           : 'Appointment cancelled successfully.',
         'success'
       );
-      
+
       setSelectedAppointment(null);
       fetchAppointments();
     } catch (err: unknown) {

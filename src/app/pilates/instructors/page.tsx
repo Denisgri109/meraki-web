@@ -16,6 +16,7 @@ import {
   X,
   AlertCircle,
   Check,
+  Smartphone,
 } from 'lucide-react';
 
 interface InstructorProfile {
@@ -28,6 +29,7 @@ interface InstructorProfile {
   specialties: string[] | null;
   is_master: boolean | null;
   is_authorized_instructor: boolean | null;
+  can_view_qr_pay: boolean | null;
   master_status: string | null;
 }
 
@@ -40,6 +42,7 @@ export default function InstructorsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [togglingQrId, setTogglingQrId] = useState<string | null>(null);
 
   // Invite modal state
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -55,7 +58,7 @@ export default function InstructorsPage() {
       const { data, error } = await supabase
         .from('profiles')
         .select(
-          'id, full_name, email, phone, avatar_url, city, specialties, is_master, is_authorized_instructor, master_status',
+          'id, full_name, email, phone, avatar_url, city, specialties, is_master, is_authorized_instructor, can_view_qr_pay, master_status',
         )
         .eq('is_master', true)
         .order('full_name');
@@ -107,6 +110,41 @@ export default function InstructorsPage() {
       showToast(msg, 'error');
     } finally {
       setTogglingId(null);
+    }
+  };
+
+  const handleToggleQrPay = async (
+    instructorId: string,
+    currentQr: boolean,
+  ) => {
+    setTogglingQrId(instructorId);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ can_view_qr_pay: !currentQr })
+        .eq('id', instructorId);
+
+      if (error) throw error;
+
+      setInstructors((prev) =>
+        prev.map((i) =>
+          i.id === instructorId
+            ? { ...i, can_view_qr_pay: !currentQr }
+            : i,
+        ),
+      );
+
+      showToast(
+        !currentQr
+          ? 'Instructor can now view QR Payment Codes'
+          : 'QR Payment Code access revoked',
+        'success',
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to update QR Pay access';
+      showToast(msg, 'error');
+    } finally {
+      setTogglingQrId(null);
     }
   };
 
@@ -192,6 +230,10 @@ export default function InstructorsPage() {
     (i) => i.is_authorized_instructor === true,
   ).length;
 
+  const qrPayCount = instructors.filter(
+    (i) => i.can_view_qr_pay === true,
+  ).length;
+
   return (
     <div className="max-w-5xl mx-auto animate-fade-in">
       {/* Header */}
@@ -216,7 +258,7 @@ export default function InstructorsPage() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-2 gap-4 mb-8">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-8">
         <div className="glass-card p-5">
           <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)]">
             <Users size={14} /> Total Masters
@@ -227,13 +269,24 @@ export default function InstructorsPage() {
         </div>
         <div className="glass-card p-5">
           <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)]">
-            <ShieldCheck size={14} /> Authorized
+            <ShieldCheck size={14} /> Waiver Access
           </div>
           <p className="mt-2 text-3xl font-bold text-emerald-600">
             {authorizedCount}
           </p>
           <p className="text-xs text-[var(--color-text-muted)] mt-1">
             Can view client waivers
+          </p>
+        </div>
+        <div className="glass-card p-5">
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)]">
+            <Smartphone size={14} /> QR Pay Access
+          </div>
+          <p className="mt-2 text-3xl font-bold text-[var(--color-brand-pink-dark)]">
+            {qrPayCount}
+          </p>
+          <p className="text-xs text-[var(--color-text-muted)] mt-1">
+            Can present payment QRs
           </p>
         </div>
       </div>
@@ -243,13 +296,14 @@ export default function InstructorsPage() {
         <AlertCircle size={18} className="text-emerald-600 mt-0.5 shrink-0" />
         <div>
           <p className="text-sm font-semibold text-emerald-800">
-            How authorization works
+            How permissions work
           </p>
           <p className="text-xs text-emerald-700 mt-0.5">
-            Toggle <strong>Authorize</strong> to grant an instructor access to view
-            signed Injury Disclosure &amp; Liability forms. Only the Owner can
-            change this setting. Deauthorized instructors lose waiver access
-            immediately — they still keep their dashboard and booking access.
+            Toggle <strong>Authorize</strong> to grant waiver access, and
+            <strong> QR Pay</strong> to let an instructor present the studio&apos;s
+            payment QR codes (Revolut, Bizum, bank transfer) to clients in-person.
+            Only the Owner can change these settings. Revoking access takes effect
+            immediately — instructors keep their dashboard and booking access.
           </p>
         </div>
       </div>
@@ -293,7 +347,9 @@ export default function InstructorsPage() {
         <div className="space-y-3">
           {filteredInstructors.map((instructor) => {
             const isAuthorized = instructor.is_authorized_instructor === true;
+            const isQrPay = instructor.can_view_qr_pay === true;
             const isToggling = togglingId === instructor.id;
+            const isTogglingQr = togglingQrId === instructor.id;
             return (
               <div
                 key={instructor.id}
@@ -328,6 +384,11 @@ export default function InstructorsPage() {
                           Not Authorized
                         </span>
                       )}
+                      {isQrPay && (
+                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-pink-50 text-[var(--color-brand-pink-dark)] flex items-center gap-1">
+                          <Smartphone size={10} /> QR Pay
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center gap-3 text-xs text-[var(--color-text-muted)]">
                       {instructor.email && (
@@ -343,8 +404,8 @@ export default function InstructorsPage() {
                     </div>
                   </div>
 
-                  {/* Toggle authorization */}
-                  <div className="flex items-center gap-3 shrink-0">
+                  {/* Toggle permissions */}
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
                     {isToggling ? (
                       <Loader2 size={20} className="animate-spin text-emerald-500" />
                     ) : (
@@ -352,7 +413,8 @@ export default function InstructorsPage() {
                         onClick={() =>
                           handleToggleAuthorization(instructor.id, isAuthorized)
                         }
-                        className={`relative inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
+                        title="Waiver access"
+                        className={`relative inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
                           isAuthorized
                             ? 'bg-emerald-500 text-white hover:bg-emerald-600'
                             : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -367,6 +429,23 @@ export default function InstructorsPage() {
                             <ShieldOff size={16} /> Authorize
                           </>
                         )}
+                      </button>
+                    )}
+                    {isTogglingQr ? (
+                      <Loader2 size={20} className="animate-spin text-[var(--color-brand-pink-dark)]" />
+                    ) : (
+                      <button
+                        onClick={() =>
+                          handleToggleQrPay(instructor.id, isQrPay)
+                        }
+                        title="QR Payment Code access"
+                        className={`relative inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
+                          isQrPay
+                            ? 'bg-[var(--color-brand-pink-dark)] text-white hover:opacity-90'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        <Smartphone size={16} /> {isQrPay ? 'QR Pay On' : 'QR Pay'}
                       </button>
                     )}
                   </div>

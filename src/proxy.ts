@@ -45,10 +45,12 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Protect dashboard routes — redirect to login if unauthenticated
+  // Protect dashboard + section routes — redirect to login if unauthenticated
   if (
     !user &&
-    request.nextUrl.pathname.startsWith('/dashboard')
+    (request.nextUrl.pathname.startsWith('/dashboard') ||
+      request.nextUrl.pathname.startsWith('/beauty') ||
+      request.nextUrl.pathname.startsWith('/pilates'))
   ) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';

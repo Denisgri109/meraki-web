@@ -16,6 +16,7 @@ export interface Profile {
   role: UserRole;
   is_master: boolean;
   is_authorized_instructor: boolean | null;
+  can_view_qr_pay: boolean | null;
   avatar_url: string | null;
   bio: string | null;
   city: string | null;
@@ -73,6 +74,7 @@ function createFallbackProfile(authUser: User): Profile {
     role,
     is_master: role === 'master',
     is_authorized_instructor: false,
+    can_view_qr_pay: false,
     avatar_url: null,
     bio: null,
     city: null,
@@ -114,12 +116,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // ── Fetch profile from Supabase ──────────────────────────────────────
   const fetchProfile = useCallback(
     async (authUser: User) => {
+      let cancelled = false;
       try {
-        const { data, error } = await supabase
+        const profilePromise = supabase
           .from('profiles')
           .select('*')
           .eq('id', authUser.id)
           .maybeSingle();
+
+        const timeoutPromise = new Promise<null>((resolve) => {
+          setTimeout(() => {
+            cancelled = true;
+            resolve(null);
+          }, 15000);
+        });
+
+        const result = await Promise.race([profilePromise, timeoutPromise]);
+
+        if (cancelled) {
+          setProfile(createFallbackProfile(authUser));
+          return;
+        }
+
+        const { data, error } = result as Awaited<typeof profilePromise>;
 
         if (error) throw error;
         setProfile((data as unknown as Profile | null) ?? createFallbackProfile(authUser));
@@ -167,8 +186,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const timeout = setTimeout(() => {
         if (isMounted && loadingRef.current) {
           console.warn('[Auth] Initial session load timed out — clearing state');
-          setLoading(false);
           bootstrappedRef.current = true;
+          clearAuthState();
         }
       }, 8000);
 
@@ -296,10 +315,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (error) {
             console.warn('[Auth] visibility refresh error:', error.message);
             setSessionError(error);
+            clearAuthState();
             return;
           }
 
           if (!refreshedSession?.user) {
+            clearAuthState();
             return;
           }
 
