@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { DeleteButton } from '@/components/DeleteButton';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/Toast';
 import { useModal } from '@/contexts/ModalContext';
@@ -661,6 +662,14 @@ export default function SuppliesPage() {
                       >
                         <Trash2 size={15} />
                       </button>
+                      <DeleteButton
+                        table={isOwner ? 'owner_supplies' : 'master_supplies'}
+                        id={s.id}
+                        entityName="supply"
+                        entityLabel={s.name}
+                        onDeleted={() => setSupplies(prev => prev.filter(x => x.id !== s.id))}
+                        size={15}
+                      />
                     </div>
                   </div>
                 );

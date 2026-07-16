@@ -32,8 +32,16 @@ export async function proxy(request: NextRequest) {
           supabaseResponse = NextResponse.next({
             request,
           });
+          // Pass Supabase's cookie options as-is.  Do NOT add httpOnly: true —
+          // the browser client (createBrowserClient from @supabase/ssr) uses
+          // document.cookie for session storage and can only read/clear
+          // non-httpOnly cookies.  Adding httpOnly here creates a shadow
+          // cookie that the browser client cannot manage, causing a
+          // split-brain where the proxy sees a valid session but the client
+          // doesn't — leading to an infinite redirect loop (/login ↔
+          // /dashboard) that presents as a permanent loading spinner.
           cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, { ...options, httpOnly: true })
+            supabaseResponse.cookies.set(name, value, options)
           );
         },
       },
@@ -54,17 +62,6 @@ export async function proxy(request: NextRequest) {
   ) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
-    return NextResponse.redirect(url);
-  }
-
-  // If authenticated user visits auth pages, redirect to dashboard
-  if (
-    user &&
-    (request.nextUrl.pathname.startsWith('/login') ||
-      request.nextUrl.pathname.startsWith('/register'))
-  ) {
-    const url = request.nextUrl.clone();
-    url.pathname = '/dashboard';
     return NextResponse.redirect(url);
   }
 

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
+import { DeleteButton } from '@/components/DeleteButton';
 import { useModal } from '@/contexts/ModalContext';
 
 import { StampCardsList } from './components/client-view/StampCardsList';

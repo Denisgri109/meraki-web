@@ -9,7 +9,7 @@ import { useSection } from '@/contexts/SectionContext';
 import { useNotifications, type NotificationItem } from '@/contexts/NotificationsContext';
 import { SectionSwitcher, type SectionId } from '@/components/SectionSwitcher';
 import {
-  clientNav, ownerPrimaryNav, masterPrimaryNav, qrPayNavItem,
+  clientPrimaryNav, ownerPrimaryNav, masterPrimaryNav, qrPayNavItem,
   type NavItem,
 } from '@/lib/nav-items';
 import {
@@ -77,14 +77,14 @@ export function MainNavbar({ transparent = false }: MainNavbarProps) {
   }, []);
 
   const allNav = useMemo((): NavItem[] => {
-    if (isClientPreview) return clientNav;
+    if (isClientPreview) return clientPrimaryNav;
     if (role === 'owner') return ownerPrimaryNav;
     if (role === 'master') {
       return profile?.can_view_qr_pay === true
         ? [...masterPrimaryNav, qrPayNavItem]
         : masterPrimaryNav;
     }
-    return clientNav;
+    return clientPrimaryNav;
   }, [role, isClientPreview, profile?.can_view_qr_pay]);
 
   const withPreview = (href: string) =>

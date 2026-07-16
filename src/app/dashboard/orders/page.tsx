@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSection } from '@/contexts/SectionContext';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/components/Toast';
+import { DeleteButton } from '@/components/DeleteButton';
 import {
   Package, Search, ChevronDown, X,
   Truck, Clock, CheckCircle2, XCircle, AlertTriangle,
@@ -526,6 +527,15 @@ export default function OrdersPage() {
                 <button className="w-8 h-8 rounded-full hover:bg-[var(--color-surface-light)] flex items-center justify-center cursor-pointer">
                   <Eye size={16} className="text-[var(--color-text-muted)]" />
                 </button>
+                <DeleteButton
+                  table="orders"
+                  id={order.id}
+                  entityName="order"
+                  entityLabel={`#${order.id.substring(0, 8)}`}
+                  onDeleted={() => setOrders(prev => prev.filter(o => o.id !== order.id))}
+                  disabled={order.status === 'shipped' || order.status === 'delivered'}
+                  size={14}
+                />
               </div>
             </div>
           ))}

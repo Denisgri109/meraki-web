@@ -6,6 +6,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
+import { DeleteButton } from '@/components/DeleteButton';
 import { useToast } from '@/components/Toast';
 import {
   DollarSign, TrendingUp, ShoppingBag, GraduationCap, Clock,

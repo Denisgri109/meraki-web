@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
@@ -8,12 +8,18 @@ import { Eye, EyeOff, Loader2, Mail, Lock, Sparkles } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { signIn } = useAuth();
+  const { signIn, session, loading } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loadingForm, setLoadingForm] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!loading && session) {
+      router.replace('/dashboard');
+    }
+  }, [loading, session, router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,9 +29,9 @@ export default function LoginPage() {
     }
 
     setError(null);
-    setLoading(true);
+    setLoadingForm(true);
     const { error: authError } = await signIn(email, password);
-    setLoading(false);
+    setLoadingForm(false);
 
     if (authError) {
       setError(authError.message);
@@ -54,6 +60,15 @@ export default function LoginPage() {
     marginBottom: '8px',
     paddingLeft: '4px',
   };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center" style={{ minHeight: '300px' }}>
+        <h1 className="text-3xl font-[family-name:var(--font-playfair)] italic text-[var(--color-primary)] mb-2">Merakí</h1>
+        <div className="w-8 h-8 border-2 border-[var(--color-brand-pink)] border-t-transparent rounded-full animate-spin mt-4" />
+      </div>
+    );
+  }
 
   return (
     <div style={{ width: '100%' }}>
@@ -217,7 +232,7 @@ export default function LoginPage() {
         {/* Submit */}
         <button
           type="submit"
-          disabled={loading}
+          disabled={loadingForm}
           className="btn-primary"
           style={{
             width: '100%',
@@ -232,7 +247,7 @@ export default function LoginPage() {
             marginTop: '4px',
           }}
         >
-          {loading ? <Loader2 size={20} className="animate-spin" /> : 'Sign In'}
+          {loadingForm ? <Loader2 size={20} className="animate-spin" /> : 'Sign In'}
         </button>
 
         {/* Divider */}

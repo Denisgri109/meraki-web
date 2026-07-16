@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { DeleteButton } from '@/components/DeleteButton';
 import { Users, Search, MapPin, Mail, Phone, MoreVertical, Eye, UserPlus, Check, X, Clock } from 'lucide-react';
 import { useToast } from '@/components/Toast';
 import { useRouter } from 'next/navigation';
@@ -290,6 +291,17 @@ export default function MastersPage() {
                           >
                             Deactivate
                           </button>
+                          <div className="px-4 py-2.5 flex items-center gap-2 opacity-50">
+                            <DeleteButton
+                              table="profiles"
+                              id={master.id}
+                              entityName="master"
+                              entityLabel={master.full_name || undefined}
+                              disabled={true}
+                              size={14}
+                            />
+                            <span className="text-xs text-[var(--color-text-muted)]">Delete (disabled — use Deactivate)</span>
+                          </div>
                         </div>
                       )}
                     </div>

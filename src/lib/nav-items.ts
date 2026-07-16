@@ -12,13 +12,16 @@ export interface NavItem {
   icon: LucideIcon;
 }
 
-export const clientNav: NavItem[] = [
+export const clientPrimaryNav: NavItem[] = [
   { path: 'dashboard', label: 'Home', icon: Home },
   { path: 'booking', label: 'Book', icon: Calendar },
   { path: 'shop', label: 'Shop', icon: ShoppingBag },
+  { path: 'loyalty', label: 'Rewards', icon: Gift },
+];
+
+export const clientSecondaryNav: NavItem[] = [
   { path: 'orders', label: 'Orders', icon: Package },
   { path: 'academy', label: 'Academy', icon: GraduationCap },
-  { path: 'loyalty', label: 'Rewards', icon: Gift },
   { path: 'passes', label: 'Passes', icon: Ticket },
   { path: 'consultations', label: 'Consults', icon: ClipboardList },
 ];
@@ -40,6 +43,7 @@ export const ownerSecondaryNav: NavItem[] = [
   { path: 'academy', label: 'Academy', icon: GraduationCap },
   { path: 'loyalty', label: 'Rewards', icon: Gift },
   { path: 'consultations', label: 'Consults', icon: ClipboardList },
+  { path: 'bulk-finance', label: 'Bulk Finance', icon: Wallet },
 ];
 
 export const masterPrimaryNav: NavItem[] = [

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSection } from '@/contexts/SectionContext';
 import { createClient } from '@/lib/supabase/client';
+import { DeleteButton } from '@/components/DeleteButton';
 import { 
   Calendar, Clock, User, ChevronRight, ArrowRight, X,
   Shield, ShieldAlert, Sparkles, MessageSquare, Check, AlertTriangle,
@@ -1127,6 +1128,16 @@ export default function AppointmentsPage() {
                     </p>
                     <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border ${getStatusColor(apt.status)}`}>
                       {apt.status === 'reschedule_pending' ? 'Reschedule Pending' : apt.status}
+                    </span>
+                    <span onClick={(e) => e.stopPropagation()}>
+                      <DeleteButton
+                        table="appointments"
+                        id={apt.id}
+                        entityName="appointment"
+                        entityLabel={apt.service_name || undefined}
+                        disabled={apt.status === 'completed' || apt.status === 'no_show'}
+                        size={14}
+                      />
                     </span>
                     {apt.client_confirmed && (
                       <span className="inline-flex items-center gap-0.5 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-200">

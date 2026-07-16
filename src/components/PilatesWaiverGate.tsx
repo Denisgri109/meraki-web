@@ -10,11 +10,11 @@ interface PilatesWaiverGateProps {
 }
 
 export function PilatesWaiverGate({ children }: PilatesWaiverGateProps) {
-  const { user } = useAuth();
-  const { hasWaiver, loading } = usePilatesWaiver();
+  const { user, role } = useAuth();
+  const { hasWaiver, loading, checkWaiver } = usePilatesWaiver();
   const [sheetOpen, setSheetOpen] = useState(false);
 
-  const isStaff = user?.user_metadata?.role === 'master' || user?.user_metadata?.role === 'owner';
+  const isStaff = role === 'master' || role === 'owner';
   const shouldPrompt = !loading && !hasWaiver && !!user && !isStaff;
 
   return (
@@ -22,7 +22,13 @@ export function PilatesWaiverGate({ children }: PilatesWaiverGateProps) {
       {children}
       <PilatesWaiverFormSheet
         open={shouldPrompt || sheetOpen}
-        onSigned={() => setSheetOpen(false)}
+        onSigned={async () => {
+          // Re-check the waiver so this gate's hasWaiver updates to true.
+          // The form sheet uses its own usePilatesWaiver instance; without
+          // this re-check, shouldPrompt stays true and the sheet never closes.
+          await checkWaiver();
+          setSheetOpen(false);
+        }}
         onDismiss={() => setSheetOpen(false)}
       />
     </>

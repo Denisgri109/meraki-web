@@ -7,6 +7,7 @@ import { Elements, CardElement, useStripe, useElements } from '@stripe/react-str
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/Toast';
 import { createClient } from '@/lib/supabase/client';
+import { DeleteButton } from '@/components/DeleteButton';
 import type { ClassPackage, UserPass, CreditLedger } from '@/types/database';
 import {
   Ticket, Loader2, Plus, Sparkles, ArrowLeft, CalendarClock,

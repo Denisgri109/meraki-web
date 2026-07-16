@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/Toast';
 import { createClient } from '@/lib/supabase/client';
 import type { Voucher } from '@/types/database';
+import { DeleteButton } from '@/components/DeleteButton';
 import {
   ArrowLeft, Ticket, Plus, Loader2, Tag, Clock, Users, Power,
   X, AlertCircle, Gift, Percent, Euro, Sparkles,
@@ -262,6 +263,14 @@ export default function VouchersPage() {
                   >
                     {v.is_active ? 'Deactivate' : 'Activate'}
                   </button>
+                  <DeleteButton
+                    table="vouchers"
+                    id={v.id}
+                    entityName="voucher"
+                    entityLabel={v.code}
+                    onDeleted={() => setVouchers(prev => prev.filter(x => x.id !== v.id))}
+                    size={14}
+                  />
                 </div>
               </div>
             );

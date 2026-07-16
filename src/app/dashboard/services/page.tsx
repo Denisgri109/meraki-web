@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSection } from '@/contexts/SectionContext';
 import { createClient } from '@/lib/supabase/client';
+import { DeleteButton } from '@/components/DeleteButton';
 import { useToast } from '@/components/Toast';
 import {
   Scissors, Plus, Clock, Edit3, ToggleLeft, ToggleRight, Sparkles, X, Loader2,
@@ -639,6 +640,13 @@ export default function ServicesPage() {
                       >
                         <Trash2 size={18} />
                       </button>
+                      <DeleteButton
+                        table="services"
+                        id={service.id}
+                        entityName="service"
+                        entityLabel={service.name}
+                        size={18}
+                      />
                       {service.category === 'Pilates' && isOwner && (
                         <button
                           onClick={() => router.push(buildPath(`services/pilates/${service.id}`))}

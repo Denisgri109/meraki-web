@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Package, Search, Plus, AlertTriangle, TrendingDown, Box, X, Trash2, History, Loader2 } from 'lucide-react';
 import { useToast } from '@/components/Toast';
 import { useModal } from '@/contexts/ModalContext';
+import { DeleteButton } from '@/components/DeleteButton';
 
 interface Product {
   id: string;
@@ -428,7 +429,7 @@ export default function InventoryPage() {
                     {stockCount}
                   </span>
                 </div>
-                <div className="col-span-1 text-right">
+                <div className="col-span-1 text-right flex items-center justify-end gap-1">
                   <button
                     onClick={(e) => toggleActive(product, e)}
                     title={product.is_active ? 'Disable product' : 'Enable product'}
@@ -436,6 +437,14 @@ export default function InventoryPage() {
                   >
                     <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${product.is_active ? 'translate-x-4' : 'translate-x-0.5'}`} />
                   </button>
+                  <DeleteButton
+                    table="products"
+                    id={product.id}
+                    entityName="product"
+                    entityLabel={product.name}
+                    onDeleted={() => setProducts(prev => prev.filter(p => p.id !== product.id))}
+                    size={14}
+                  />
                 </div>
               </div>
             );

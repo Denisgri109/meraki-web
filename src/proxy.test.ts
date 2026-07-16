@@ -61,15 +61,15 @@ describe('proxy', () => {
     expect(response).toEqual({ type: 'redirect', url: '/login' });
   });
 
-  it('redirects authenticated users from login to dashboard', async () => {
+  it('allows authenticated users to access login (client-side redirect handles it)', async () => {
     mockGetUser.mockResolvedValueOnce({ data: { user: { id: '123' } } });
     const req = createMockRequest('/login');
 
     const response = await proxy(req);
 
     expect(mockGetUser).toHaveBeenCalled();
-    expect(NextResponse.redirect).toHaveBeenCalled();
-    expect(response).toEqual({ type: 'redirect', url: '/dashboard' });
+    expect(NextResponse.redirect).not.toHaveBeenCalled();
+    expect(response).toHaveProperty('type', 'next');
   });
 
   it('allows authenticated users to access dashboard', async () => {
@@ -105,7 +105,7 @@ describe('proxy', () => {
     expect(clientOptions?.cookies?.getAll).toBeDefined();
     expect(clientOptions?.cookies?.setAll).toBeDefined();
 
-    // Verify setAll sets httpOnly: true
+    // Verify setAll passes cookie options through without adding httpOnly
     const setAll = clientOptions?.cookies?.setAll;
     expect(setAll).toBeDefined();
 
@@ -122,7 +122,7 @@ describe('proxy', () => {
     const lastResult = nextResponseMock.mock.results[nextResponseMock.mock.results.length - 1].value;
     const mockSet = lastResult.cookies.set;
 
-    expect(mockSet).toHaveBeenCalledWith('test-cookie', 'test-value', { path: '/', httpOnly: true });
+    expect(mockSet).toHaveBeenCalledWith('test-cookie', 'test-value', { path: '/' });
   });
 });
 

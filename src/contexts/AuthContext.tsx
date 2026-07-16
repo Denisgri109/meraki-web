@@ -162,14 +162,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const clearAuthState = async () => {
       if (!isMounted) return;
       // Actually sign out from Supabase to clear stale tokens from
-      // localStorage and cookies.  Without this, a corrupted / expired
-      // session persists across reloads and causes an infinite white-screen
-      // loop until the user manually clears site data.
+      // cookies.  Without this, a corrupted / expired session persists
+      // across reloads and causes an infinite white-screen loop until
+      // the user manually clears site data.  A 5s timeout guards against
+      // signOut() hanging on a network call that never resolves — without
+      // it, setLoading(false) below would never execute and the splash
+      // spinner would stay up forever.
       try {
-        await supabase.auth.signOut();
+        await Promise.race([
+          supabase.auth.signOut(),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('signOut timeout')), 5000)
+          ),
+        ]);
       } catch {
-        // Best-effort — even if the network call fails we still clear local
-        // React state below.
+        // Best-effort — even if the network call fails or times out we
+        // still clear local React state below.
       }
       sessionRef.current = null;
       userRef.current = null;

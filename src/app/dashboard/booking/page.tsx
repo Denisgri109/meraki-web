@@ -537,7 +537,7 @@ const parseBookingDraft = (value: string | null) => {
 };
 
 export default function BookingPage() {
-  const { user, profile } = useAuth();
+  const { user, profile, role } = useAuth();
   const router = useRouter();
   const supabase = createClient();
   const { buildPath, isPilates } = useSection();
@@ -987,7 +987,7 @@ export default function BookingPage() {
   const handleContinueToConfirmation = async () => {
     if (!canContinueToConfirmation) return;
 
-    if (isPilatesService) {
+    if (isPilatesService && role === 'client') {
       const hasWaiver = await checkPilatesWaiver();
       if (!hasWaiver) {
         setShowWaiverSheet(true);
@@ -1032,6 +1032,23 @@ export default function BookingPage() {
     const ids = serviceProfessionalIds[selectedServiceId] || [];
     return masters.filter(m => ids.includes(m.id));
   }, [masters, selectedServiceId, serviceProfessionalIds]);
+
+  if (role === 'master') {
+    return (
+      <div className="w-full max-w-2xl mx-auto text-center py-20 animate-fade-in">
+        <div className="w-20 h-20 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-6">
+          <Calendar size={36} className="text-amber-600" />
+        </div>
+        <h2 className="text-2xl font-bold text-[var(--color-text-primary)] mb-3">Booking Unavailable</h2>
+        <p className="text-[var(--color-text-secondary)] mb-8 max-w-md mx-auto">
+          As a service provider, you don&rsquo;t need to book appointments. Your clients book with you!
+        </p>
+        <button onClick={() => router.push(buildPath('dashboard'))} className="btn-primary px-8 py-3">
+          Back to Dashboard
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-4xl mx-auto animate-fade-in pb-20 relative">
