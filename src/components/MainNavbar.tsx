@@ -179,8 +179,8 @@ export function MainNavbar({ transparent = false }: MainNavbarProps) {
             {/* Desktop nav links */}
             <nav className="hidden lg:flex items-center gap-1 overflow-x-auto scrollbar-hide min-w-0 flex-1">
               {allNav.map((item) => {
-                const itemHref = withPreview(buildPath(item.path));
-                const isActive = isItemActive(item.path);
+                const itemHref = item.href ?? withPreview(buildPath(item.path));
+                const isActive = item.href ? pathname === item.href : isItemActive(item.path);
                 const Icon = item.icon;
                 return (
                   <Link
@@ -377,12 +377,12 @@ export function MainNavbar({ transparent = false }: MainNavbarProps) {
             </div>
             <nav className="grid grid-cols-3 gap-2">
               {allNav.map((item) => {
-                const isActive = isItemActive(item.path);
+                const isActive = item.href ? pathname === item.href : isItemActive(item.path);
                 const Icon = item.icon;
                 return (
                   <Link
                     key={item.path}
-                    href={withPreview(buildPath(item.path))}
+                    href={item.href ?? withPreview(buildPath(item.path))}
                     onClick={() => setMobileOpen(false)}
                     className={`flex flex-col items-center gap-1 p-3 rounded-[var(--radius-lg)] text-xs font-medium transition-all ${
                       isActive

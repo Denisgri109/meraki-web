@@ -10,6 +10,7 @@ jest.mock('next/navigation', () => ({
     push: jest.fn(),
     refresh: jest.fn(),
   })),
+  useSearchParams: jest.fn(() => ({ get: () => null })),
 }));
 
 // Setup default mock returns
@@ -129,9 +130,12 @@ describe('MainNavbar', () => {
       });
       render(<MainNavbar />);
 
+      expect(screen.getByText('Home')).toBeInTheDocument();
+      expect(screen.getByText('Bookings')).toBeInTheDocument();
       expect(screen.getByText('Finance')).toBeInTheDocument();
       expect(screen.getByText('Services')).toBeInTheDocument();
-      expect(screen.getByText('Inventory')).toBeInTheDocument();
+      // Inventory moved to dashboard Quick Access (2026-07-14 nav split)
+      expect(screen.queryByText('Inventory')).not.toBeInTheDocument();
       // Owner doesn't have cart icon by design
       expect(screen.queryByTitle('Cart')).not.toBeInTheDocument();
     });
