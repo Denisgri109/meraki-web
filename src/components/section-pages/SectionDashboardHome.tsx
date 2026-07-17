@@ -182,7 +182,7 @@ export function SectionDashboardHome() {
                 return (
                   <Link
                     key={item.path}
-                    href={buildPath(item.path)}
+                    href={item.href ?? buildPath(item.path)}
                     className="group glass-card p-5 hover:shadow-lg transition-all hover:-translate-y-0.5"
                   >
                     <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${secondaryGradient} flex items-center justify-center mb-3 group-hover:scale-110 transition-transform`}>
@@ -336,10 +336,10 @@ export function SectionDashboardHome() {
             {secondaryNav.map((item) => {
               const Icon = item.icon;
               return (
-                <Link
-                  key={item.path}
-                  href={buildPath(item.path)}
-                  className="group glass-card p-5 hover:shadow-lg transition-all hover:-translate-y-0.5"
+              <Link
+                key={item.path}
+                href={item.href ?? buildPath(item.path)}
+                className="group glass-card p-5 hover:shadow-lg transition-all hover:-translate-y-0.5"
                 >
                   <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${secondaryGradient} flex items-center justify-center mb-3 group-hover:scale-110 transition-transform`}>
                     <Icon size={22} className="text-white" />

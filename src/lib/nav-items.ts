@@ -2,6 +2,7 @@ import {
   Home, Calendar, ShoppingBag, GraduationCap, Gift,
   Scissors, Clock, Package, Boxes, DollarSign, Wallet,
   CalendarCheck, ClipboardList, Smartphone, Ticket,
+  Mail, Search, HelpCircle, Settings, BarChart3, Users,
 } from 'lucide-react';
 
 type LucideIcon = typeof Home;
@@ -10,6 +11,8 @@ export interface NavItem {
   path: string;
   label: string;
   icon: LucideIcon;
+  /** Absolute (non-section-prefixed) link. When present, used instead of buildPath(path). */
+  href?: string;
 }
 
 export const clientPrimaryNav: NavItem[] = [
@@ -17,13 +20,18 @@ export const clientPrimaryNav: NavItem[] = [
   { path: 'booking', label: 'Book', icon: Calendar },
   { path: 'shop', label: 'Shop', icon: ShoppingBag },
   { path: 'loyalty', label: 'Rewards', icon: Gift },
+  { path: 'contact', label: 'Contact', icon: Mail, href: '/contact' },
 ];
 
 export const clientSecondaryNav: NavItem[] = [
+  { path: 'appointments', label: 'Appointments', icon: CalendarCheck },
   { path: 'orders', label: 'Orders', icon: Package },
   { path: 'academy', label: 'Academy', icon: GraduationCap },
   { path: 'passes', label: 'Passes', icon: Ticket },
   { path: 'consultations', label: 'Consults', icon: ClipboardList },
+  { path: 'discover', label: 'Discover', icon: Search },
+  { path: 'support', label: 'Support', icon: HelpCircle },
+  { path: 'settings', label: 'Settings', icon: Settings },
 ];
 
 export const ownerPrimaryNav: NavItem[] = [
@@ -43,7 +51,10 @@ export const ownerSecondaryNav: NavItem[] = [
   { path: 'academy', label: 'Academy', icon: GraduationCap },
   { path: 'loyalty', label: 'Rewards', icon: Gift },
   { path: 'consultations', label: 'Consults', icon: ClipboardList },
-  { path: 'bulk-finance', label: 'Bulk Finance', icon: Wallet },
+  { path: 'masters', label: 'Staff', icon: Users },
+  { path: 'analytics', label: 'Analytics', icon: BarChart3 },
+  { path: 'support', label: 'Support', icon: HelpCircle },
+  { path: 'settings', label: 'Settings', icon: Settings },
 ];
 
 export const masterPrimaryNav: NavItem[] = [
@@ -58,6 +69,8 @@ export const masterSecondaryNav: NavItem[] = [
   { path: 'supplies', label: 'Supplies', icon: Boxes },
   { path: 'loyalty', label: 'Rewards', icon: Gift },
   { path: 'consultations', label: 'Consults', icon: ClipboardList },
+  { path: 'support', label: 'Support', icon: HelpCircle },
+  { path: 'settings', label: 'Settings', icon: Settings },
 ];
 
 export const qrPayNavItem: NavItem = { path: 'qr-payments', label: 'QR Pay', icon: Smartphone };
