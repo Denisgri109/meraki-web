@@ -3,7 +3,7 @@
 import React from 'react';
 import { MainNavbar } from '@/components/MainNavbar';
 import { Footer } from '@/components/Footer';
-import { Smartphone, Check, Play, Apple, ArrowLeft, Star, Download } from 'lucide-react';
+import { Smartphone, Check, ArrowLeft, Sparkles, Clock } from 'lucide-react';
 import Link from 'next/link';
 
 export default function GetAppPage() {
@@ -21,8 +21,8 @@ export default function GetAppPage() {
 
         <div className="max-w-6xl mx-auto relative z-10">
           <div className="mb-6">
-            <Link 
-              href="/dashboard" 
+            <Link
+              href="/dashboard"
               className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--color-text-secondary)] hover:text-[var(--color-brand-pink-dark)] transition-colors"
             >
               <ArrowLeft size={14} />
@@ -31,30 +31,34 @@ export default function GetAppPage() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center mt-6">
-            {/* Left Column: Copy, Features, Buttons */}
+            {/* Left Column: Copy, Features */}
             <div className="lg:col-span-7 space-y-8">
               <div>
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[var(--color-brand-pink-light)] text-[var(--color-brand-pink-dark)] mb-4">
-                  <Star size={12} className="fill-[var(--color-brand-pink-dark)]" />
-                  <span>Now Available on Mobile</span>
+                  <Clock size={12} className="stroke-[2.5]" />
+                  <span>Coming Soon</span>
                 </span>
-                
+
                 <h1 className="text-4xl sm:text-5xl font-[family-name:var(--font-playfair)] italic text-[var(--color-text-primary)] leading-tight">
-                  Merakí is Better on the Go
+                  Meraká is Coming to Your Pocket
                 </h1>
-                
+
                 <p className="mt-4 text-base text-[var(--color-text-secondary)] leading-relaxed max-w-xl">
-                  Download the official Merakí mobile application to enjoy real-time messaging, instant booking updates, stamp tag scanning, and personalized alerts designed just for you.
+                  We're crafting the official Meraká mobile app to bring real-time messaging, instant booking updates, stamp tag scanning, and personalized alerts right to your phone. It's almost here.
                 </p>
               </div>
 
               {/* App Features checklist */}
               <div className="space-y-3.5">
+                <p className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)] flex items-center gap-1.5">
+                  <Sparkles size={12} className="text-[var(--color-brand-pink-dark)]" />
+                  <span>What's Inside</span>
+                </p>
                 {[
-                  { title: "NFC Stamp Card Pairing", desc: "Scan and pair physical loyalty tags directly with your phone's NFC reader." },
-                  { title: "Push Notifications", desc: "Instant reminders when your beauty session is approved, rescheduled, or cancelled." },
-                  { title: "Direct Master Messaging", desc: "Real-time chat with push alerts so you never miss custom instructions from professionals." },
-                  { title: "Academy Offline Learning", desc: "Watch video courses, submit academy homework, and complete tests on the go." }
+                  { title: 'NFC Stamp Card Pairing', desc: 'Scan and pair physical loyalty tags directly with your phone\'s NFC reader.' },
+                  { title: 'Push Notifications', desc: 'Instant reminders when your beauty session is approved, rescheduled, or cancelled.' },
+                  { title: 'Direct Master Messaging', desc: 'Real-time chat with push alerts so you never miss custom instructions from professionals.' },
+                  { title: 'Academy Offline Learning', desc: 'Watch video courses, submit academy homework, and complete tests on the go.' }
                 ].map((feat, idx) => (
                   <div key={idx} className="flex gap-3 items-start max-w-lg">
                     <div className="mt-0.5 w-5 h-5 rounded-full bg-[var(--color-brand-pink-light)] flex items-center justify-center shrink-0">
@@ -68,44 +72,31 @@ export default function GetAppPage() {
                 ))}
               </div>
 
-              {/* Store Download Buttons */}
-              <div className="pt-4 border-t border-[var(--color-brand-pink)]/15">
-                <p className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)] mb-4">Download Now</p>
-                <div className="flex flex-col sm:flex-row gap-4">
-                  {/* Apple App Store */}
-                  <a
-                    href="https://apps.apple.com/app/meraki"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-3 bg-[var(--color-text-primary)] text-white hover:bg-black px-6 py-3 rounded-2xl shadow-lg transition-all duration-300 transform hover:-translate-y-0.5 active:translate-y-0 group border border-white/5 cursor-pointer"
-                  >
-                    <Apple size={28} className="text-white shrink-0 group-hover:scale-105 transition-transform" />
-                    <div className="text-left">
-                      <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Download on the</p>
-                      <p className="text-base font-bold tracking-tight">App Store</p>
-                    </div>
-                  </a>
-
-                  {/* Google Play Store */}
-                  <a
-                    href="https://play.google.com/store/apps/details?id=com.meraki.app"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-3 bg-[var(--color-text-primary)] text-white hover:bg-black px-6 py-3 rounded-2xl shadow-lg transition-all duration-300 transform hover:-translate-y-0.5 active:translate-y-0 group border border-white/5 cursor-pointer"
-                  >
-                    <Play size={26} className="text-white fill-white shrink-0 group-hover:scale-105 transition-transform" />
-                    <div className="text-left">
-                      <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Get it on</p>
-                      <p className="text-base font-bold tracking-tight">Google Play</p>
-                    </div>
-                  </a>
+              {/* Coming Soon Status */}
+              <div className="pt-4 border-t border-[var(--color-brand-pink)]/15 max-w-lg">
+                <div className="flex items-center gap-3 bg-[var(--color-brand-pink-light)]/60 border border-[var(--color-brand-pink)]/25 rounded-2xl px-5 py-4">
+                  <div className="w-10 h-10 rounded-full bg-[var(--color-brand-pink-dark)] flex items-center justify-center shrink-0">
+                    <Clock size={20} className="text-white stroke-[2.5]" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-[var(--color-text-primary)]">Launching on iOS & Android</p>
+                    <p className="text-xs text-[var(--color-text-secondary)] mt-0.5">The Meraká app is still in the works. Check back soon for download links.</p>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Right Column: Premium Smartphone Frame Mockup */}
+            {/* Right Column: Premium Smartphone Frame Mockup with Coming Soon overlay */}
             <div className="lg:col-span-5 flex justify-center items-center">
               <div className="relative w-72 h-[560px] bg-neutral-900 rounded-[45px] p-3 shadow-2xl border-4 border-neutral-800 ring-[12px] ring-neutral-900 ring-offset-2 ring-offset-pink-50 animate-float">
+                {/* Coming Soon overlay badge */}
+                <div className="absolute -top-4 -right-4 z-30 rotate-6">
+                  <div className="bg-[var(--color-brand-pink-dark)] text-white text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-full shadow-xl border border-white/10 flex items-center gap-1.5">
+                    <Sparkles size={11} className="fill-white" />
+                    <span>Coming Soon</span>
+                  </div>
+                </div>
+
                 {/* Speaker & Sensor */}
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 h-5 w-32 bg-black rounded-b-2xl z-20 flex items-center justify-center">
                   <div className="w-12 h-1 bg-neutral-800 rounded-full" />
@@ -125,7 +116,7 @@ export default function GetAppPage() {
 
                   {/* Mock App Header */}
                   <div className="flex items-center justify-between mb-6">
-                    <span className="text-lg font-[family-name:var(--font-playfair)] italic text-pink-400">Merakí</span>
+                    <span className="text-lg font-[family-name:var(--font-playfair)] italic text-pink-400">Meraká</span>
                     <div className="w-7 h-7 rounded-full bg-neutral-800 flex items-center justify-center text-xs font-bold text-pink-400">
                       M
                     </div>
