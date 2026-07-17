@@ -39,6 +39,7 @@ export const ownerPrimaryNav: NavItem[] = [
   { path: 'appointments', label: 'Bookings', icon: CalendarCheck },
   { path: 'finance', label: 'Finance', icon: DollarSign },
   { path: 'services', label: 'Services', icon: Scissors },
+  { path: 'availability', label: 'Schedule', icon: Clock },
 ];
 
 export const ownerSecondaryNav: NavItem[] = [
