@@ -234,6 +234,8 @@ function QrCheckoutFlow() {
             },
           },
         );
+        const responseError = (invokeData as Record<string, unknown> | null)?.error;
+        if (responseError) throw new Error(String(responseError));
         if (error) throw error;
         data = invokeData!;
       }
