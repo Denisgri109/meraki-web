@@ -32,10 +32,8 @@ import {
 import {
   getAllCountries,
   getStatesOfCountry,
-  getCitiesOfState,
   type Country,
   type State,
-  type City,
 } from '@/lib/locationApi';
 
 type FieldErrors = {
@@ -46,7 +44,6 @@ type FieldErrors = {
   confirmPassword?: string;
   country?: string;
   state?: string;
-  city?: string;
 };
 
 export default function RegisterPage() {
@@ -87,11 +84,6 @@ export default function RegisterPage() {
   const [stateSearch, setStateSearch] = useState('');
   const [showCountryDropdown, setShowCountryDropdown] = useState(false);
   const [showStateDropdown, setShowStateDropdown] = useState(false);
-  const [showCityDropdown, setShowCityDropdown] = useState(false);
-  const [cities, setCities] = useState<City[]>([]);
-  const [selectedCity, setSelectedCity] = useState('');
-  const [citySearch, setCitySearch] = useState('');
-  const [loadingCities, setLoadingCities] = useState(false);
 
   // Load countries on mount
   useEffect(() => {
@@ -235,7 +227,6 @@ export default function RegisterPage() {
           country_code: selectedCountryCode,
           state: selectedStateName || null,
           state_code: selectedStateCode || null,
-          city: selectedCity,
           phone: normalizedPhone,
         })
         .eq('id', newUser.id);
@@ -563,12 +554,9 @@ export default function RegisterPage() {
                         setSelectedCountryCode(c.iso2);
                         setCountrySearch('');
                         setShowCountryDropdown(false);
-                        setSelectedCity('');
-                        setCitySearch('');
                         setSelectedStateName('');
                         setSelectedStateCode('');
                         setStateSearch('');
-                        setCities([]);
                         clearError('country');
                         setLoadingStates(true);
                         getStatesOfCountry(c.iso2).then(data => {
@@ -643,15 +631,7 @@ export default function RegisterPage() {
                           setSelectedStateCode(s.iso2);
                           setStateSearch('');
                           setShowStateDropdown(false);
-                          setSelectedCity('');
-                          setCitySearch('');
-                          setCities([]);
                           clearError('state');
-                          setLoadingCities(true);
-                          getCitiesOfState(selectedCountryCode, s.iso2).then(data => {
-                            setCities(data);
-                            setLoadingCities(false);
-                          }).catch(() => setLoadingCities(false));
                         }}
                         style={{
                           padding: '10px 16px',
@@ -670,85 +650,6 @@ export default function RegisterPage() {
             {errors.state && <p style={fieldErrorStyle}>{errors.state}</p>}
           </div>
         )}
-
-        {/* City */}
-        <div style={{ width: '100%' }} onClick={(e) => e.stopPropagation()}>
-          <label style={labelStyle}>City</label>
-          <div style={{ position: 'relative', width: '100%' }}>
-            <MapPin size={18} style={iconStyle} />
-            <input
-              type="text"
-              value={citySearch || selectedCity}
-              onChange={(e) => {
-                setCitySearch(e.target.value);
-                setShowCityDropdown(true);
-                clearError('city');
-              }}
-              onFocus={() => { if (cities.length > 0) setShowCityDropdown(true); }}
-              placeholder={
-                !selectedCountry
-                  ? 'Select country first'
-                  : states.length > 0 && !selectedStateName
-                  ? 'Select state first'
-                  : loadingCities
-                  ? 'Loading cities...'
-                  : cities.length > 0
-                  ? 'Select your city'
-                  : 'Enter your city'
-              }
-              disabled={!selectedCountry || (states.length > 0 && !selectedStateName)}
-              className="input-glass"
-              style={{
-                paddingLeft: '44px',
-                width: '100%',
-                boxSizing: 'border-box',
-                borderColor: errors.city ? '#FCA5A5' : undefined,
-                opacity: selectedCountry && (states.length === 0 || selectedStateName) ? 1 : 0.6,
-              }}
-            />
-            {showCityDropdown && cities.length > 0 && (
-              <div style={{
-                position: 'absolute',
-                top: '100%',
-                left: 0,
-                right: 0,
-                maxHeight: '180px',
-                overflow: 'auto',
-                background: 'white',
-                border: '1px solid rgba(0,0,0,0.1)',
-                borderRadius: '12px',
-                marginTop: '4px',
-                zIndex: 50,
-                boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-              }}>
-                {cities
-                  .filter(c => !citySearch || c.name.toLowerCase().includes(citySearch.toLowerCase()))
-                  .slice(0, 30)
-                  .map(c => (
-                    <div
-                      key={c.id}
-                      onClick={() => {
-                        setSelectedCity(c.name);
-                        setCitySearch('');
-                        setShowCityDropdown(false);
-                        clearError('city');
-                      }}
-                      style={{
-                        padding: '10px 16px',
-                        cursor: 'pointer',
-                        fontSize: '14px',
-                        borderBottom: '1px solid rgba(0,0,0,0.04)',
-                        background: selectedCity === c.name ? 'rgba(139,92,246,0.06)' : undefined,
-                      }}
-                    >
-                      {c.name}
-                    </div>
-                  ))}
-              </div>
-            )}
-          </div>
-          {errors.city && <p style={fieldErrorStyle}>{errors.city}</p>}
-        </div>
 
         {/* Email */}
         <div style={{ width: '100%' }}>

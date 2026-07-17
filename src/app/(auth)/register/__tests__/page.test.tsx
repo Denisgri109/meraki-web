@@ -6,8 +6,8 @@ import RegisterPage from '../page';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
-import { getAllCountries, getStatesOfCountry, getCitiesOfState } from '@/lib/locationApi';
-import type { Country, State, City } from '@/lib/locationApi';
+import { getAllCountries, getStatesOfCountry } from '@/lib/locationApi';
+import type { Country, State } from '@/lib/locationApi';
 
 // ─── Test data ──────────────────────────────────────────────────────────────
 
@@ -19,11 +19,6 @@ const mockCountries: Country[] = [
 const mockStates: State[] = [
   { id: 1, name: 'Dublin', iso2: 'D', country_code: 'IE', country_id: 1, latitude: '53.3', longitude: '-6.2' },
   { id: 2, name: 'Cork', iso2: 'C', country_code: 'IE', country_id: 1, latitude: '51.9', longitude: '-8.5' },
-];
-
-const mockCities: City[] = [
-  { id: 1, name: 'Dublin', state_id: 1, state_code: 'D', state_name: 'Dublin', country_id: 1, country_code: 'IE', country_name: 'Ireland', latitude: '53.3', longitude: '-6.2' },
-  { id: 2, name: 'Dún Laoghaire', state_id: 1, state_code: 'D', state_name: 'Dublin', country_id: 1, country_code: 'IE', country_name: 'Ireland', latitude: '53.3', longitude: '-6.1' },
 ];
 
 // ─── Mocks ──────────────────────────────────────────────────────────────────
@@ -48,7 +43,6 @@ jest.mock('@/lib/supabase/client', () => ({
 jest.mock('@/lib/locationApi', () => ({
   getAllCountries: jest.fn(),
   getStatesOfCountry: jest.fn(),
-  getCitiesOfState: jest.fn(),
 }));
 
 jest.mock('@/components/CountryCodeDropdown', () => ({
@@ -91,7 +85,6 @@ beforeEach(() => {
 
   (getAllCountries as jest.Mock).mockResolvedValue(mockCountries);
   (getStatesOfCountry as jest.Mock).mockResolvedValue(mockStates);
-  (getCitiesOfState as jest.Mock).mockResolvedValue(mockCities);
 });
 
 // ─── Helper ─────────────────────────────────────────────────────────────────
@@ -109,17 +102,13 @@ async function renderRegister() {
   });
 }
 
-async function selectLocation(countryName: string, stateName: string, cityName: string) {
+async function selectLocation(countryName: string, stateName: string) {
   fireEvent.focus(screen.getByPlaceholderText('Select your country'));
   fireEvent.click(screen.getByText(countryName));
 
   await waitFor(() => screen.getByPlaceholderText('Select your state'));
   fireEvent.focus(screen.getByPlaceholderText('Select your state'));
   fireEvent.click(screen.getByText(stateName));
-
-  await waitFor(() => screen.getByPlaceholderText('Select your city'));
-  fireEvent.focus(screen.getByPlaceholderText('Select your city'));
-  fireEvent.click(screen.getByText(cityName));
 }
 
 // ─── Tests ──────────────────────────────────────────────────────────────────
@@ -369,25 +358,6 @@ describe('RegisterPage', () => {
       expect(mockSignUp).not.toHaveBeenCalled();
     });
 
-    it('shows error for missing city when country is selected', async () => {
-      await renderRegister();
-
-      fireEvent.change(screen.getByPlaceholderText('Julianne Moore'), { target: { value: 'John Doe' } });
-      fireEvent.change(screen.getByPlaceholderText('name@example.com'), { target: { value: 'test@example.com' } });
-      fireEvent.change(screen.getByPlaceholderText('Min. 6 characters'), { target: { value: 'password123' } });
-      fireEvent.change(screen.getByPlaceholderText('••••••••'), { target: { value: 'password123' } });
-
-      // Select country
-      const countryInput = screen.getByPlaceholderText('Select your country');
-      fireEvent.focus(countryInput);
-      fireEvent.click(screen.getByText('Ireland'));
-
-      fireEvent.click(screen.getByRole('button', { name: /Create Account/i }));
-
-      expect(await screen.findByText('Please enter your city')).toBeInTheDocument();
-      expect(mockSignUp).not.toHaveBeenCalled();
-    });
-
     it('shows error for invalid phone when provided', async () => {
       await renderRegister();
 
@@ -412,7 +382,7 @@ describe('RegisterPage', () => {
       fireEvent.change(screen.getByPlaceholderText('Min. 6 characters'), { target: { value: 'password123' } });
       fireEvent.change(screen.getByPlaceholderText('••••••••'), { target: { value: 'password123' } });
 
-      await selectLocation('Ireland', 'Dublin', 'Dublin');
+      await selectLocation('Ireland', 'Dublin');
 
       // Accept TOS
       fireEvent.click(screen.getByRole('checkbox'));
@@ -532,7 +502,7 @@ describe('RegisterPage', () => {
       fireEvent.change(screen.getByPlaceholderText('Min. 6 characters'), { target: { value: 'password123' } });
       fireEvent.change(screen.getByPlaceholderText('••••••••'), { target: { value: 'password123' } });
 
-      await selectLocation('Ireland', 'Dublin', 'Dublin');
+      await selectLocation('Ireland', 'Dublin');
 
       // Don't accept TOS
       fireEvent.click(screen.getByRole('button', { name: /Create Account/i }));
@@ -597,7 +567,7 @@ describe('RegisterPage', () => {
       fireEvent.change(screen.getByPlaceholderText('Min. 6 characters'), { target: { value: 'password123' } });
       fireEvent.change(screen.getByPlaceholderText('••••••••'), { target: { value: 'password123' } });
 
-      await selectLocation('Ireland', 'Dublin', 'Dublin');
+      await selectLocation('Ireland', 'Dublin');
 
       fireEvent.click(screen.getByRole('checkbox'));
     }
@@ -669,7 +639,7 @@ describe('RegisterPage', () => {
       fireEvent.change(screen.getByPlaceholderText('Min. 6 characters'), { target: { value: 'password123' } });
       fireEvent.change(screen.getByPlaceholderText('••••••••'), { target: { value: 'password123' } });
 
-      await selectLocation('Ireland', 'Dublin', 'Dublin');
+      await selectLocation('Ireland', 'Dublin');
       fireEvent.click(screen.getByRole('checkbox'));
 
       fireEvent.click(screen.getByRole('button', { name: /Create Account/i }));
@@ -784,7 +754,7 @@ describe('RegisterPage', () => {
     it('disables submit button and shows loading state during registration', async () => {
       await renderRegister();
 
-      let resolveSignUp: (value: any) => void;
+      let resolveSignUp!: (value: any) => void;
       mockSignUp.mockImplementation(() => new Promise(resolve => { resolveSignUp = resolve; }));
 
       await fillValidForm();
@@ -822,7 +792,7 @@ describe('RegisterPage', () => {
       fireEvent.change(screen.getByPlaceholderText('name@example.com'), { target: { value: 'test@example.com' } });
       fireEvent.change(screen.getByPlaceholderText('Min. 6 characters'), { target: { value: 'password123' } });
       fireEvent.change(screen.getByPlaceholderText('••••••••'), { target: { value: 'password123' } });
-      await selectLocation('Ireland', 'Dublin', 'Dublin');
+      await selectLocation('Ireland', 'Dublin');
 
       // Don't accept TOS
       fireEvent.click(screen.getByRole('button', { name: /Create Account/i }));
