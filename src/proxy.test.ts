@@ -113,7 +113,7 @@ describe('proxy', () => {
       { name: 'test-cookie', value: 'test-value', options: { path: '/' } }
     ];
 
-    setAll!(mockCookiesToSet);
+    setAll!(mockCookiesToSet, {});
 
     // Get the mock next Response cookie set
     const nextResponseMock = jest.mocked(NextResponse.next);
