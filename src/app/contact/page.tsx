@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Footer } from '@/components/Footer';
 import { MainNavbar } from '@/components/MainNavbar';
 import { Mail, Phone, Clock } from 'lucide-react';
+import { EditableText } from '@/components/editable/EditableText';
 
 export default function ContactPage() {
   return (
@@ -19,16 +20,22 @@ export default function ContactPage() {
           <div className="flex flex-col justify-center">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-pink-50 border border-pink-100 w-fit mb-6 shadow-sm">
               <span className="w-2 h-2 rounded-full bg-[var(--color-primary)] animate-pulse" />
-              <span className="text-xs font-bold uppercase tracking-wider text-[var(--color-primary)]">Get in Touch</span>
+              <EditableText contentKey="contact.eyebrow" fallback="Get in Touch" as="span" className="text-xs font-bold uppercase tracking-wider text-[var(--color-primary)]" />
             </div>
             
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-[family-name:var(--font-playfair)] text-[var(--color-text-primary)] mb-6 leading-tight">
-              Let's craft your <span className="italic text-[var(--color-primary)]">perfect</span> look.
-            </h1>
-            <p className="text-base text-[var(--color-text-secondary)] mb-10 leading-relaxed max-w-md">
-              Have a question about our services, products, or your account? 
-              We're here to help. Reach out to our dedicated support team to start your journey.
-            </p>
+            <EditableText
+              contentKey="contact.heading"
+              fallback="Let's craft your perfect look."
+              as="h1"
+              className="text-4xl sm:text-5xl lg:text-6xl font-[family-name:var(--font-playfair)] text-[var(--color-text-primary)] mb-6 leading-tight"
+            />
+            <EditableText
+              contentKey="contact.paragraph"
+              fallback="Have a question about our services, products, or your account? We're here to help. Reach out to our dedicated support team to start your journey."
+              as="p"
+              multiline
+              className="text-base text-[var(--color-text-secondary)] mb-10 leading-relaxed max-w-md"
+            />
             
             <div className="space-y-6">
               <div className="flex items-start gap-4 group">
@@ -66,7 +73,7 @@ export default function ContactPage() {
             <div className="absolute -inset-1 bg-gradient-to-r from-[var(--color-brand-pink-light)] to-[var(--color-brand-pink)] rounded-[var(--radius-3xl)] blur opacity-30" />
             
             <div className="glass-card relative bg-white/80 backdrop-blur-xl p-8 sm:p-10 rounded-[var(--radius-3xl)] shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-white">
-              <h3 className="text-xl font-bold text-[var(--color-text-primary)] mb-8">Send us a message</h3>
+              <EditableText contentKey="contact.form_heading" fallback="Send us a message" as="h3" className="text-xl font-bold text-[var(--color-text-primary)] mb-8" />
               <form className="space-y-5" onSubmit={(e) => e.preventDefault()}>
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-[var(--color-text-secondary)] mb-2 ml-1">Name</label>
@@ -82,7 +89,7 @@ export default function ContactPage() {
                 </div>
                 <div className="pt-2">
                   <button type="submit" className="w-full btn-pink py-4 rounded-2xl font-bold shadow-glow transition-all hover:translate-y-[-2px] hover:shadow-[0_8px_20px_rgba(232,160,180,0.3)] active:translate-y-[1px]">
-                    Send Message
+                  <EditableText contentKey="contact.form_button" fallback="Send Message" as="span" />
                   </button>
                 </div>
               </form>

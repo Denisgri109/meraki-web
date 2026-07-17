@@ -18,6 +18,9 @@ export interface PilatesWaiverData {
   hasBoneCondition: boolean;
   agreedTermsOfUse: boolean;
   agreedLiabilityWaiver: boolean;
+  emergencyContactName: string;
+  emergencyContactRelationship: string;
+  emergencyContactPhone: string;
 }
 
 export interface UsePilatesWaiverResult {
@@ -100,9 +103,9 @@ export function usePilatesWaiver(): UsePilatesWaiverResult {
           user_id: user.id,
           has_injuries: injuriesText.length > 0,
           injury_details: injuriesText || null,
-          emergency_contact_name: null,
-          emergency_contact_relationship: null,
-          emergency_contact_phone: null,
+          emergency_contact_name: data.emergencyContactName.trim() || null,
+          emergency_contact_relationship: data.emergencyContactRelationship.trim() || null,
+          emergency_contact_phone: data.emergencyContactPhone.trim() || null,
           signature_name: null,
           signed_at: new Date().toISOString(),
           terms_version: '3.0',

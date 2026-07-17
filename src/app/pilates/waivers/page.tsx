@@ -29,10 +29,22 @@ interface WaiverRow {
   emergency_contact_name: string | null;
   emergency_contact_relationship: string | null;
   emergency_contact_phone: string | null;
-  signature_name: string;
+  signature_name: string | null;
   signed_at: string;
   terms_version: string | null;
   created_at: string | null;
+  injuries_joint_problems: string | null;
+  pilates_experience: string | null;
+  has_illnesses: boolean | null;
+  illness_details: string | null;
+  pregnancy_status: string | null;
+  medication_details: string | null;
+  exercise_history: string | null;
+  practitioner_recommended: boolean | null;
+  goals_expectations: string | null;
+  has_bone_condition: boolean | null;
+  agreed_terms_of_use: boolean | null;
+  agreed_liability_waiver: boolean | null;
   // Joined profile data
   profile: {
     full_name: string | null;
@@ -64,6 +76,9 @@ export default function WaiversPage() {
           `id, user_id, has_injuries, injury_details,
            emergency_contact_name, emergency_contact_relationship, emergency_contact_phone,
            signature_name, signed_at, terms_version, created_at,
+           injuries_joint_problems, pilates_experience, has_illnesses, illness_details,
+           pregnancy_status, medication_details, exercise_history, practitioner_recommended,
+           goals_expectations, has_bone_condition, agreed_terms_of_use, agreed_liability_waiver,
            profile:profiles!pilates_waivers_user_id_fkey(full_name, email, phone)`,
         )
         .order('signed_at', { ascending: false });
@@ -309,24 +324,88 @@ export default function WaiversPage() {
                 {/* Expanded details */}
                 {isExpanded && (
                   <div className="border-t border-[var(--color-border-light)] px-5 py-4 space-y-4 bg-[var(--color-surface-light)]/20">
-                    {/* Injury disclosure */}
-                    <div>
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)] mb-2 flex items-center gap-1.5">
-                        <HeartPulse size={14} className="text-emerald-600" />
-                        Injury Disclosure
-                      </h4>
-                      {waiver.has_injuries ? (
-                        <div className="bg-amber-50 border border-amber-100 rounded-xl p-3">
-                          <p className="text-sm text-amber-900 whitespace-pre-line">
-                            {waiver.injury_details || 'No details provided'}
-                          </p>
+                    {/* v3.0 Health Screening — shown for v3.0 waivers */}
+                    {waiver.injuries_joint_problems !== null && (
+                      <div>
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)] mb-2 flex items-center gap-1.5">
+                          <HeartPulse size={14} className="text-emerald-600" />
+                          Health Screening
+                        </h4>
+                        <div className="bg-white border border-[var(--color-border-light)] rounded-xl p-3 space-y-3">
+                          <div>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-muted)]">Injuries & Joint Problems</span>
+                            <p className="text-sm text-[var(--color-text-primary)] mt-0.5 whitespace-pre-line">{waiver.injuries_joint_problems || '—'}</p>
+                          </div>
+                          <div>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-muted)]">Pilates Experience</span>
+                            <p className="text-sm text-[var(--color-text-primary)] mt-0.5 whitespace-pre-line">{waiver.pilates_experience || '—'}</p>
+                          </div>
+                          {waiver.has_illnesses !== null && (
+                            <div>
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-muted)]">Has Illnesses/Disabilities</span>
+                              <p className="text-sm text-[var(--color-text-primary)] mt-0.5">{waiver.has_illnesses ? 'Yes' : 'No'}</p>
+                            </div>
+                          )}
+                          {waiver.has_illnesses && waiver.illness_details && (
+                            <div>
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-muted)]">Illness Details</span>
+                              <p className="text-sm text-[var(--color-text-primary)] mt-0.5 whitespace-pre-line">{waiver.illness_details}</p>
+                            </div>
+                          )}
+                          {waiver.pregnancy_status && (
+                            <div>
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-muted)]">Pregnancy Status</span>
+                              <p className="text-sm text-[var(--color-text-primary)] mt-0.5">{waiver.pregnancy_status === 'not_applicable' ? 'N/A' : waiver.pregnancy_status === 'yes' ? 'Yes' : 'No'}</p>
+                            </div>
+                          )}
+                          <div>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-muted)]">Medication Details</span>
+                            <p className="text-sm text-[var(--color-text-primary)] mt-0.5 whitespace-pre-line">{waiver.medication_details || '—'}</p>
+                          </div>
+                          <div>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-muted)]">Exercise History</span>
+                            <p className="text-sm text-[var(--color-text-primary)] mt-0.5 whitespace-pre-line">{waiver.exercise_history || '—'}</p>
+                          </div>
+                          {waiver.practitioner_recommended !== null && (
+                            <div>
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-muted)]">Practitioner Recommended</span>
+                              <p className="text-sm text-[var(--color-text-primary)] mt-0.5">{waiver.practitioner_recommended ? 'Yes' : 'No'}</p>
+                            </div>
+                          )}
+                          <div>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-muted)]">Goals & Expectations</span>
+                            <p className="text-sm text-[var(--color-text-primary)] mt-0.5 whitespace-pre-line">{waiver.goals_expectations || '—'}</p>
+                          </div>
+                          {waiver.has_bone_condition !== null && (
+                            <div>
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-muted)]">Osteoporosis/Osteopenia</span>
+                              <p className="text-sm text-[var(--color-text-primary)] mt-0.5">{waiver.has_bone_condition ? 'Yes' : 'No'}</p>
+                            </div>
+                          )}
                         </div>
-                      ) : (
-                        <p className="text-sm text-[var(--color-text-secondary)]">
-                          No injuries, medical conditions, or limitations disclosed.
-                        </p>
-                      )}
-                    </div>
+                      </div>
+                    )}
+
+                    {/* v2.0 Injury Disclosure — fallback for older waivers */}
+                    {waiver.injuries_joint_problems === null && (
+                      <div>
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)] mb-2 flex items-center gap-1.5">
+                          <HeartPulse size={14} className="text-emerald-600" />
+                          Injury Disclosure
+                        </h4>
+                        {waiver.has_injuries ? (
+                          <div className="bg-amber-50 border border-amber-100 rounded-xl p-3">
+                            <p className="text-sm text-amber-900 whitespace-pre-line">
+                              {waiver.injury_details || 'No details provided'}
+                            </p>
+                          </div>
+                        ) : (
+                          <p className="text-sm text-[var(--color-text-secondary)]">
+                            No injuries, medical conditions, or limitations disclosed.
+                          </p>
+                        )}
+                      </div>
+                    )}
 
                     {/* Emergency contact */}
                     <div>
@@ -364,21 +443,47 @@ export default function WaiversPage() {
                       </div>
                     </div>
 
-                    {/* Signature */}
+                    {/* Consent — v3.0 */}
+                    {(waiver.agreed_terms_of_use !== null || waiver.agreed_liability_waiver !== null) && (
+                      <div>
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)] mb-2 flex items-center gap-1.5">
+                          <ShieldCheck size={14} className="text-emerald-600" />
+                          Consent
+                        </h4>
+                        <div className="bg-white border border-[var(--color-border-light)] rounded-xl p-3 space-y-1.5">
+                          {waiver.agreed_terms_of_use !== null && (
+                            <p className={`text-sm flex items-center gap-2 ${waiver.agreed_terms_of_use ? 'text-emerald-700' : 'text-red-600'}`}>
+                              <span>{waiver.agreed_terms_of_use ? '\u2713' : '\u2717'}</span>
+                              Terms of Use {waiver.agreed_terms_of_use ? 'agreed' : 'NOT agreed'}
+                            </p>
+                          )}
+                          {waiver.agreed_liability_waiver !== null && (
+                            <p className={`text-sm flex items-center gap-2 ${waiver.agreed_liability_waiver ? 'text-emerald-700' : 'text-red-600'}`}>
+                              <span>{waiver.agreed_liability_waiver ? '\u2713' : '\u2717'}</span>
+                              Liability Waiver {waiver.agreed_liability_waiver ? 'agreed' : 'NOT agreed'}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Signature & Details */}
                     <div>
                       <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)] mb-2 flex items-center gap-1.5">
                         <PenLine size={14} className="text-emerald-600" />
-                        Digital Signature
+                        Signature & Details
                       </h4>
                       <div className="bg-white border border-[var(--color-border-light)] rounded-xl p-3">
-                        <p
-                          className="text-lg font-medium text-[var(--color-text-primary)]"
-                          style={{
-                            fontFamily: 'Georgia, "Times New Roman", serif',
-                          }}
-                        >
-                          {waiver.signature_name}
-                        </p>
+                        {waiver.signature_name && (
+                          <p
+                            className="text-lg font-medium text-[var(--color-text-primary)]"
+                            style={{
+                              fontFamily: 'Georgia, "Times New Roman", serif',
+                            }}
+                          >
+                            {waiver.signature_name}
+                          </p>
+                        )}
                         <p className="text-xs text-[var(--color-text-muted)] mt-1">
                           Signed on{' '}
                           {signedDate.toLocaleString(undefined, {

@@ -333,8 +333,11 @@ export default function SupportPage() {
             <div className="space-y-2">
               {filteredFaqs.map(faq => (
                 <div key={faq.id} className="glass-card overflow-hidden">
-                  <button
+                  <div
+                    role="button"
+                    tabIndex={0}
                     onClick={() => setExpandedFaq(expandedFaq === faq.id ? null : faq.id)}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandedFaq(expandedFaq === faq.id ? null : faq.id); } }}
                     className="w-full px-5 py-4 flex items-center gap-3 text-left cursor-pointer hover:bg-[var(--color-surface-light)] transition-colors"
                   >
                     <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[var(--color-brand-pink-light)] to-pink-100 flex items-center justify-center shrink-0">
@@ -359,7 +362,7 @@ export default function SupportPage() {
                     ) : (
                       <ChevronDown size={18} className="text-[var(--color-text-muted)] shrink-0" />
                     )}
-                  </button>
+                  </div>
                   {expandedFaq === faq.id && (
                     <div className="px-5 pb-4 pt-0 border-t border-[var(--color-border-light)]">
                       <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed mt-3 ml-11">

@@ -138,6 +138,9 @@ describe('usePilatesWaiver', () => {
       hasBoneCondition: false,
       agreedTermsOfUse: true,
       agreedLiabilityWaiver: true,
+      emergencyContactName: 'Jane Doe',
+      emergencyContactRelationship: 'Spouse',
+      emergencyContactPhone: '+353 86 123 4567',
     };
 
     it('throws when user is not signed in', async () => {
@@ -269,7 +272,7 @@ describe('usePilatesWaiver', () => {
       expect(upsertCall.injuries_joint_problems).toBe('shoulder impingement');
     });
 
-    it('sets legacy has_injuries false and emergency fields null for v3.0', async () => {
+    it('sets legacy has_injuries false when injuries text is empty', async () => {
       const { result } = renderHook(() => usePilatesWaiver());
       await waitFor(() => expect(result.current.loading).toBe(false));
       await act(async () => {
@@ -281,9 +284,19 @@ describe('usePilatesWaiver', () => {
       const upsertCall = mocks.mockUpsert.mock.calls[0][0];
       expect(upsertCall.has_injuries).toBe(false);
       expect(upsertCall.injury_details).toBeNull();
-      expect(upsertCall.emergency_contact_name).toBeNull();
-      expect(upsertCall.emergency_contact_phone).toBeNull();
       expect(upsertCall.signature_name).toBeNull();
+    });
+
+    it('passes emergency contact fields to upsert', async () => {
+      const { result } = renderHook(() => usePilatesWaiver());
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      await act(async () => {
+        await result.current.submitWaiver(validData);
+      });
+      const upsertCall = mocks.mockUpsert.mock.calls[0][0];
+      expect(upsertCall.emergency_contact_name).toBe('Jane Doe');
+      expect(upsertCall.emergency_contact_relationship).toBe('Spouse');
+      expect(upsertCall.emergency_contact_phone).toBe('+353 86 123 4567');
     });
   });
 });

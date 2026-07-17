@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useSection } from '@/contexts/SectionContext';
+import { EditableText } from '@/components/editable/EditableText';
 
 export function Footer() {
   const { buildPath } = useSection();
@@ -10,7 +11,7 @@ export function Footer() {
       <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8">
         <div>
           <span className="text-2xl font-[family-name:var(--font-playfair)] italic">Merakí</span>
-          <p className="text-white/50 text-sm mt-2">Beauty with soul</p>
+          <EditableText contentKey="footer.tagline" fallback="Beauty with soul" as="p" className="text-white/50 text-sm mt-2" />
         </div>
         <div>
           <h4 className="text-xs font-bold uppercase tracking-wider text-white/50 mb-3">Platform</h4>

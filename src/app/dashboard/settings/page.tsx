@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/components/Toast';
 import { useModal } from '@/contexts/ModalContext';
-import { Settings, User, Shield, Save, Loader2, Camera, CreditCard, Mail, Dumbbell, AlertTriangle, X, Briefcase, Image as ImageIcon, Trash2, Plus, ExternalLink, MapPin, Crosshair, Palette, Pencil, Check, RotateCcw, Eye, Monitor } from 'lucide-react';
+import { Settings, User, Shield, Save, Loader2, Camera, CreditCard, Mail, Dumbbell, AlertTriangle, X, Briefcase, Image as ImageIcon, Trash2, Plus, ExternalLink, MapPin, Crosshair, Palette, Pencil, Check, RotateCcw, Eye } from 'lucide-react';
 import pLimit from 'p-limit';
 import BusinessSettingsPanel from '@/components/BusinessSettingsPanel';
 import type { BusinessSettingsPanelRef } from '@/components/BusinessSettingsPanel';
@@ -503,7 +503,7 @@ export default function SettingsPage() {
         body: { return_url: window.location.href }
       });
 
-      const errorMessage = error?.message || data?.error || (typeof data === 'string' ? data : null);
+      const errorMessage = data?.error || error?.message || (typeof data === 'string' ? data : null);
       if (errorMessage) {
         throw new Error(errorMessage);
       }
@@ -1307,54 +1307,6 @@ export default function SettingsPage() {
                       <p className="text-xs text-[var(--color-text-muted)]">See what clients see after login</p>
                     </div>
                   </button>
-                </div>
-              </div>
-
-              {/* Preview Card */}
-              <div className="glass-card p-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <Monitor size={18} className="text-[var(--color-text-muted)]" />
-                  <h3 className="font-semibold text-sm text-[var(--color-text-primary)]">Live Preview</h3>
-                  <span className="text-xs text-[var(--color-text-muted)] ml-auto">
-                    {isEditMode ? 'Click text or images on the landing page to edit' : 'Enable edit mode to make changes'}
-                  </span>
-                </div>
-                <div className="rounded-[var(--radius-lg)] overflow-hidden border border-[var(--color-border-light)] bg-white shadow-inner">
-                  <div className="bg-[var(--color-surface-light)] px-4 py-2 border-b border-[var(--color-border-light)] flex items-center gap-2">
-                    <div className="flex gap-1.5">
-                      <div className="w-3 h-3 rounded-full bg-red-400" />
-                      <div className="w-3 h-3 rounded-full bg-yellow-400" />
-                      <div className="w-3 h-3 rounded-full bg-green-400" />
-                    </div>
-                    <div className="flex-1 mx-4">
-                      <div className="bg-white rounded-md px-3 py-1 text-xs text-[var(--color-text-muted)] truncate">
-                        {typeof window !== 'undefined' ? window.location.origin : 'https://meraki.app'}/
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => router.push('/')}
-                      className="text-xs text-pink-600 hover:text-pink-700 font-medium cursor-pointer"
-                    >
-                      Open full page →
-                    </button>
-                  </div>
-                  <div className="relative" style={{ height: '420px' }}>
-                    <iframe
-                      src="/"
-                      title="Landing Page Preview"
-                      className="w-full h-full border-0"
-                      style={{ pointerEvents: isEditMode ? 'auto' : 'none' }}
-                    />
-                    {!isEditMode && (
-                      <div className="absolute inset-0 bg-white/40 flex items-center justify-center">
-                        <div className="text-center">
-                          <Eye size={32} className="mx-auto text-[var(--color-text-muted)] mb-2" />
-                          <p className="text-sm font-medium text-[var(--color-text-secondary)]">Read-only preview</p>
-                          <p className="text-xs text-[var(--color-text-muted)] mt-1">Enable edit mode to interact</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
                 </div>
               </div>
 

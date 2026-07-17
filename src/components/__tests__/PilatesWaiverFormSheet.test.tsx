@@ -146,6 +146,9 @@ describe('PilatesWaiverFormSheet', () => {
     expect(screen.getByText(/Please select an option/i)).toBeInTheDocument();
     expect(screen.getByText(/You must agree to the Terms of Use/i)).toBeInTheDocument();
     expect(screen.getByText(/You must agree to the liability waiver/i)).toBeInTheDocument();
+    expect(screen.getByText(/Please enter a contact name/i)).toBeInTheDocument();
+    expect(screen.getByText(/Please enter the relationship/i)).toBeInTheDocument();
+    expect(screen.getByText(/Please enter a valid phone number/i)).toBeInTheDocument();
   });
 
   it('calls onDismiss when close button clicked', () => {
@@ -172,6 +175,15 @@ describe('PilatesWaiverFormSheet', () => {
     });
     fireEvent.change(screen.getByPlaceholderText(/Improve core strength/i), {
       target: { value: 'Better posture' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('Full name'), {
+      target: { value: 'Jane Doe' },
+    });
+    fireEvent.change(screen.getByPlaceholderText(/Spouse, Parent/i), {
+      target: { value: 'Spouse' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('Phone number'), {
+      target: { value: '+353861234567' },
     });
     fireEvent.click(screen.getByLabelText(/General Terms of Use/i));
     fireEvent.click(screen.getByLabelText(/I understand and agree to the above terms/i));

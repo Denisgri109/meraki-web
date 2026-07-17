@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { X, Loader2, ShieldCheck, AlertTriangle, HeartPulse, FileText } from 'lucide-react';
+import { X, Loader2, ShieldCheck, AlertTriangle, HeartPulse, FileText, Phone } from 'lucide-react';
 import { usePilatesWaiver, type PilatesWaiverData } from '@/hooks/usePilatesWaiver';
 import { useToast } from '@/components/Toast';
 
@@ -36,6 +36,9 @@ export default function PilatesWaiverFormSheet({
   const [hasBoneCondition, setHasBoneCondition] = useState<string | null>(null);
   const [agreedTermsOfUse, setAgreedTermsOfUse] = useState(false);
   const [agreedLiabilityWaiver, setAgreedLiabilityWaiver] = useState(false);
+  const [emergencyContactName, setEmergencyContactName] = useState('');
+  const [emergencyContactRelationship, setEmergencyContactRelationship] = useState('');
+  const [emergencyContactPhone, setEmergencyContactPhone] = useState('');
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [formError, setFormError] = useState('');
 
@@ -52,6 +55,9 @@ export default function PilatesWaiverFormSheet({
     setHasBoneCondition(null);
     setAgreedTermsOfUse(false);
     setAgreedLiabilityWaiver(false);
+    setEmergencyContactName('');
+    setEmergencyContactRelationship('');
+    setEmergencyContactPhone('');
     setSubmitAttempted(false);
     setFormError('');
   }, []);
@@ -91,6 +97,9 @@ export default function PilatesWaiverFormSheet({
     hasBoneCondition: hasBoneCondition === null,
     agreedTermsOfUse: !agreedTermsOfUse,
     agreedLiabilityWaiver: !agreedLiabilityWaiver,
+    emergencyContactName: emergencyContactName.trim().length < 2,
+    emergencyContactRelationship: emergencyContactRelationship.trim().length < 2,
+    emergencyContactPhone: emergencyContactPhone.trim().length < 5,
   };
   const hasErrors = Object.values(errors).some(Boolean);
 
@@ -112,6 +121,9 @@ export default function PilatesWaiverFormSheet({
       hasBoneCondition: hasBoneCondition === 'yes',
       agreedTermsOfUse,
       agreedLiabilityWaiver,
+      emergencyContactName: emergencyContactName.trim(),
+      emergencyContactRelationship: emergencyContactRelationship.trim(),
+      emergencyContactPhone: emergencyContactPhone.trim(),
     };
 
     try {
@@ -431,6 +443,81 @@ export default function PilatesWaiverFormSheet({
               </div>
               {submitAttempted && errors.hasBoneCondition && (
                 <p className="mt-1 text-xs text-red-600">Please select Yes or No.</p>
+              )}
+            </div>
+          </div>
+
+          {/* ── Emergency Contact ── */}
+          <div className="space-y-4 pt-2 border-t border-gray-100">
+            <div className="flex items-center gap-2 pt-2">
+              <Phone size={16} className="text-emerald-600" />
+              <h3 className="text-[13px] font-bold text-gray-900 uppercase tracking-wider">
+                Emergency Contact
+              </h3>
+            </div>
+            <p className="text-[11px] text-gray-500 -mt-2">
+              Required — we need someone to contact in case of an emergency during your session.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label htmlFor="ec-name" className="block text-[13px] font-bold text-gray-900 mb-2">
+                  Contact Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="ec-name"
+                  type="text"
+                  value={emergencyContactName}
+                  onChange={(e) => setEmergencyContactName(e.target.value)}
+                  className={`w-full rounded-2xl border px-4 py-3 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:ring-2 ${
+                    submitAttempted && errors.emergencyContactName
+                      ? 'border-red-300 bg-red-50 focus:border-red-400 focus:ring-red-200'
+                      : 'border-gray-200 bg-gray-50 focus:border-emerald-400 focus:bg-white focus:ring-emerald-200'
+                  }`}
+                  placeholder="Full name"
+                />
+                {submitAttempted && errors.emergencyContactName && (
+                  <p className="mt-1 text-xs text-red-600">Please enter a contact name (min 2 characters).</p>
+                )}
+              </div>
+              <div>
+                <label htmlFor="ec-relationship" className="block text-[13px] font-bold text-gray-900 mb-2">
+                  Relationship <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="ec-relationship"
+                  type="text"
+                  value={emergencyContactRelationship}
+                  onChange={(e) => setEmergencyContactRelationship(e.target.value)}
+                  className={`w-full rounded-2xl border px-4 py-3 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:ring-2 ${
+                    submitAttempted && errors.emergencyContactRelationship
+                      ? 'border-red-300 bg-red-50 focus:border-red-400 focus:ring-red-200'
+                      : 'border-gray-200 bg-gray-50 focus:border-emerald-400 focus:bg-white focus:ring-emerald-200'
+                  }`}
+                  placeholder="e.g., Spouse, Parent, Sibling"
+                />
+                {submitAttempted && errors.emergencyContactRelationship && (
+                  <p className="mt-1 text-xs text-red-600">Please enter the relationship (min 2 characters).</p>
+                )}
+              </div>
+            </div>
+            <div>
+              <label htmlFor="ec-phone" className="block text-[13px] font-bold text-gray-900 mb-2">
+                Contact Phone <span className="text-red-500">*</span>
+              </label>
+              <input
+                id="ec-phone"
+                type="tel"
+                value={emergencyContactPhone}
+                onChange={(e) => setEmergencyContactPhone(e.target.value)}
+                className={`w-full rounded-2xl border px-4 py-3 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:ring-2 ${
+                  submitAttempted && errors.emergencyContactPhone
+                    ? 'border-red-300 bg-red-50 focus:border-red-400 focus:ring-red-200'
+                    : 'border-gray-200 bg-gray-50 focus:border-emerald-400 focus:bg-white focus:ring-emerald-200'
+                }`}
+                placeholder="Phone number"
+              />
+              {submitAttempted && errors.emergencyContactPhone && (
+                <p className="mt-1 text-xs text-red-600">Please enter a valid phone number (min 5 digits).</p>
               )}
             </div>
           </div>
