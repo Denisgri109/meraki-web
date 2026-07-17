@@ -11,24 +11,44 @@
 create table if not exists public.pilates_waivers (
   id                          uuid primary key default gen_random_uuid(),
 
-  -- The client who signed the waiver
-  user_id                     uuid not null references auth.users(id) on delete cascade,
+  -- The client who signed the waiver.
+  -- FK targets profiles(id), NOT auth.users(id), so PostgREST can resolve the
+  -- embedded join `profiles!pilates_waivers_user_id_fkey(...)` used by the
+  -- owner-facing waivers page.  profiles.id is itself a CASCADE FK to
+  -- auth.users(id), so user-existence integrity is preserved.
+  -- (Originally referenced auth.users(id); repointed 2026-07-16 — see
+  --  migration 20260716000000_repoint_pilates_waivers_fk_to_profiles.sql)
+  user_id                     uuid not null references public.profiles(id) on delete cascade,
 
-  -- Injury disclosure
+  -- ── v2.0 columns (kept for backward compatibility; NULL for v3.0 submissions) ──
   has_injuries                boolean     not null default false,
   injury_details              text,
-
-  -- Emergency contact (stored as columns for queryability)
   emergency_contact_name         text,
   emergency_contact_relationship text,
   emergency_contact_phone         text,
-
-  -- Digital signature
-  signature_name              text        not null,
+  signature_name              text,
   signed_at                   timestamptz not null default now(),
 
   -- Version of the terms that were agreed to (lets you re-prompt if T&Cs change)
   terms_version               text        not null default '2.0',
+
+  -- ── v3.0 Health Screening Questionnaire columns ──────────────────────
+  injuries_joint_problems     text,
+  pilates_experience          text,
+  has_illnesses               boolean     default false,
+  illness_details             text,
+  pregnancy_status            text,
+  medication_details          text,
+  exercise_history            text,
+  practitioner_recommended    boolean     default false,
+  goals_expectations          text,
+  has_bone_condition          boolean     default false,
+
+  -- ── v3.0 Consent columns ─────────────────────────────────────────────
+  agreed_terms_of_use         boolean     default false,
+  agreed_email_marketing      boolean     default false,
+  agreed_sms_marketing        boolean     default false,
+  agreed_liability_waiver     boolean     default false,
 
   created_at                  timestamptz not null default now(),
   updated_at                  timestamptz not null default now()

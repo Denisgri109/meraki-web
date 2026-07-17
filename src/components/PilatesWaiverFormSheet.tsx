@@ -1,66 +1,20 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import {
-  X,
-  ShieldCheck,
-  AlertTriangle,
-  Phone,
-  User as UserIcon,
-  HeartPulse,
-  Loader2,
-  PenLine,
-  ChevronDown,
-} from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
+import { X, Loader2, ShieldCheck, AlertTriangle, HeartPulse, FileText } from 'lucide-react';
 import { usePilatesWaiver, type PilatesWaiverData } from '@/hooks/usePilatesWaiver';
 import { useToast } from '@/components/Toast';
 
 interface PilatesWaiverFormSheetProps {
   open: boolean;
-  /** Called after a successful submission */
   onSigned: () => void;
-  /** Called when the user dismisses the sheet (X button or backdrop) */
   onDismiss: () => void;
 }
 
-const TERMS_TEXT = `INJURY DISCLOSURE AND LIABILITY WAIVER — MERAKI PILATES
+const WAIVER_TEXT = `Please feel free to mention anything else that we may need to know to keep your session safe both now and as the training progresses. Whilst every effort is made to keep the session both safe and effective, there is a risk of injury as with any programme of activity. You are responsible for your own body. Should you feel any discomfort in areas of concern (neck, lower back, shoulders), please inform me immediately and we can modify the move.
 
-This agreement is made between Meraki Pilates Limited trading as Meraki Pilates Studio (including its directors, employees, and independent instructors, collectively referred to as "the Studio") and the undersigned participant ("the Participant").
-
-1. ACKNOWLEDGEMENT OF INHERENT RISKS
-I acknowledge that participation in Pilates classes (including Mat Pilates and classes utilising specialised equipment/apparatus such as Reformers, Towers, and Chairs) involves physical exertion and movement. I understand that physical exercise carries inherent risks of injury, including but not limited to muscle strains, joint sprains, dizziness, and slips or falls. I confirm that I am participating voluntarily and accept the risks naturally inherent in such physical activity.
-
-2. HEALTH AND INJURY DISCLOSURE
-I confirm that I have truthfully disclosed any pre-existing injuries, medical conditions, surgeries, physical limitations, or pregnancy. I understand that the Studio uses this information solely to provide safe, appropriate modifications during classes. I agree to inform my instructor immediately before any class begins of any changes to my physical condition, health status, or pregnancy.
-
-3. MEDICAL FITNESS
-I confirm that I am in good physical health and have consulted with a medical practitioner (GP or specialist) regarding my fitness to participate in Pilates if I have any of the conditions disclosed in Section 2. I acknowledge that the Studio's instructors are fitness professionals, not medical practitioners, and cannot diagnose medical conditions or advise on the medical safety of exercises.
-
-4. LIMITATION OF LIABILITY
-To the fullest extent permitted under Irish law:
-(a) I agree that the Studio shall not be liable for any personal injury, loss, or damage I sustain, unless such injury, loss, or damage is directly caused by the negligence, breach of contract, or breach of statutory duty of the Studio or its staff.
-(b) The Studio does not exclude or limit its liability for death or personal injury arising from its own negligence.
-(c) I acknowledge that the Studio is not responsible for any loss or damage to my personal belongings left on the premises.
-
-5. EMERGENCY MEDICAL CONSENT
-In the event of a medical emergency during a class, I authorise the Studio to seek appropriate emergency medical assistance or first aid on my behalf. I agree to accept responsibility for any emergency transport or medical costs associated with such treatment.
-
-6. DATA PROTECTION AND GDPR
-I understand that the Studio collects and processes my personal data, including sensitive health information regarding my physical condition and injuries. This data is collected and stored securely in accordance with the General Data Protection Regulation (GDPR) and the Data Protection Act 2018, and will be used strictly to ensure my safety during classes. My personal data will not be shared with third parties without my explicit consent.
-
-7. STUDIO POLICIES
-I agree to comply with the Studio's standard booking, cancellation, and late-arrival policies as published on the website or booking system. I understand that late arrivals may be refused entry to class for safety and warm-up reasons.
-
-8. SEVERABILITY
-If any provision of this Agreement is found by a court or tribunal to be invalid, illegal, or unenforceable, that provision shall be severed and the remaining provisions shall continue in full force and effect.
-
-9. GOVERNING LAW AND JURISDICTION
-This Agreement, and any dispute or claim arising out of or in connection with it (including non-contractual disputes), shall be governed by and construed in accordance with the laws of the Republic of Ireland. The parties irrevocably agree that the courts of Ireland shall have exclusive jurisdiction to settle any such dispute.
-
-10. AGREEMENT AND SIGNATURE
-By signing below (or typing my full legal name), I confirm that I am at least 18 years of age, and that I have read, fully understood, and voluntarily agree to all the terms of this Agreement.
-
-Version 2.0 — Meraki Pilates Studio`;
+I hereby state that I have read, understood, and answered honestly the pre-exercise health screening questionnaire. Any questions I had were answered to my full satisfaction. Whilst every effort is made to keep the class safe and enjoyable, I am participating of my own free will and, as with any exercise programme, there is a risk of injury. Do you understand and agree to these terms?`;
 
 export default function PilatesWaiverFormSheet({
   open,
@@ -70,38 +24,42 @@ export default function PilatesWaiverFormSheet({
   const { submitWaiver, submitting } = usePilatesWaiver();
   const { showToast } = useToast();
 
-  // ── Form state ───────────────────────────────────────────────────
-  const [hasInjuries, setHasInjuries] = useState<boolean | null>(null);
-  const [injuryDetails, setInjuryDetails] = useState('');
-  const [emergencyContactName, setEmergencyContactName] = useState('');
-  const [emergencyContactRelationship, setEmergencyContactRelationship] = useState('');
-  const [emergencyContactPhone, setEmergencyContactPhone] = useState('');
-  const [agreedToTerms, setAgreedToTerms] = useState(false);
-  const [signatureName, setSignatureName] = useState('');
+  const [injuriesJointProblems, setInjuriesJointProblems] = useState('');
+  const [pilatesExperience, setPilatesExperience] = useState('');
+  const [hasIllnesses, setHasIllnesses] = useState<string | null>(null);
+  const [illnessDetails, setIllnessDetails] = useState('');
+  const [pregnancyStatus, setPregnancyStatus] = useState<string | null>(null);
+  const [medicationDetails, setMedicationDetails] = useState('');
+  const [exerciseHistory, setExerciseHistory] = useState('');
+  const [practitionerRecommended, setPractitionerRecommended] = useState<string | null>(null);
+  const [goalsExpectations, setGoalsExpectations] = useState('');
+  const [hasBoneCondition, setHasBoneCondition] = useState<string | null>(null);
+  const [agreedTermsOfUse, setAgreedTermsOfUse] = useState(false);
+  const [agreedLiabilityWaiver, setAgreedLiabilityWaiver] = useState(false);
+  const [submitAttempted, setSubmitAttempted] = useState(false);
   const [formError, setFormError] = useState('');
 
-  // ── Scroll-to-sentinel for the terms box ─────────────────────────
-  const termsScrollRef = useRef<HTMLDivElement>(null);
-
-  // ── Reset on open ────────────────────────────────────────────────
   const resetForm = useCallback(() => {
-    setHasInjuries(null);
-    setInjuryDetails('');
-    setEmergencyContactName('');
-    setEmergencyContactRelationship('');
-    setEmergencyContactPhone('');
-    setAgreedToTerms(false);
-    setSignatureName('');
+    setInjuriesJointProblems('');
+    setPilatesExperience('');
+    setHasIllnesses(null);
+    setIllnessDetails('');
+    setPregnancyStatus(null);
+    setMedicationDetails('');
+    setExerciseHistory('');
+    setPractitionerRecommended(null);
+    setGoalsExpectations('');
+    setHasBoneCondition(null);
+    setAgreedTermsOfUse(false);
+    setAgreedLiabilityWaiver(false);
+    setSubmitAttempted(false);
     setFormError('');
   }, []);
 
   useEffect(() => {
-    if (open) {
-      resetForm();
-    }
+    if (open) resetForm();
   }, [open, resetForm]);
 
-  // ── Body scroll lock when open ───────────────────────────────────
   useEffect(() => {
     if (!open) return;
     const prev = document.body.style.overflow;
@@ -111,7 +69,6 @@ export default function PilatesWaiverFormSheet({
     };
   }, [open]);
 
-  // ── Esc key to dismiss ───────────────────────────────────────────
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -121,60 +78,45 @@ export default function PilatesWaiverFormSheet({
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onDismiss, submitting]);
 
-  // ── Validation ───────────────────────────────────────────────────
-  const injuriesValid = hasInjuries !== null && (!hasInjuries || injuryDetails.trim().length >= 5);
-  const emergencyValid =
-    emergencyContactName.trim().length >= 2 &&
-    emergencyContactRelationship.trim().length >= 2 &&
-    emergencyContactPhone.trim().length >= 5;
-  const signatureValid = signatureName.trim().length >= 2;
-  const termsScrolled = true; // tracked visually; the checkbox gates submission
-  const canSubmit =
-    injuriesValid &&
-    emergencyValid &&
-    agreedToTerms &&
-    signatureValid &&
-    termsScrolled &&
-    !submitting;
+  const errors = {
+    injuriesJointProblems: !injuriesJointProblems.trim(),
+    pilatesExperience: !pilatesExperience.trim(),
+    hasIllnesses: hasIllnesses === null,
+    illnessDetails: hasIllnesses === 'yes' && !illnessDetails.trim(),
+    pregnancyStatus: pregnancyStatus === null,
+    medicationDetails: !medicationDetails.trim(),
+    exerciseHistory: !exerciseHistory.trim(),
+    practitionerRecommended: practitionerRecommended === null,
+    goalsExpectations: !goalsExpectations.trim(),
+    hasBoneCondition: hasBoneCondition === null,
+    agreedTermsOfUse: !agreedTermsOfUse,
+    agreedLiabilityWaiver: !agreedLiabilityWaiver,
+  };
+  const hasErrors = Object.values(errors).some(Boolean);
 
-  // ── Submit handler ───────────────────────────────────────────────
   const handleSubmit = async () => {
+    setSubmitAttempted(true);
     setFormError('');
-
-    if (hasInjuries === null) {
-      setFormError('Please let us know about any injuries, conditions, or pregnancy.');
-      return;
-    }
-    if (hasInjuries && injuryDetails.trim().length < 5) {
-      setFormError('Please provide at least a brief description of your injury or condition.');
-      return;
-    }
-    if (!emergencyValid) {
-      setFormError('Please complete all emergency contact fields (name, relationship, phone).');
-      return;
-    }
-    if (!agreedToTerms) {
-      setFormError('Please read the terms and check the consent box to continue.');
-      return;
-    }
-    if (signatureName.trim().length < 2) {
-      setFormError('Please type your full legal name as your digital signature.');
-      return;
-    }
+    if (hasErrors) return;
 
     const data: PilatesWaiverData = {
-      hasInjuries,
-      injuryDetails: hasInjuries ? injuryDetails.trim() : '',
-      emergencyContactName: emergencyContactName.trim(),
-      emergencyContactRelationship: emergencyContactRelationship.trim(),
-      emergencyContactPhone: emergencyContactPhone.trim(),
-      signatureName: signatureName.trim(),
-      agreedToTerms,
+      injuriesJointProblems: injuriesJointProblems.trim(),
+      pilatesExperience: pilatesExperience.trim(),
+      hasIllnesses: hasIllnesses === 'yes',
+      illnessDetails: hasIllnesses === 'yes' ? illnessDetails.trim() : '',
+      pregnancyStatus: pregnancyStatus as 'yes' | 'no' | 'not_applicable',
+      medicationDetails: medicationDetails.trim(),
+      exerciseHistory: exerciseHistory.trim(),
+      practitionerRecommended: practitionerRecommended === 'yes',
+      goalsExpectations: goalsExpectations.trim(),
+      hasBoneCondition: hasBoneCondition === 'yes',
+      agreedTermsOfUse,
+      agreedLiabilityWaiver,
     };
 
     try {
       await submitWaiver(data);
-      showToast('Waiver signed successfully. You can now book Pilates classes!', 'success');
+      showToast('Waiver signed successfully!', 'success');
       onSigned();
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to submit waiver. Please try again.';
@@ -183,6 +125,22 @@ export default function PilatesWaiverFormSheet({
   };
 
   if (!open) return null;
+
+  const textareaClass = (hasError: boolean) =>
+    `w-full rounded-2xl border px-4 py-3 text-sm text-gray-900 outline-none transition resize-none placeholder:text-gray-400 focus:ring-2 ${
+      submitAttempted && hasError
+        ? 'border-red-300 bg-red-50 focus:border-red-400 focus:ring-red-200'
+        : 'border-gray-200 bg-gray-50 focus:border-emerald-400 focus:bg-white focus:ring-emerald-200'
+    }`;
+
+  const radioBtnClass = (selected: boolean, isWarning: boolean) =>
+    `flex-1 flex items-center justify-center gap-1.5 rounded-2xl border px-4 py-3 text-sm font-semibold transition-all cursor-pointer ${
+      selected
+        ? isWarning
+          ? 'border-amber-300 bg-amber-50 text-amber-900'
+          : 'border-emerald-300 bg-emerald-50 text-emerald-900'
+        : 'border-gray-200 bg-gray-50 text-gray-500 hover:border-gray-300'
+    }`;
 
   return (
     <div
@@ -196,15 +154,15 @@ export default function PilatesWaiverFormSheet({
         className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-lg max-h-[92vh] flex flex-col overflow-hidden animate-slide-up"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* ── Header ──────────────────────────────────────────────── */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center">
-              <ShieldCheck size={18} className="text-emerald-700" />
+              <HeartPulse size={18} className="text-emerald-700" />
             </div>
             <div>
               <h2 id="waiver-title" className="text-[16px] font-bold text-gray-900">
-                Injury Disclosure &amp; Waiver
+                Health Screening & Waiver
               </h2>
               <p className="text-[11px] text-gray-500">
                 Required before booking Pilates classes
@@ -221,178 +179,344 @@ export default function PilatesWaiverFormSheet({
           </button>
         </div>
 
-        {/* ── Scrollable body ─────────────────────────────────────── */}
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
-          {/* ── 1. Injury disclosure ─────────────────────────────── */}
-          <section>
-            <label className="flex items-start gap-1.5 text-[13px] font-bold text-gray-900 mb-2.5">
-              <HeartPulse size={15} className="text-emerald-600 mt-0.5 shrink-0" />
-              <span>
-                Do you have any pre-existing injuries, medical conditions, surgeries,
-                physical limitations, or are you pregnant?
-              </span>
-              <span className="text-red-500">*</span>
-            </label>
-            <div className="flex gap-2">
-              {(['No', 'Yes'] as const).map((label) => {
-                const value = label === 'Yes';
-                const selected = hasInjuries === value;
-                return (
-                  <button
-                    key={label}
-                    type="button"
-                    onClick={() => {
-                      setHasInjuries(value);
-                      if (!value) setInjuryDetails('');
-                    }}
-                    className={`flex-1 flex items-center justify-center gap-1.5 rounded-2xl border px-4 py-3 text-sm font-semibold transition-all cursor-pointer ${
-                      selected
-                        ? value
-                          ? 'border-amber-300 bg-amber-50 text-amber-900'
-                          : 'border-emerald-300 bg-emerald-50 text-emerald-900'
-                        : 'border-gray-200 bg-gray-50 text-gray-500 hover:border-gray-300'
-                    }`}
-                    aria-pressed={selected}
-                  >
-                    {value && <AlertTriangle size={15} />}
-                    {label}
-                  </button>
-                );
-              })}
+        {/* Scrollable body */}
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6">
+          {/* ── Health Screening ── */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <HeartPulse size={16} className="text-emerald-600" />
+              <h3 className="text-[13px] font-bold text-gray-900 uppercase tracking-wider">
+                Health Screening
+              </h3>
             </div>
 
-            {/* Dynamic injury details textarea */}
-            {hasInjuries === true && (
-              <div className="mt-3 animate-fade-in">
-                <label className="block text-[11px] font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
-                  Please describe your injury / condition
+            {/* Q1 */}
+            <div>
+              <label htmlFor="q1-injuries" className="block text-[13px] font-bold text-gray-900 mb-2">
+                Do you have any injuries or joint problems?
+                <span className="text-red-500"> *</span>
+              </label>
+              <textarea
+                id="q1-injuries"
+                value={injuriesJointProblems}
+                onChange={(e) => setInjuriesJointProblems(e.target.value)}
+                rows={3}
+                className={textareaClass(errors.injuriesJointProblems)}
+                placeholder="Describe any injuries or joint problems..."
+                aria-describedby={submitAttempted && errors.injuriesJointProblems ? 'q1-error' : undefined}
+              />
+              {submitAttempted && errors.injuriesJointProblems && (
+                <p id="q1-error" className="mt-1 text-xs text-red-600">
+                  Please describe any injuries or joint problems.
+                </p>
+              )}
+            </div>
+
+            {/* Q2 */}
+            <div>
+              <label htmlFor="q2-experience" className="block text-[13px] font-bold text-gray-900 mb-2">
+                What is your Pilates experience?
+                <span className="text-red-500"> *</span>
+              </label>
+              <textarea
+                id="q2-experience"
+                value={pilatesExperience}
+                onChange={(e) => setPilatesExperience(e.target.value)}
+                rows={2}
+                className={textareaClass(errors.pilatesExperience)}
+                placeholder="e.g., Some Mat Pilates, Some Reformer, Experienced, etc."
+                aria-describedby={submitAttempted && errors.pilatesExperience ? 'q2-error' : undefined}
+              />
+              {submitAttempted && errors.pilatesExperience && (
+                <p id="q2-error" className="mt-1 text-xs text-red-600">
+                  Please describe your Pilates experience.
+                </p>
+              )}
+            </div>
+
+            {/* Q3 */}
+            <div>
+              <span id="q3-label" className="block text-[13px] font-bold text-gray-900 mb-2">
+                Have you had any illnesses or disabilities?
+                <span className="text-red-500"> *</span>
+              </span>
+              <div role="radiogroup" aria-labelledby="q3-label" className="flex gap-2">
+                {(['no', 'yes'] as const).map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    role="radio"
+                    aria-checked={hasIllnesses === value}
+                    onClick={() => {
+                      setHasIllnesses(value);
+                      if (value === 'no') setIllnessDetails('');
+                    }}
+                    className={radioBtnClass(hasIllnesses === value, value === 'yes')}
+                  >
+                    {value === 'yes' && <AlertTriangle size={15} />}
+                    {value === 'yes' ? 'Yes' : 'No'}
+                  </button>
+                ))}
+              </div>
+              {submitAttempted && errors.hasIllnesses && (
+                <p className="mt-1 text-xs text-red-600">Please select Yes or No.</p>
+              )}
+            </div>
+
+            {/* Q4 (conditional) */}
+            {hasIllnesses === 'yes' && (
+              <div className="animate-fade-in">
+                <label htmlFor="q4-illness" className="block text-[13px] font-bold text-gray-900 mb-2">
+                  If yes, please provide details:
                   <span className="text-red-500"> *</span>
                 </label>
                 <textarea
-                  value={injuryDetails}
-                  onChange={(e) => setInjuryDetails(e.target.value)}
+                  id="q4-illness"
+                  value={illnessDetails}
+                  onChange={(e) => setIllnessDetails(e.target.value)}
                   rows={3}
-                  className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-emerald-400 focus:bg-white resize-none placeholder:text-gray-400"
-                  placeholder="e.g. Lower back pain, knee surgery last year, currently 16 weeks pregnant, etc."
+                  className={textareaClass(errors.illnessDetails)}
+                  placeholder="Provide details about your illness or disability..."
                   autoFocus
                 />
-                <p className="mt-1 text-[11px] text-gray-400">
-                  This information is kept private and helps your instructor give safe modifications.
-                </p>
+                {submitAttempted && errors.illnessDetails && (
+                  <p className="mt-1 text-xs text-red-600">
+                    Please provide details about your illness or disability.
+                  </p>
+                )}
               </div>
             )}
-          </section>
 
-          {/* ── 2. Emergency contact ──────────────────────────────── */}
-          <section>
-            <label className="flex items-center gap-1.5 text-[13px] font-bold text-gray-900 mb-2.5">
-              <Phone size={15} className="text-emerald-600 shrink-0" />
-              Emergency contact
-              <span className="text-red-500">*</span>
-            </label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="sm:col-span-2">
-                <div className="flex items-center gap-2 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 transition focus-within:border-emerald-400 focus-within:bg-white">
-                  <UserIcon size={16} className="text-gray-400 shrink-0" />
-                  <input
-                    type="text"
-                    value={emergencyContactName}
-                    onChange={(e) => setEmergencyContactName(e.target.value)}
-                    placeholder="Full name"
-                    className="flex-1 bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-400"
-                  />
-                </div>
-              </div>
-              <div>
-                <div className="flex items-center gap-2 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 transition focus-within:border-emerald-400 focus-within:bg-white">
-                  <HeartPulse size={16} className="text-gray-400 shrink-0" />
-                  <input
-                    type="text"
-                    value={emergencyContactRelationship}
-                    onChange={(e) => setEmergencyContactRelationship(e.target.value)}
-                    placeholder="Relationship (e.g. spouse)"
-                    className="flex-1 bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-400"
-                  />
-                </div>
-              </div>
-              <div>
-                <div className="flex items-center gap-2 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 transition focus-within:border-emerald-400 focus-within:bg-white">
-                  <Phone size={16} className="text-gray-400 shrink-0" />
-                  <input
-                    type="tel"
-                    value={emergencyContactPhone}
-                    onChange={(e) => setEmergencyContactPhone(e.target.value)}
-                    placeholder="Phone number"
-                    className="flex-1 bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-400"
-                  />
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* ── 3. Terms of Service & Liability Waiver ─────────────── */}
-          <section>
-            <label className="flex items-center gap-1.5 text-[13px] font-bold text-gray-900 mb-2.5">
-              <PenLine size={15} className="text-emerald-600 shrink-0" />
-              Terms of Service &amp; Liability Waiver
-              <span className="text-red-500">*</span>
-            </label>
-            <div
-              ref={termsScrollRef}
-              className="relative rounded-2xl border border-gray-200 bg-gray-50 p-4 h-44 overflow-y-auto text-[12px] leading-relaxed text-gray-600 whitespace-pre-line"
-            >
-              {TERMS_TEXT}
-              {/* Fade-out hint at bottom */}
-              <div className="sticky bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-gray-50 to-transparent pointer-events-none flex items-end justify-center">
-                <ChevronDown size={14} className="text-gray-300" />
-              </div>
-            </div>
-            <p className="mt-1.5 text-[11px] text-gray-400">
-              Scroll to read the full agreement.
-            </p>
-
-            {/* Consent checkbox */}
-            <label className="mt-3 flex items-start gap-2.5 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={agreedToTerms}
-                onChange={(e) => setAgreedToTerms(e.target.checked)}
-                className="mt-0.5 w-5 h-5 rounded-md border-gray-300 text-emerald-600 focus:ring-emerald-400 cursor-pointer shrink-0"
-              />
-              <span className="text-[13px] font-medium text-gray-700 leading-snug">
-                I have read and agree to the Terms of Service and Liability Waiver. I confirm I am at least 18 years of age.
+            {/* Q5 */}
+            <div>
+              <span id="q5-label" className="block text-[13px] font-bold text-gray-900 mb-2">
+                Are you pregnant, or have you been pregnant in the last 6 months?
                 <span className="text-red-500"> *</span>
               </span>
-            </label>
-          </section>
-
-          {/* ── 4. Digital signature ──────────────────────────────── */}
-          <section>
-            <label className="block text-[13px] font-bold text-gray-900 mb-2.5">
-              Digital signature
-              <span className="text-red-500"> *</span>
-            </label>
-            <div className="flex items-center gap-2 rounded-2xl border-2 border-dashed border-emerald-200 bg-emerald-50/40 px-4 py-3.5 transition focus-within:border-emerald-400 focus-within:bg-emerald-50/70">
-              <PenLine size={16} className="text-emerald-500 shrink-0" />
-              <input
-                type="text"
-                value={signatureName}
-                onChange={(e) => setSignatureName(e.target.value)}
-                placeholder="Type your full legal name"
-                className="flex-1 bg-transparent text-sm font-medium text-gray-900 outline-none placeholder:text-gray-400 placeholder:font-normal"
-                style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}
-                autoComplete="off"
-              />
+              <div role="radiogroup" aria-labelledby="q5-label" className="flex gap-2">
+                {(['no', 'yes', 'not_applicable'] as const).map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    role="radio"
+                    aria-checked={pregnancyStatus === value}
+                    onClick={() => setPregnancyStatus(value)}
+                    className={radioBtnClass(pregnancyStatus === value, value === 'yes')}
+                  >
+                    {value === 'yes' ? 'Yes' : value === 'no' ? 'No' : 'N/A'}
+                  </button>
+                ))}
+              </div>
+              {submitAttempted && errors.pregnancyStatus && (
+                <p className="mt-1 text-xs text-red-600">Please select an option.</p>
+              )}
             </div>
-            <p className="mt-1.5 text-[11px] text-gray-400">
-              By typing your name you confirm this is your legal digital signature and that you are 18 or older.
-            </p>
-          </section>
+
+            {/* Q6 */}
+            <div>
+              <label htmlFor="q6-medication" className="block text-[13px] font-bold text-gray-900 mb-2">
+                Are you on any medication that may affect you during the session? If yes, please
+                provide details:
+                <span className="text-red-500"> *</span>
+              </label>
+              <textarea
+                id="q6-medication"
+                value={medicationDetails}
+                onChange={(e) => setMedicationDetails(e.target.value)}
+                rows={3}
+                className={textareaClass(errors.medicationDetails)}
+                placeholder="List any medication that may affect your session..."
+                aria-describedby={submitAttempted && errors.medicationDetails ? 'q6-error' : undefined}
+              />
+              {submitAttempted && errors.medicationDetails && (
+                <p id="q6-error" className="mt-1 text-xs text-red-600">
+                  Please provide medication details.
+                </p>
+              )}
+            </div>
+
+            {/* Q7 */}
+            <div>
+              <label htmlFor="q7-exercise" className="block text-[13px] font-bold text-gray-900 mb-2">
+                In brief, please state your exercise history, when you last exercised, and what
+                activity it was:
+                <span className="text-red-500"> *</span>
+              </label>
+              <textarea
+                id="q7-exercise"
+                value={exerciseHistory}
+                onChange={(e) => setExerciseHistory(e.target.value)}
+                rows={3}
+                className={textareaClass(errors.exerciseHistory)}
+                placeholder="e.g., Running 3x per week, last exercised yesterday..."
+                aria-describedby={submitAttempted && errors.exerciseHistory ? 'q7-error' : undefined}
+              />
+              {submitAttempted && errors.exerciseHistory && (
+                <p id="q7-error" className="mt-1 text-xs text-red-600">
+                  Please describe your exercise history.
+                </p>
+              )}
+            </div>
+
+            {/* Q8 */}
+            <div>
+              <span id="q8-label" className="block text-[13px] font-bold text-gray-900 mb-2">
+                Have you been recommended to do Pilates by a health/medical practitioner?
+                <span className="text-red-500"> *</span>
+              </span>
+              <div role="radiogroup" aria-labelledby="q8-label" className="flex gap-2">
+                {(['no', 'yes'] as const).map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    role="radio"
+                    aria-checked={practitionerRecommended === value}
+                    onClick={() => setPractitionerRecommended(value)}
+                    className={radioBtnClass(practitionerRecommended === value, false)}
+                  >
+                    {value === 'yes' ? 'Yes' : 'No'}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1.5 text-[11px] text-gray-400">
+                e.g., Physiotherapist, Osteopath, Chiropractor, etc.
+              </p>
+              {submitAttempted && errors.practitionerRecommended && (
+                <p className="mt-1 text-xs text-red-600">Please select Yes or No.</p>
+              )}
+            </div>
+
+            {/* Q9 */}
+            <div>
+              <label htmlFor="q9-goals" className="block text-[13px] font-bold text-gray-900 mb-2">
+                What are you hoping to achieve from your classes?
+                <span className="text-red-500"> *</span>
+              </label>
+              <textarea
+                id="q9-goals"
+                value={goalsExpectations}
+                onChange={(e) => setGoalsExpectations(e.target.value)}
+                rows={2}
+                className={textareaClass(errors.goalsExpectations)}
+                placeholder="e.g., Improve core strength, better posture, rehabilitation..."
+                aria-describedby={submitAttempted && errors.goalsExpectations ? 'q9-error' : undefined}
+              />
+              {submitAttempted && errors.goalsExpectations && (
+                <p id="q9-error" className="mt-1 text-xs text-red-600">
+                  Please describe your goals.
+                </p>
+              )}
+            </div>
+
+            {/* Q10 */}
+            <div>
+              <span id="q10-label" className="block text-[13px] font-bold text-gray-900 mb-2">
+                Have you ever been diagnosed with Osteoporosis or Osteopenia?
+                <span className="text-red-500"> *</span>
+              </span>
+              <div role="radiogroup" aria-labelledby="q10-label" className="flex gap-2">
+                {(['no', 'yes'] as const).map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    role="radio"
+                    aria-checked={hasBoneCondition === value}
+                    onClick={() => setHasBoneCondition(value)}
+                    className={radioBtnClass(hasBoneCondition === value, value === 'yes')}
+                  >
+                    {value === 'yes' && <AlertTriangle size={15} />}
+                    {value === 'yes' ? 'Yes' : 'No'}
+                  </button>
+                ))}
+              </div>
+              {submitAttempted && errors.hasBoneCondition && (
+                <p className="mt-1 text-xs text-red-600">Please select Yes or No.</p>
+              )}
+            </div>
+          </div>
+
+          {/* ── Consent ── */}
+          <div className="space-y-3 pt-2 border-t border-gray-100">
+            <div className="flex items-center gap-2 pt-2">
+              <ShieldCheck size={16} className="text-emerald-600" />
+              <h3 className="text-[13px] font-bold text-gray-900 uppercase tracking-wider">
+                Consent
+              </h3>
+            </div>
+
+            {/* Q11 */}
+            <div>
+              <label htmlFor="q11-terms" className="flex items-start gap-2.5 cursor-pointer">
+                <input
+                  id="q11-terms"
+                  type="checkbox"
+                  checked={agreedTermsOfUse}
+                  onChange={(e) => setAgreedTermsOfUse(e.target.checked)}
+                  className="mt-0.5 w-5 h-5 rounded-md border-gray-300 text-emerald-600 focus:ring-emerald-400 cursor-pointer shrink-0"
+                />
+                <span className="text-[13px] font-medium text-gray-700 leading-snug">
+                  I agree to the{' '}
+                  <Link
+                    href="/terms-of-service"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-emerald-700 font-semibold underline hover:text-emerald-800"
+                  >
+                    General Terms of Use
+                  </Link>
+                  .
+                  <span className="text-red-500"> *</span>
+                </span>
+              </label>
+              {submitAttempted && errors.agreedTermsOfUse && (
+                <p className="mt-1 ml-7 text-xs text-red-600">
+                  You must agree to the Terms of Use to continue.
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* ── Liability Waiver ── */}
+          <div className="space-y-3 pt-2 border-t border-gray-100">
+            <div className="flex items-center gap-2 pt-2">
+              <FileText size={16} className="text-emerald-600" />
+              <h3 className="text-[13px] font-bold text-gray-900 uppercase tracking-wider">
+                Liability Waiver
+              </h3>
+            </div>
+
+            {/* Q14: Waiver Text */}
+            <div className="relative rounded-2xl border border-gray-200 bg-gray-50 p-4 max-h-44 overflow-y-auto text-[12px] leading-relaxed text-gray-600 whitespace-pre-line">
+              {WAIVER_TEXT}
+            </div>
+
+            {/* Q15 */}
+            <div>
+              <label htmlFor="q15-agree" className="flex items-start gap-2.5 cursor-pointer">
+                <input
+                  id="q15-agree"
+                  type="checkbox"
+                  checked={agreedLiabilityWaiver}
+                  onChange={(e) => setAgreedLiabilityWaiver(e.target.checked)}
+                  className="mt-0.5 w-5 h-5 rounded-md border-gray-300 text-emerald-600 focus:ring-emerald-400 cursor-pointer shrink-0"
+                />
+                <span className="text-[13px] font-medium text-gray-700 leading-snug">
+                  I understand and agree to the above terms.
+                  <span className="text-red-500"> *</span>
+                </span>
+              </label>
+              {submitAttempted && errors.agreedLiabilityWaiver && (
+                <p className="mt-1 ml-7 text-xs text-red-600">
+                  You must agree to the liability waiver to continue.
+                </p>
+              )}
+            </div>
+          </div>
         </div>
 
-        {/* ── Error banner ─────────────────────────────────────────── */}
+        {/* Error banner */}
         {formError && (
-          <div className="px-5 pb-2">
+          <div className="px-5 pb-2 shrink-0">
             <div className="flex items-center gap-2 rounded-xl bg-red-50 border border-red-100 px-3 py-2">
               <AlertTriangle size={14} className="text-red-500 shrink-0" />
               <p className="text-[12px] font-medium text-red-700">{formError}</p>
@@ -400,12 +524,12 @@ export default function PilatesWaiverFormSheet({
           </div>
         )}
 
-        {/* ── Footer / submit ──────────────────────────────────────── */}
-        <div className="px-5 py-4 border-t border-gray-100 bg-white">
+        {/* Footer */}
+        <div className="px-5 py-4 border-t border-gray-100 bg-white shrink-0">
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={!canSubmit}
+            disabled={submitting}
             className="w-full py-3.5 rounded-2xl bg-emerald-600 text-white font-bold text-[15px] tracking-wide flex items-center justify-center gap-2 transition hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed cursor-pointer"
           >
             {submitting ? (
@@ -414,12 +538,12 @@ export default function PilatesWaiverFormSheet({
               </>
             ) : (
               <>
-                <ShieldCheck size={16} /> Sign &amp; Continue
+                <ShieldCheck size={16} /> Sign & Continue
               </>
             )}
           </button>
           <p className="mt-2 text-center text-[11px] text-gray-400">
-            Your waiver is stored securely. You only need to complete this once.
+            Your health screening is stored securely. You only need to complete this once.
           </p>
         </div>
       </div>

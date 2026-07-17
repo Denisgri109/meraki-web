@@ -6,13 +6,18 @@ import { useAuth } from '@/contexts/AuthContext';
 import type { TablesInsert } from '@/types/database';
 
 export interface PilatesWaiverData {
-  hasInjuries: boolean;
-  injuryDetails: string;
-  emergencyContactName: string;
-  emergencyContactRelationship: string;
-  emergencyContactPhone: string;
-  signatureName: string;
-  agreedToTerms: boolean;
+  injuriesJointProblems: string;
+  pilatesExperience: string;
+  hasIllnesses: boolean;
+  illnessDetails: string;
+  pregnancyStatus: 'yes' | 'no' | 'not_applicable';
+  medicationDetails: string;
+  exerciseHistory: string;
+  practitionerRecommended: boolean;
+  goalsExpectations: string;
+  hasBoneCondition: boolean;
+  agreedTermsOfUse: boolean;
+  agreedLiabilityWaiver: boolean;
 }
 
 export interface UsePilatesWaiverResult {
@@ -90,16 +95,29 @@ export function usePilatesWaiver(): UsePilatesWaiverResult {
       setSubmitting(true);
       setError(null);
       try {
+        const injuriesText = data.injuriesJointProblems.trim();
         const payload: TablesInsert<'pilates_waivers'> = {
           user_id: user.id,
-          has_injuries: data.hasInjuries,
-          injury_details: data.hasInjuries ? data.injuryDetails.trim() || null : null,
-          emergency_contact_name: data.emergencyContactName.trim() || null,
-          emergency_contact_relationship: data.emergencyContactRelationship.trim() || null,
-          emergency_contact_phone: data.emergencyContactPhone.trim() || null,
-          signature_name: data.signatureName.trim(),
+          has_injuries: injuriesText.length > 0,
+          injury_details: injuriesText || null,
+          emergency_contact_name: null,
+          emergency_contact_relationship: null,
+          emergency_contact_phone: null,
+          signature_name: null,
           signed_at: new Date().toISOString(),
-          terms_version: '2.0',
+          terms_version: '3.0',
+          injuries_joint_problems: injuriesText || null,
+          pilates_experience: data.pilatesExperience.trim() || null,
+          has_illnesses: data.hasIllnesses,
+          illness_details: data.hasIllnesses ? data.illnessDetails.trim() || null : null,
+          pregnancy_status: data.pregnancyStatus,
+          medication_details: data.medicationDetails.trim() || null,
+          exercise_history: data.exerciseHistory.trim() || null,
+          practitioner_recommended: data.practitionerRecommended,
+          goals_expectations: data.goalsExpectations.trim() || null,
+          has_bone_condition: data.hasBoneCondition,
+          agreed_terms_of_use: data.agreedTermsOfUse,
+          agreed_liability_waiver: data.agreedLiabilityWaiver,
         };
 
         const { error: upsertError } = await supabase

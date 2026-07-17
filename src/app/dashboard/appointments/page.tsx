@@ -1135,6 +1135,7 @@ export default function AppointmentsPage() {
                         id={apt.id}
                         entityName="appointment"
                         entityLabel={apt.service_name || undefined}
+                        onDeleted={fetchAppointments}
                         disabled={apt.status === 'completed' || apt.status === 'no_show'}
                         size={14}
                       />

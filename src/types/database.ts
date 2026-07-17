@@ -2649,43 +2649,85 @@ export type Database = {
       }
       pilates_waivers: {
         Row: {
+          agreed_email_marketing: boolean | null
+          agreed_liability_waiver: boolean | null
+          agreed_sms_marketing: boolean | null
+          agreed_terms_of_use: boolean | null
           created_at: string | null
           emergency_contact_name: string | null
           emergency_contact_phone: string | null
           emergency_contact_relationship: string | null
+          exercise_history: string | null
+          goals_expectations: string | null
+          has_bone_condition: boolean | null
+          has_illnesses: boolean | null
           has_injuries: boolean
           id: string
+          illness_details: string | null
+          injuries_joint_problems: string | null
           injury_details: string | null
+          medication_details: string | null
+          pilates_experience: string | null
+          practitioner_recommended: boolean | null
+          pregnancy_status: string | null
           signed_at: string
-          signature_name: string
+          signature_name: string | null
           terms_version: string | null
           updated_at: string | null
           user_id: string
         }
         Insert: {
+          agreed_email_marketing?: boolean | null
+          agreed_liability_waiver?: boolean | null
+          agreed_sms_marketing?: boolean | null
+          agreed_terms_of_use?: boolean | null
           created_at?: string | null
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
           emergency_contact_relationship?: string | null
-          has_injuries: boolean
+          exercise_history?: string | null
+          goals_expectations?: string | null
+          has_bone_condition?: boolean | null
+          has_illnesses?: boolean | null
+          has_injuries?: boolean
           id?: string
+          illness_details?: string | null
+          injuries_joint_problems?: string | null
           injury_details?: string | null
+          medication_details?: string | null
+          pilates_experience?: string | null
+          practitioner_recommended?: boolean | null
+          pregnancy_status?: string | null
           signed_at?: string
-          signature_name: string
+          signature_name?: string | null
           terms_version?: string | null
           updated_at?: string | null
           user_id: string
         }
         Update: {
+          agreed_email_marketing?: boolean | null
+          agreed_liability_waiver?: boolean | null
+          agreed_sms_marketing?: boolean | null
+          agreed_terms_of_use?: boolean | null
           created_at?: string | null
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
           emergency_contact_relationship?: string | null
+          exercise_history?: string | null
+          goals_expectations?: string | null
+          has_bone_condition?: boolean | null
+          has_illnesses?: boolean | null
           has_injuries?: boolean
           id?: string
+          illness_details?: string | null
+          injuries_joint_problems?: string | null
           injury_details?: string | null
+          medication_details?: string | null
+          pilates_experience?: string | null
+          practitioner_recommended?: boolean | null
+          pregnancy_status?: string | null
           signed_at?: string
-          signature_name?: string
+          signature_name?: string | null
           terms_version?: string | null
           updated_at?: string | null
           user_id?: string
