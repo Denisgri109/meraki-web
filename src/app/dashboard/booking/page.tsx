@@ -16,7 +16,8 @@ import { isMasterWithinRange } from '@/lib/location';
 import { usePilatesWaiver } from '@/hooks/usePilatesWaiver';
 import PilatesWaiverFormSheet from '@/components/PilatesWaiverFormSheet';
 
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY as string);
+const _stripePk = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+const stripePromise = _stripePk ? loadStripe(_stripePk) : null;
 
 type BookingError = Error & {
   context?: {

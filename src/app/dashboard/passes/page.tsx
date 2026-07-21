@@ -14,7 +14,8 @@ import {
   History, CheckCircle2, AlertCircle, Euro, Layers,
 } from 'lucide-react';
 
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY as string);
+const _stripePk = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+const stripePromise = _stripePk ? loadStripe(_stripePk) : null;
 
 type PassWithPackage = UserPass & { class_packages: ClassPackage | null };
 type LedgerRow = CreditLedger;
@@ -74,6 +75,7 @@ function BuyPackageForm({
       if (piError) throw piError;
       setClientSecret(piData.clientSecret);
       setPaymentIntentId(piData.paymentIntentId);
+      setSubmitting(false);
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Failed to start payment', 'error');
       setSubmitting(false);
