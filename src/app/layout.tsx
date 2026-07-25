@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { EditProvider } from "@/contexts/EditContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 import { CartProvider } from "@/contexts/CartContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import "./globals.css";
@@ -44,9 +45,11 @@ export default function RootLayout({
         <ErrorBoundary name="root">
           <AuthProvider>
             <EditProvider>
-              <CartProvider>
-                <ErrorBoundary name="app">{children}</ErrorBoundary>
-              </CartProvider>
+              <ThemeProvider>
+                <CartProvider>
+                  <ErrorBoundary name="app">{children}</ErrorBoundary>
+                </CartProvider>
+              </ThemeProvider>
             </EditProvider>
           </AuthProvider>
         </ErrorBoundary>

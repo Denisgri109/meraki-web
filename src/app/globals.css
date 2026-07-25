@@ -99,24 +99,24 @@ body {
 
 /* ─── Glassmorphism Utilities ───────────────────────────────────────── */
 .glass {
-  background: rgba(255, 255, 255, 0.65);
+  background: color-mix(in srgb, var(--color-surface) 65%, transparent);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  border: 1px solid var(--color-border-light);
 }
 
 .glass-dark {
-  background: rgba(0, 0, 0, 0.02);
+  background: color-mix(in srgb, var(--color-surface) 2%, transparent);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  border: 1px solid var(--color-border-light);
 }
 
 .glass-card {
-  background: rgba(255, 255, 255, 0.85);
+  background: color-mix(in srgb, var(--color-surface) 85%, transparent);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  border: 1px solid var(--color-border-light);
   box-shadow: var(--shadow-card);
   border-radius: var(--radius-xl);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -163,7 +163,7 @@ body {
 }
 
 .gradient-background {
-  background: linear-gradient(180deg, #FFFFFF, #FAFAFA);
+  background: linear-gradient(180deg, var(--color-background), var(--color-surface-light));
 }
 
 .gradient-warm {
@@ -249,15 +249,15 @@ body {
 
 .input-glass:focus {
   border-color: var(--color-brand-pink);
-  box-shadow: 0 0 0 4px rgba(232, 160, 180, 0.12);
-  background-color: white;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-brand-pink) 12%, transparent);
+  background-color: var(--color-surface);
 }
 
 /* ─── Form Label ────────────────────────────────────────────────────── */
 .label-upper {
   font-size: 11px;
   font-weight: 600;
-  color: rgba(0, 0, 0, 0.35);
+  color: var(--color-text-muted);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   margin-bottom: 8px;
@@ -968,4 +968,298 @@ body {
 .msg-grouped-radius-other {
   border-top-left-radius: 6px !important;
   border-bottom-left-radius: 6px !important;
+}
+
+/* ─── Dark Theme Global Overrides ───────────────────────────────────── */
+/* Applied when ThemeProvider sets data-theme="dark" on <html>.          */
+/* These override common Tailwind utility classes that use hardcoded     */
+/* light colors, ensuring the dark theme propagates to ALL pages.        */
+/* Unlayered CSS wins over Tailwind's @layer utilities.                  */
+
+[data-theme="dark"] .bg-white {
+  background-color: var(--color-surface-light) !important;
+}
+
+[data-theme="dark"] .text-gray-900,
+[data-theme="dark"] .text-gray-800,
+[data-theme="dark"] .text-black {
+  color: var(--color-text-primary) !important;
+}
+
+[data-theme="dark"] .text-gray-700,
+[data-theme="dark"] .text-gray-600 {
+  color: var(--color-text-secondary) !important;
+}
+
+[data-theme="dark"] .text-gray-500,
+[data-theme="dark"] .text-gray-400 {
+  color: var(--color-text-muted) !important;
+}
+
+[data-theme="dark"] .bg-gray-50,
+[data-theme="dark"] .bg-gray-100 {
+  background-color: var(--color-surface) !important;
+}
+
+[data-theme="dark"] .bg-gray-200 {
+  background-color: var(--color-surface-input) !important;
+}
+
+[data-theme="dark"] .border-gray-100,
+[data-theme="dark"] .border-gray-200 {
+  border-color: var(--color-border) !important;
+}
+
+[data-theme="dark"] .border-gray-300 {
+  border-color: var(--color-border) !important;
+}
+
+/* Semi-transparent white backgrounds (navbars, panels, cards) — NOT image overlays */
+/* /10–/30 are used on hero images: leave as-is. /40–/95 are UI surfaces: override. */
+[data-theme="dark"] .bg-white\/40 { background-color: color-mix(in srgb, var(--color-surface-light) 40%, transparent) !important; }
+[data-theme="dark"] .bg-white\/50 { background-color: color-mix(in srgb, var(--color-surface-light) 50%, transparent) !important; }
+[data-theme="dark"] .bg-white\/60 { background-color: color-mix(in srgb, var(--color-surface-light) 60%, transparent) !important; }
+[data-theme="dark"] .bg-white\/70 { background-color: color-mix(in srgb, var(--color-surface-light) 70%, transparent) !important; }
+[data-theme="dark"] .bg-white\/80 { background-color: color-mix(in srgb, var(--color-surface-light) 80%, transparent) !important; }
+[data-theme="dark"] .bg-white\/90 { background-color: color-mix(in srgb, var(--color-surface-light) 90%, transparent) !important; }
+[data-theme="dark"] .bg-white\/95 { background-color: color-mix(in srgb, var(--color-surface-light) 95%, transparent) !important; }
+
+/* border-white — used on cards alongside bg-white/60 etc. */
+[data-theme="dark"] .border-white { border-color: var(--color-border) !important; }
+[data-theme="dark"] .border-white\/40 { border-color: var(--color-border) !important; }
+[data-theme="dark"] .border-white\/70 { border-color: var(--color-border) !important; }
+[data-theme="dark"] .border-white\/90 { border-color: var(--color-border-light) !important; }
+[data-theme="dark"] .border-pink-100 { border-color: var(--color-border) !important; }
+
+/* Section backgrounds — used on static pages (TOS, about, contact, etc.) */
+[data-theme="dark"] .section-warm {
+  background: linear-gradient(135deg, var(--color-background) 0%, var(--color-surface) 40%, var(--color-surface-light) 70%, var(--color-background) 100%);
+}
+
+[data-theme="dark"] .section-mint {
+  background: linear-gradient(135deg, var(--color-background) 0%, var(--color-surface) 40%, var(--color-surface-light) 70%, var(--color-background) 100%);
+}
+
+[data-theme="dark"] .section-lavender {
+  background: linear-gradient(135deg, var(--color-background) 0%, var(--color-surface) 40%, var(--color-surface-light) 70%, var(--color-background) 100%);
+}
+
+[data-theme="dark"] .section-peach {
+  background: linear-gradient(135deg, var(--color-background) 0%, var(--color-surface) 40%, var(--color-surface-light) 70%, var(--color-background) 100%);
+}
+
+/* gradient-mesh — main page background on dashboard, landing, and section pages */
+[data-theme="dark"] .gradient-mesh {
+  background:
+    radial-gradient(circle at 10% 20%, rgba(195, 153, 217, 0.12) 0%, transparent 60%),
+    radial-gradient(circle at 90% 30%, rgba(230, 164, 180, 0.12) 0%, transparent 60%),
+    radial-gradient(circle at 50% 80%, rgba(114, 207, 249, 0.08) 0%, transparent 70%),
+    var(--color-background) !important;
+}
+
+/* Gradient backgrounds */
+[data-theme="dark"] .gradient-background {
+  background: linear-gradient(180deg, var(--color-background), var(--color-surface-light));
+}
+
+/* Shimmer skeleton */
+[data-theme="dark"] .shimmer {
+  background: linear-gradient(90deg, var(--color-surface-light) 25%, var(--color-surface) 50%, var(--color-surface-light) 75%);
+}
+
+/* Smooth theme transition */
+body {
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* ─── Dark Mode: Gradient & Color Overrides ─────────────────────────── */
+/* Hardcoded Tailwind color classes that don't use CSS variables.        */
+/* Overridden here so dark mode propagates to ALL pages/components.      */
+
+/* Hero banner — dark glassmorphism with pink ambient glow */
+[data-theme="dark"] .from-\[\#E8A0B4\].bg-gradient-to-br {
+  background: linear-gradient(135deg, #2a1824, #1e1b2e) !important;
+  box-shadow: 0 0 60px rgba(230, 164, 180, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
+}
+[data-theme="dark"] .from-\[\#E8A0B4\].bg-gradient-to-r {
+  background: linear-gradient(to right, #2a1824, #1e1b2e) !important;
+}
+
+/* Pilates hero banner — dark glass with emerald glow */
+[data-theme="dark"] .from-emerald-500.to-teal-600.bg-gradient-to-br {
+  background: linear-gradient(135deg, #1a2e22, #1e1b2e) !important;
+  box-shadow: 0 0 60px rgba(110, 231, 183, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
+}
+
+/* Gradient card backgrounds (from-pink-50, to-violet-50, etc.) → dark surface */
+[data-theme="dark"] .from-pink-50 { --tw-gradient-from: var(--color-surface) !important; }
+[data-theme="dark"] .from-pink-50\/80 { --tw-gradient-from: color-mix(in srgb, var(--color-surface) 80%, transparent) !important; }
+[data-theme="dark"] .from-pink-50\/60 { --tw-gradient-from: color-mix(in srgb, var(--color-surface) 60%, transparent) !important; }
+[data-theme="dark"] .to-violet-50 { --tw-gradient-to: var(--color-surface-light) !important; }
+[data-theme="dark"] .to-rose-50 { --tw-gradient-to: var(--color-surface-light) !important; }
+[data-theme="dark"] .to-rose-50\/40 { --tw-gradient-to: color-mix(in srgb, var(--color-surface-light) 40%, transparent) !important; }
+[data-theme="dark"] .to-purple-50 { --tw-gradient-to: var(--color-surface-light) !important; }
+[data-theme="dark"] .from-emerald-50 { --tw-gradient-from: var(--color-surface) !important; }
+[data-theme="dark"] .to-teal-50 { --tw-gradient-to: var(--color-surface-light) !important; }
+
+/* Solid pink/violet/purple/rose backgrounds → dark surface */
+[data-theme="dark"] .bg-pink-50 { background-color: var(--color-surface) !important; }
+[data-theme="dark"] .bg-pink-50\/60 { background-color: color-mix(in srgb, var(--color-surface) 60%, transparent) !important; }
+[data-theme="dark"] .bg-pink-50\/80 { background-color: color-mix(in srgb, var(--color-surface) 80%, transparent) !important; }
+[data-theme="dark"] .bg-pink-100 { background-color: var(--color-surface-light) !important; }
+[data-theme="dark"] .bg-violet-50 { background-color: var(--color-surface) !important; }
+[data-theme="dark"] .bg-violet-100 { background-color: var(--color-surface-light) !important; }
+[data-theme="dark"] .bg-purple-50 { background-color: var(--color-surface) !important; }
+[data-theme="dark"] .bg-purple-100 { background-color: var(--color-surface-light) !important; }
+[data-theme="dark"] .bg-rose-50 { background-color: var(--color-surface) !important; }
+[data-theme="dark"] .bg-rose-100 { background-color: var(--color-surface-light) !important; }
+[data-theme="dark"] .bg-emerald-50 { background-color: var(--color-surface) !important; }
+[data-theme="dark"] .bg-emerald-50\/70 { background-color: color-mix(in srgb, var(--color-surface) 70%, transparent) !important; }
+[data-theme="dark"] .bg-emerald-100 { background-color: var(--color-surface-light) !important; }
+[data-theme="dark"] .bg-teal-100 { background-color: var(--color-surface-light) !important; }
+[data-theme="dark"] .bg-amber-50 { background-color: var(--color-surface) !important; }
+
+/* Pink/violet/emerald borders → dark border */
+[data-theme="dark"] .border-pink-100\/50 { border-color: var(--color-border) !important; }
+[data-theme="dark"] .border-pink-200 { border-color: var(--color-border) !important; }
+[data-theme="dark"] .border-violet-100 { border-color: var(--color-border) !important; }
+[data-theme="dark"] .border-violet-200 { border-color: var(--color-border) !important; }
+[data-theme="dark"] .border-emerald-200 { border-color: var(--color-border) !important; }
+[data-theme="dark"] .border-rose-200 { border-color: var(--color-border) !important; }
+
+/* Accent text colors — keep readable on dark */
+[data-theme="dark"] .text-pink-600 { color: var(--color-brand-pink) !important; }
+[data-theme="dark"] .text-pink-700 { color: var(--color-brand-pink) !important; }
+[data-theme="dark"] .text-violet-700 { color: var(--color-secondary) !important; }
+[data-theme="dark"] .text-violet-900 { color: var(--color-text-primary) !important; }
+[data-theme="dark"] .text-emerald-600 { color: #6EE7B7 !important; }
+
+/* Gradient text — adapt for dark backgrounds */
+[data-theme="dark"] .text-gradient-pink {
+  background: linear-gradient(135deg, var(--color-brand-pink), #EC4899) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+}
+
+/* ─── Dark Mode: 60-30-10 Color Distribution Fixes ──────────────────── */
+/* 60% dark canvas | 30% elevated surfaces | 10% pink accents only      */
+/* Pink restricted to: icons, badges, active states, primary buttons.   */
+/* Large surfaces (footer, hero, cards) kept dark.                      */
+
+/* 1. Footer — was solid pink (var(--color-primary)), now matches canvas */
+[data-theme="dark"] footer {
+  background-color: var(--color-background) !important;
+  border-top: 1px solid var(--color-border) !important;
+}
+[data-theme="dark"] footer .text-white\/50,
+[data-theme="dark"] footer .text-white\/70,
+[data-theme="dark"] footer .text-white\/30 {
+  color: var(--color-text-muted) !important;
+}
+[data-theme="dark"] footer .text-white {
+  color: var(--color-text-secondary) !important;
+}
+[data-theme="dark"] footer a:hover {
+  color: var(--color-brand-pink) !important;
+}
+[data-theme="dark"] footer .border-white\/10 {
+  border-color: var(--color-border) !important;
+}
+
+/* 2. Hero banner — dark surface with pink accent top-border + glow */
+[data-theme="dark"] .from-\[\#E8A0B4\].bg-gradient-to-br,
+[data-theme="dark"] .from-emerald-500.to-teal-600.bg-gradient-to-br {
+  background: var(--color-surface) !important;
+  border-top: 2px solid var(--color-brand-pink) !important;
+  box-shadow: 0 0 40px rgba(230, 164, 180, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+}
+[data-theme="dark"] .from-\[\#E8A0B4\].bg-gradient-to-r {
+  background: var(--color-surface) !important;
+}
+[data-theme="dark"] .from-\[\#E8A0B4\].bg-gradient-to-br h1,
+[data-theme="dark"] .from-\[\#E8A0B4\].bg-gradient-to-br p,
+[data-theme="dark"] .from-emerald-500.to-teal-600.bg-gradient-to-br h1,
+[data-theme="dark"] .from-emerald-500.to-teal-600.bg-gradient-to-br p {
+  color: var(--color-text-primary) !important;
+}
+[data-theme="dark"] .from-\[\#E8A0B4\].bg-gradient-to-br .text-white\/80,
+[data-theme="dark"] .from-emerald-500.to-teal-600.bg-gradient-to-br .text-white\/80 {
+  color: var(--color-text-secondary) !important;
+}
+
+/* 3. Card elevation — crisp subtle borders for separation from canvas */
+[data-theme="dark"] .glass-card {
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+}
+[data-theme="dark"] .glass {
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+}
+[data-theme="dark"] .bg-white {
+  outline: 1px solid rgba(255, 255, 255, 0.07);
+  outline-offset: -1px;
+}
+[data-theme="dark"] .bg-white\/40,
+[data-theme="dark"] .bg-white\/50,
+[data-theme="dark"] .bg-white\/60,
+[data-theme="dark"] .bg-white\/70,
+[data-theme="dark"] .bg-white\/80,
+[data-theme="dark"] .bg-white\/90,
+[data-theme="dark"] .bg-white\/95 {
+  outline: 1px solid rgba(255, 255, 255, 0.06);
+  outline-offset: -1px;
+}
+
+/* 4. Solid white buttons → dark surface with pink border accent */
+[data-theme="dark"] .bg-white.text-\[var\(--color-primary\)\] {
+  background-color: var(--color-surface) !important;
+  color: var(--color-brand-pink) !important;
+  border: 1px solid rgba(224, 122, 150, 0.3) !important;
+  outline: none;
+}
+[data-theme="dark"] .bg-white.text-\[var\(--color-primary\)\]:hover {
+  background-color: var(--color-surface-light) !important;
+}
+
+/* 5. Pink-tinted card borders for interactive elements */
+[data-theme="dark"] .border-\[var\(--color-brand-pink\)\]\/20 {
+  border-color: rgba(224, 122, 150, 0.12) !important;
+}
+[data-theme="dark"] .border-\[var\(--color-brand-pink\)\]\/30 {
+  border-color: rgba(224, 122, 150, 0.15) !important;
+}
+[data-theme="dark"] .shadow-\[0_2px_10px_rgba\(232\,160\,180\,0\.05\)\] {
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* 6. CustomizeDrawer panel — dark surface */
+[data-theme="dark"] .bg-white.shadow-2xl {
+  background-color: var(--color-surface) !important;
+  outline: none;
+}
+
+/* 7. Modals/sheets/dropdowns — dark surface with subtle border */
+[data-theme="dark"] .bg-white.rounded-3xl,
+[data-theme="dark"] .bg-white.rounded-\[var\(--radius-xl\)\],
+[data-theme="dark"] .bg-white.rounded-t-3xl {
+  background-color: var(--color-surface) !important;
+  border: 1px solid var(--color-border) !important;
+  outline: none;
+}
+[data-theme="dark"] .bg-white.rounded-xl,
+[data-theme="dark"] .bg-white.rounded-lg {
+  background-color: var(--color-surface-light) !important;
+  border: 1px solid var(--color-border) !important;
+  outline: none;
+}
+[data-theme="dark"] .bg-white.rounded-full {
+  outline: none;
+}
+
+/* 8. Focus state inputs — dark surface, not white */
+[data-theme="dark"] .focus\:bg-white:focus {
+  background-color: var(--color-surface) !important;
+}
+[data-theme="dark"] .focus\:bg-white\/90:focus {
+  background-color: color-mix(in srgb, var(--color-surface) 90%, transparent) !important;
 }
