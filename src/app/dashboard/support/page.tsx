@@ -6,6 +6,7 @@ import { useSection } from '@/contexts/SectionContext';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/components/Toast';
 import { useModal } from '@/contexts/ModalContext';
+import { EditableText } from '@/components/editable/EditableText';
 import {
   HelpCircle, MessageCircle, Mail, Phone, Clock, ChevronDown,
   ChevronUp, Plus, Pencil, Trash2, Save, X, Loader2, Settings,
@@ -240,18 +241,24 @@ export default function SupportPage() {
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-[var(--color-text-primary)]">Support</h1>
+        <EditableText contentKey="support.header_title" fallback="Support" as="h1" className="text-3xl font-bold text-[var(--color-text-primary)]" />
         <p className="text-[var(--color-text-secondary)] text-sm mt-1">
-          {isOwner ? 'Manage FAQ content and support settings' : 'Find answers and get in touch'}
+          {isOwner ? 'Manage FAQ content and support settings' : (
+            <EditableText contentKey="support.header_subtitle" fallback="Find answers and get in touch" as="span" />
+          )}
         </p>
       </div>
 
       {/* Fallback Warning Banner */}
       <div className="glass-card p-4 border-l-4 border-l-[var(--color-brand-pink-dark)] flex items-center gap-3">
         <HelpCircle className="text-[var(--color-brand-pink-dark)] shrink-0" size={18} />
-        <p className="text-sm text-[var(--color-text-secondary)] font-medium">
-          If a feature is not working as expected, please try the mobile app.
-        </p>
+        <EditableText
+          contentKey="support.banner_text"
+          fallback="If a feature is not working as expected, please try the mobile app."
+          as="p"
+          multiline
+          className="text-sm text-[var(--color-text-secondary)] font-medium"
+        />
       </div>
 
       {/* Tabs */}

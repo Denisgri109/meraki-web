@@ -21,10 +21,10 @@ import {
   RotateCcw,
   Loader2,
   Save,
-  Check,
   AlertTriangle,
   Eye,
-  Upload,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 
 // ─── Types ──────────────────────────────────────────────────────────────
@@ -52,11 +52,33 @@ interface TextField {
   placeholder?: string;
 }
 
+interface TextGroup {
+  id: string;
+  title: string;
+  description: string;
+  fields: TextField[];
+}
+
 interface ImageField {
   key: string;
   label: string;
   fallback: string;
   description: string;
+}
+
+interface SupportSettingField {
+  field: string;
+  label: string;
+  placeholder: string;
+  multiline?: boolean;
+}
+
+interface ResetSection {
+  id: string;
+  title: string;
+  description: string;
+  prefixes: string[];
+  keys: string[];
 }
 
 // ─── Config ─────────────────────────────────────────────────────────────
@@ -78,82 +100,114 @@ const COLOR_FIELDS: ColorField[] = [
   { key: 'border', label: 'Border', description: 'Standard border color', section: 'Borders' },
 ];
 
-const TEXT_FIELDS: TextField[] = [
+const TEXT_GROUPS: TextGroup[] = [
   {
-    key: 'landing.hero.badge',
-    label: 'Hero Badge',
-    fallback: 'Beauty With Soul',
-    placeholder: 'Beauty With Soul',
+    id: 'hero',
+    title: 'Hero & Headers',
+    description: 'Main headlines shown at the top of the Beauty and Pilates landing pages.',
+    fields: [
+      { key: 'landing.hero.badge', label: 'Beauty Hero Badge', fallback: 'Beauty With Soul', placeholder: 'Beauty With Soul' },
+      { key: 'landing.hero.title', label: 'Beauty Hero Headline', fallback: 'Your Premium Beauty Destination', multiline: true, rows: 2, placeholder: 'Your Premium Beauty Destination' },
+      { key: 'landing.hero.subtitle', label: 'Beauty Hero Subtext', fallback: 'Book appointments with top professionals, shop curated products, and learn from expert courses — all in one place.', multiline: true, rows: 3, placeholder: 'Book appointments with top professionals...' },
+      { key: 'landing.pilates.hero.badge', label: 'Pilates Hero Badge', fallback: 'Move With Purpose', placeholder: 'Move With Purpose' },
+      { key: 'landing.pilates.hero.title', label: 'Pilates Hero Headline', fallback: 'Your Pilates Journey Starts Here', multiline: true, rows: 2, placeholder: 'Your Pilates Journey Starts Here' },
+      { key: 'landing.pilates.hero.subtitle', label: 'Pilates Hero Subtext', fallback: 'Book group classes, follow weekly schedules, and train with expert instructors — for every level, every body.', multiline: true, rows: 3, placeholder: 'Book group classes...' },
+    ],
   },
   {
-    key: 'landing.hero.title',
-    label: 'Hero Headline',
-    fallback: 'Your Premium Beauty Destination',
-    multiline: true,
-    rows: 2,
-    placeholder: 'Your Premium Beauty Destination',
+    id: 'landing',
+    title: 'Landing Content',
+    description: 'Section titles, step cards, and testimonial copy on both landing pages.',
+    fields: [
+      { key: 'landing.how_it_works.badge', label: 'Beauty Steps Badge', fallback: 'How It Works', placeholder: 'How It Works' },
+      { key: 'landing.how_it_works.title', label: 'Beauty Steps Title', fallback: 'Beauty Made Simple', placeholder: 'Beauty Made Simple' },
+      { key: 'landing.features.badge', label: 'Beauty Features Badge', fallback: 'Everything You Need', placeholder: 'Everything You Need' },
+      { key: 'landing.features.title', label: 'Beauty Features Title', fallback: 'One Platform, Endless Beauty', placeholder: 'One Platform, Endless Beauty' },
+      { key: 'landing.testimonial.badge', label: 'Beauty Testimonial Badge', fallback: 'Join Thousands of Happy Clients', placeholder: 'Join Thousands of Happy Clients' },
+      { key: 'landing.testimonial.quote', label: 'Beauty Testimonial Quote', fallback: 'Merakí transformed how I do beauty. Everything I need in one beautiful app.', multiline: true, rows: 2, placeholder: 'Merakí transformed how I do beauty...' },
+      { key: 'landing.testimonial.author', label: 'Beauty Testimonial Author', fallback: '— Sarah K., London', placeholder: '— Sarah K., London' },
+      { key: 'landing.pilates.how_it_works.badge', label: 'Pilates Steps Badge', fallback: 'How It Works', placeholder: 'How It Works' },
+      { key: 'landing.pilates.how_it_works.title', label: 'Pilates Steps Title', fallback: 'Pilates Made Simple', placeholder: 'Pilates Made Simple' },
+      { key: 'landing.pilates.features.badge', label: 'Pilates Features Badge', fallback: 'Everything You Need', placeholder: 'Everything You Need' },
+      { key: 'landing.pilates.features.title', label: 'Pilates Features Title', fallback: 'One Studio, Every Level', placeholder: 'One Studio, Every Level' },
+      { key: 'landing.pilates.testimonial.badge', label: 'Pilates Testimonial Badge', fallback: 'Join Hundreds of Stronger Bodies', placeholder: 'Join Hundreds of Stronger Bodies' },
+      { key: 'landing.pilates.testimonial.quote', label: 'Pilates Testimonial Quote', fallback: 'Pilates at Merakí changed how I move. The classes, the instructors — everything just clicks.', multiline: true, rows: 2, placeholder: 'Pilates at Merakí changed how I move...' },
+      { key: 'landing.pilates.testimonial.author', label: 'Pilates Testimonial Author', fallback: '— Emma R., London', placeholder: '— Emma R., London' },
+    ],
   },
   {
-    key: 'landing.hero.subtitle',
-    label: 'Hero Subtext',
-    fallback:
-      'Book appointments with top professionals, shop curated products, and learn from expert courses — all in one place.',
-    multiline: true,
-    rows: 3,
-    placeholder: 'Book appointments with top professionals...',
+    id: 'pages',
+    title: 'Static Pages',
+    description: 'Copy on the About, Contact, and Get App pages.',
+    fields: [
+      { key: 'about.eyebrow', label: 'About Eyebrow', fallback: 'Our Story', placeholder: 'Our Story' },
+      { key: 'about.heading', label: 'About Heading', fallback: 'Beauty With Soul', placeholder: 'Beauty With Soul' },
+      { key: 'about.paragraph1', label: 'About Paragraph 1', fallback: 'Welcome to Merakí, your premium destination for all things beauty. The word "Merakí" is a Greek word often used to describe doing something with soul, creativity, or love — when you put "something of yourself" into what you\'re doing, whatever it may be.', multiline: true, rows: 4, placeholder: 'Welcome to Merakí...' },
+      { key: 'about.paragraph2', label: 'About Paragraph 2', fallback: 'Founded on the belief that beauty is an expression of the inner self, our platform connects you with top-tier professionals, curated products, and expert knowledge all in one seamless place.', multiline: true, rows: 3, placeholder: 'Founded on the belief...' },
+      { key: 'about.paragraph3', label: 'About Paragraph 3', fallback: 'Whether you are looking to book your next transforming hair appointment, find the perfect skincare routine, or learn a new makeup technique from our academy, Merakí provides an unparalleled, luxury experience.', multiline: true, rows: 3, placeholder: 'Whether you are looking...' },
+      { key: 'about.cta', label: 'About CTA Label', fallback: 'Join the Merakí Family', placeholder: 'Join the Merakí Family' },
+      { key: 'contact.eyebrow', label: 'Contact Eyebrow', fallback: 'Get in Touch', placeholder: 'Get in Touch' },
+      { key: 'contact.heading', label: 'Contact Heading', fallback: "Let's craft your perfect look.", placeholder: "Let's craft your perfect look." },
+      { key: 'contact.paragraph', label: 'Contact Intro', fallback: "Have a question about our services, products, or your account? We're here to help. Reach out to our dedicated support team to start your journey.", multiline: true, rows: 3, placeholder: 'Have a question...' },
+      { key: 'contact.email', label: 'Contact Email', fallback: 'hello@merakiapp.com', placeholder: 'hello@merakiapp.com' },
+      { key: 'contact.phone', label: 'Contact Phone', fallback: '+44 (0) 20 7123 4567', placeholder: '+44 (0) 20 7123 4567' },
+      { key: 'contact.hours', label: 'Contact Opening Hours', fallback: 'Mon-Fri, 9am - 6pm GMT', placeholder: 'Mon-Fri, 9am - 6pm GMT' },
+      { key: 'contact.form_heading', label: 'Contact Form Heading', fallback: 'Send us a message', placeholder: 'Send us a message' },
+      { key: 'contact.form_button', label: 'Contact Form Button', fallback: 'Send Message', placeholder: 'Send Message' },
+      { key: 'getapp.heading', label: 'Get App Heading', fallback: 'Meraká is Coming to Your Pocket', placeholder: 'Meraká is Coming to Your Pocket' },
+      { key: 'getapp.subtext', label: 'Get App Subtext', fallback: "We're crafting the official Meraká mobile app to bring real-time messaging, instant booking updates, stamp tag scanning, and personalized alerts right to your phone. It's almost here.", multiline: true, rows: 3, placeholder: "We're crafting the official Meraká mobile app..." },
+    ],
   },
   {
-    key: 'landing.pilates.hero.badge',
-    label: 'Pilates Hero Badge',
-    fallback: 'Mind. Body. Balance.',
-    placeholder: 'Mind. Body. Balance.',
+    id: 'legal',
+    title: 'Legal Documents',
+    description: 'Full document bodies. Leave empty to restore the built-in default document.',
+    fields: [
+      { key: 'legal.tos_body', label: 'Terms of Service Body', fallback: '', multiline: true, rows: 12, placeholder: 'Leave empty to use the default Terms of Service. Enter custom text to override.' },
+      { key: 'legal.privacy_policy_body', label: 'Privacy Policy Body', fallback: '', multiline: true, rows: 12, placeholder: 'Leave empty to use the default Privacy Policy. Enter custom text to override.' },
+    ],
   },
   {
-    key: 'landing.pilates.hero.title',
-    label: 'Pilates Hero Headline',
-    fallback: 'Find Your Flow',
-    multiline: true,
-    rows: 2,
-    placeholder: 'Find Your Flow',
+    id: 'support',
+    title: 'Support & FAQ',
+    description: 'Support page text and the contact information shown to clients. FAQ items are managed on the Support page.',
+    fields: [
+      { key: 'support.header_title', label: 'Support Page Title', fallback: 'Support', placeholder: 'Support' },
+      { key: 'support.header_subtitle', label: 'Support Page Subtitle', fallback: 'Find answers and get in touch', placeholder: 'Find answers and get in touch' },
+      { key: 'support.banner_text', label: 'Support Banner Text', fallback: 'If a feature is not working as expected, please try the mobile app.', multiline: true, rows: 2, placeholder: 'If a feature is not working as expected...' },
+    ],
   },
   {
-    key: 'landing.pilates.hero.subtitle',
-    label: 'Pilates Hero Subtext',
-    fallback:
-      'Reformer and mat Pilates sessions for every level. Build strength, mobility, and mindfulness with our expert instructors.',
-    multiline: true,
-    rows: 3,
-    placeholder: 'Reformer and mat Pilates sessions...',
+    id: 'branding',
+    title: 'Footer & Branding',
+    description: 'Brand name, footer tagline, and copyright notice shown site-wide.',
+    fields: [
+      { key: 'brand.logo_text', label: 'Brand Name (Logo Text)', fallback: 'Merakí', placeholder: 'Merakí' },
+      { key: 'footer.tagline', label: 'Footer Tagline', fallback: 'Beauty with soul', placeholder: 'Beauty with soul' },
+      { key: 'footer.copyright', label: 'Footer Copyright', fallback: 'Merakí. All rights reserved.', placeholder: 'Merakí. All rights reserved.' },
+    ],
   },
-  {
-    key: 'footer.tagline',
-    label: 'Footer Tagline',
-    fallback: 'Beauty with soul',
-    placeholder: 'Beauty with soul',
-  },
-  {
-    key: 'legal.tos_body',
-    label: 'Terms of Service Body',
-    fallback: '',
-    multiline: true,
-    rows: 10,
-    placeholder: 'Leave empty to use the default Terms of Service. Enter custom text to override.',
-  },
+];
+
+const SUPPORT_SETTING_FIELDS: SupportSettingField[] = [
+  { field: 'email', label: 'Support Email', placeholder: 'support@yoursalon.com' },
+  { field: 'phone', label: 'Support Phone', placeholder: '+353 1 234 5678' },
+  { field: 'hours', label: 'Business Hours', placeholder: 'Mon-Fri: 9:00 AM - 6:00 PM' },
+  { field: 'address', label: 'Address', placeholder: '123 Beauty Lane, Dublin' },
+  { field: 'additional_info', label: 'Additional Info', placeholder: 'Any additional information for clients...', multiline: true },
 ];
 
 const IMAGE_FIELDS: ImageField[] = [
   {
     key: 'landing.hero.image_url',
     label: 'Beauty Hero Image',
-    fallback:
-      'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=1920&q=80&auto=format&fit=crop',
+    fallback: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=1920&q=80&auto=format&fit=crop',
     description: 'Main landing page hero background image',
   },
   {
     key: 'landing.pilates.hero.image_url',
     label: 'Pilates Hero Image',
-    fallback:
-      'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=1920&q=80&auto=format&fit=crop',
+    fallback: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=1920&q=80&auto=format&fit=crop',
     description: 'Pilates landing page hero background image',
   },
   {
@@ -162,9 +216,119 @@ const IMAGE_FIELDS: ImageField[] = [
     fallback: '',
     description: 'Custom site logo (overrides text-based logo). Recommended: transparent PNG, 200x60px.',
   },
+  {
+    key: 'landing.features.image_url',
+    label: 'Beauty Feature Banner',
+    fallback: 'https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?w=800&q=80&auto=format&fit=crop',
+    description: 'Large image beside the Beauty features list',
+  },
+  {
+    key: 'landing.pilates.features.image_url',
+    label: 'Pilates Feature Banner',
+    fallback: 'https://images.unsplash.com/photo-1601925260368-ae2f83cf8b7f?w=800&q=80&auto=format&fit=crop',
+    description: 'Large image beside the Pilates features list',
+  },
+  {
+    key: 'landing.testimonial.image_url',
+    label: 'Beauty Testimonial Banner',
+    fallback: 'https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?w=1600&q=80&auto=format&fit=crop',
+    description: 'Background image behind the Beauty testimonial section',
+  },
+  {
+    key: 'landing.pilates.testimonial.image_url',
+    label: 'Pilates Testimonial Banner',
+    fallback: 'https://images.unsplash.com/photo-1599058917212-d750089bc07e?w=1600&q=80&auto=format&fit=crop',
+    description: 'Background image behind the Pilates testimonial section',
+  },
+  {
+    key: 'landing.how_it_works.step1_image',
+    label: 'Beauty Step 1 Illustration',
+    fallback: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=600&q=80&auto=format&fit=crop',
+    description: 'Beauty "How It Works" step 1 image',
+  },
+  {
+    key: 'landing.how_it_works.step2_image',
+    label: 'Beauty Step 2 Illustration',
+    fallback: 'https://images.unsplash.com/photo-1487412912498-0447578fcca8?w=600&q=80&auto=format&fit=crop',
+    description: 'Beauty "How It Works" step 2 image',
+  },
+  {
+    key: 'landing.how_it_works.step3_image',
+    label: 'Beauty Step 3 Illustration',
+    fallback: 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=600&q=80&auto=format&fit=crop',
+    description: 'Beauty "How It Works" step 3 image',
+  },
+  {
+    key: 'landing.pilates.how_it_works.step1_image',
+    label: 'Pilates Step 1 Illustration',
+    fallback: 'https://images.unsplash.com/photo-1518310383802-640c2de311b2?w=600&q=80&auto=format&fit=crop',
+    description: 'Pilates "How It Works" step 1 image',
+  },
+  {
+    key: 'landing.pilates.how_it_works.step2_image',
+    label: 'Pilates Step 2 Illustration',
+    fallback: 'https://images.unsplash.com/photo-1599058917212-d750089bc07e?w=600&q=80&auto=format&fit=crop',
+    description: 'Pilates "How It Works" step 2 image',
+  },
+  {
+    key: 'landing.pilates.how_it_works.step3_image',
+    label: 'Pilates Step 3 Illustration',
+    fallback: 'https://images.unsplash.com/photo-1601925260368-ae2f83cf8b7f?w=600&q=80&auto=format&fit=crop',
+    description: 'Pilates "How It Works" step 3 image',
+  },
 ];
 
-const RESET_PREFIXES = ['landing.', 'image.', 'legal.'];
+const ALL_TEXT_FIELDS: TextField[] = TEXT_GROUPS.flatMap((g) => g.fields);
+
+const RESET_SECTIONS: ResetSection[] = [
+  {
+    id: 'landing',
+    title: 'Landing Pages',
+    description: 'Hero copy, section titles, step cards, testimonials, and portal text (Beauty & Pilates).',
+    prefixes: ['landing.', 'portal.'],
+    keys: [],
+  },
+  {
+    id: 'legal',
+    title: 'Legal Documents',
+    description: 'Custom Terms of Service and Privacy Policy bodies.',
+    prefixes: ['legal.'],
+    keys: [],
+  },
+  {
+    id: 'branding',
+    title: 'Footer & Branding',
+    description: 'Logo text/image, footer tagline, and copyright notice.',
+    prefixes: ['brand.', 'footer.', 'image.'],
+    keys: [],
+  },
+  {
+    id: 'pages',
+    title: 'Static Pages',
+    description: 'About, Contact, and Get App page copy.',
+    prefixes: ['about.', 'contact.', 'getapp.'],
+    keys: [],
+  },
+  {
+    id: 'support',
+    title: 'Support & FAQ',
+    description: 'Support page text, contact info, and all FAQ items.',
+    prefixes: ['support.'],
+    keys: ['faq_items', 'support_settings'],
+  },
+];
+
+// ─── Helpers ────────────────────────────────────────────────────────────
+
+function parseSupportSettings(raw: string | undefined): Record<string, string> {
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw);
+    return typeof parsed === 'object' && parsed !== null ? parsed : {};
+  } catch {
+    return {};
+  }
+}
 
 // ─── Component ──────────────────────────────────────────────────────────
 
@@ -181,9 +345,12 @@ export function CustomizeDrawer({ open, onClose }: CustomizeDrawerProps) {
   const [themeDirty, setThemeDirty] = useState(false);
   const [savingTheme, setSavingTheme] = useState(false);
   const [textDrafts, setTextDrafts] = useState<Record<string, string>>({});
+  const [supportDrafts, setSupportDrafts] = useState<Record<string, string>>({});
   const [savingText, setSavingText] = useState<string | null>(null);
   const [imageValues, setImageValues] = useState<Record<string, string>>({});
   const [resetting, setResetting] = useState(false);
+  const [resettingSection, setResettingSection] = useState<string | null>(null);
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({ hero: true });
 
   // Sync draftTheme when theme loads/changes
   useEffect(() => {
@@ -195,10 +362,17 @@ export function CustomizeDrawer({ open, onClose }: CustomizeDrawerProps) {
   useEffect(() => {
     if (!open) return;
     const drafts: Record<string, string> = {};
-    for (const field of TEXT_FIELDS) {
+    for (const field of ALL_TEXT_FIELDS) {
       drafts[field.key] = getContent(field.key, field.fallback);
     }
     setTextDrafts(drafts);
+
+    const support = parseSupportSettings(getContent('support_settings', ''));
+    const supportValues: Record<string, string> = {};
+    for (const field of SUPPORT_SETTING_FIELDS) {
+      supportValues[field.field] = support[field.field] ?? '';
+    }
+    setSupportDrafts(supportValues);
 
     const images: Record<string, string> = {};
     for (const field of IMAGE_FIELDS) {
@@ -257,7 +431,7 @@ export function CustomizeDrawer({ open, onClose }: CustomizeDrawerProps) {
     async (key: string) => {
       const draftValue = textDrafts[key];
       if (draftValue === undefined) return;
-      const field = TEXT_FIELDS.find((f) => f.key === key);
+      const field = ALL_TEXT_FIELDS.find((f) => f.key === key);
       const fallback = field?.fallback ?? '';
 
       // If draft matches fallback (or is empty and fallback is empty), delete the override
@@ -289,6 +463,30 @@ export function CustomizeDrawer({ open, onClose }: CustomizeDrawerProps) {
     },
     [textDrafts, supabase, updateContent, refreshContent, showToast]
   );
+
+  // ─── Support settings handlers ────────────────────────────────────────
+
+  const handleSupportChange = useCallback((field: string, value: string) => {
+    setSupportDrafts((prev) => ({ ...prev, [field]: value }));
+  }, []);
+
+  const handleSaveSupport = useCallback(async () => {
+    setSavingText('support_settings');
+    const merged = {
+      email: supportDrafts.email?.trim() ?? '',
+      phone: supportDrafts.phone?.trim() ?? '',
+      hours: supportDrafts.hours?.trim() ?? '',
+      address: supportDrafts.address?.trim() ?? '',
+      additional_info: supportDrafts.additional_info ?? '',
+    };
+    const { error } = await updateContent('support_settings', JSON.stringify(merged));
+    if (error) {
+      showToast(error, 'error');
+    } else {
+      showToast('Support contact info saved', 'success');
+    }
+    setSavingText(null);
+  }, [supportDrafts, updateContent, showToast]);
 
   // ─── Images tab handlers ──────────────────────────────────────────────
 
@@ -324,11 +522,62 @@ export function CustomizeDrawer({ open, onClose }: CustomizeDrawerProps) {
     [supabase, refreshContent, showToast]
   );
 
-  // ─── Reset tab handler ────────────────────────────────────────────────
+  // ─── Reset tab handlers ───────────────────────────────────────────────
+
+  const reloadDraftsAfterReset = useCallback(async () => {
+    await refreshContent();
+    const freshText: Record<string, string> = {};
+    for (const field of ALL_TEXT_FIELDS) {
+      freshText[field.key] = field.fallback;
+    }
+    setTextDrafts(freshText);
+    const freshSupport: Record<string, string> = {};
+    for (const field of SUPPORT_SETTING_FIELDS) {
+      freshSupport[field.field] = '';
+    }
+    setSupportDrafts(freshSupport);
+    const freshImages: Record<string, string> = {};
+    for (const field of IMAGE_FIELDS) {
+      freshImages[field.key] = field.fallback;
+    }
+    setImageValues(freshImages);
+  }, [refreshContent]);
+
+  const handleResetSection = useCallback(
+    async (section: ResetSection) => {
+      const confirmed = await showConfirm(
+        `This will reset ${section.title} back to the factory defaults. This cannot be undone.`,
+        `Reset ${section.title}`,
+        'Reset',
+        'Cancel',
+        'danger'
+      );
+      if (!confirmed) return;
+
+      setResettingSection(section.id);
+      try {
+        for (const prefix of section.prefixes) {
+          const { error } = await resetContent(prefix);
+          if (error) throw new Error(error);
+        }
+        for (const key of section.keys) {
+          const { error } = await supabase.from('global_settings').delete().eq('key', key);
+          if (error) throw new Error(error.message);
+        }
+        await reloadDraftsAfterReset();
+        showToast(`${section.title} reset to defaults`, 'success');
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : 'Failed to reset', 'error');
+      } finally {
+        setResettingSection(null);
+      }
+    },
+    [showConfirm, resetContent, supabase, reloadDraftsAfterReset, showToast]
+  );
 
   const handleResetEverything = useCallback(async () => {
     const confirmed = await showConfirm(
-      'This will permanently reset ALL customizations — theme colors, text content (including Terms of Service), images, and logos — back to the original factory defaults. Every visitor will see the default site. This cannot be undone.',
+      'This will permanently reset ALL customizations — theme colors, text content (including legal documents), support info, FAQs, images, and logos — back to the original factory defaults. Every visitor will see the default site. This cannot be undone.',
       'Reset Everything to Original State',
       'Reset Everything',
       'Cancel',
@@ -342,29 +591,22 @@ export function CustomizeDrawer({ open, onClose }: CustomizeDrawerProps) {
       const themeResult = await resetTheme();
       if (themeResult.error) throw new Error(themeResult.error);
 
-      // 2. Reset content prefixes (landing.*, image.*, legal.*)
-      for (const prefix of RESET_PREFIXES) {
-        const result = await resetContent(prefix);
-        if (result.error) throw new Error(result.error);
+      // 2. Reset every content section
+      for (const section of RESET_SECTIONS) {
+        for (const prefix of section.prefixes) {
+          const result = await resetContent(prefix);
+          if (result.error) throw new Error(result.error);
+        }
+        for (const key of section.keys) {
+          const { error } = await supabase.from('global_settings').delete().eq('key', key);
+          if (error) throw new Error(error.message);
+        }
       }
 
-      // 3. Refresh content state
-      await refreshContent();
-
-      // 4. Reset local drafts
+      // 3. Refresh content state + local drafts
+      await reloadDraftsAfterReset();
       setDraftTheme(DEFAULT_THEME);
       setThemeDirty(false);
-      const freshTextDrafts: Record<string, string> = {};
-      for (const field of TEXT_FIELDS) {
-        freshTextDrafts[field.key] = field.fallback;
-      }
-      setTextDrafts(freshTextDrafts);
-
-      const freshImages: Record<string, string> = {};
-      for (const field of IMAGE_FIELDS) {
-        freshImages[field.key] = field.fallback;
-      }
-      setImageValues(freshImages);
 
       showToast('Everything reset to original state!', 'success');
     } catch (err) {
@@ -373,7 +615,11 @@ export function CustomizeDrawer({ open, onClose }: CustomizeDrawerProps) {
     } finally {
       setResetting(false);
     }
-  }, [showConfirm, resetTheme, resetContent, refreshContent, showToast]);
+  }, [showConfirm, resetTheme, resetContent, supabase, reloadDraftsAfterReset, showToast]);
+
+  const toggleGroup = useCallback((id: string) => {
+    setOpenGroups((prev) => ({ ...prev, [id]: !prev[id] }));
+  }, []);
 
   // ─── Render ────────────────────────────────────────────────────────────
 
@@ -386,10 +632,58 @@ export function CustomizeDrawer({ open, onClose }: CustomizeDrawerProps) {
 
   const tabs: { id: TabId; label: string; icon: typeof Palette }[] = [
     { id: 'colors', label: 'Colors', icon: Palette },
-    { id: 'text', label: 'Text', icon: Type },
-    { id: 'images', label: 'Images', icon: ImageIcon },
+    { id: 'text', label: 'Content & Text', icon: Type },
+    { id: 'images', label: 'Media & Images', icon: ImageIcon },
     { id: 'reset', label: 'Reset', icon: RotateCcw },
   ];
+
+  const renderTextField = (field: TextField) => {
+    const value = textDrafts[field.key] ?? field.fallback;
+    const isDirty = value !== getContent(field.key, field.fallback);
+    const isSaving = savingText === field.key;
+    return (
+      <div key={field.key} className="space-y-1.5">
+        <div className="flex items-center justify-between">
+          <label className="text-sm font-medium text-[var(--color-text-primary)]">
+            {field.label}
+          </label>
+          {isDirty && (
+            <span className="text-[10px] text-amber-600 font-medium flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+              Unsaved
+            </span>
+          )}
+        </div>
+        {field.multiline ? (
+          <textarea
+            value={value}
+            onChange={(e) => handleTextChange(field.key, e.target.value)}
+            rows={field.rows ?? 3}
+            placeholder={field.placeholder}
+            className="input-glass resize-none w-full text-sm"
+          />
+        ) : (
+          <input
+            type="text"
+            value={value}
+            onChange={(e) => handleTextChange(field.key, e.target.value)}
+            placeholder={field.placeholder}
+            className="input-glass w-full text-sm"
+          />
+        )}
+        <div className="flex justify-end">
+          <button
+            onClick={() => handleSaveText(field.key)}
+            disabled={!isDirty || isSaving}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-[var(--color-primary)] text-white hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity cursor-pointer"
+          >
+            {isSaving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+            {isSaving ? 'Saving...' : 'Save'}
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <>
@@ -433,7 +727,7 @@ export function CustomizeDrawer({ open, onClose }: CustomizeDrawerProps) {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-1.5 px-4 py-3 text-sm font-medium border-b-2 transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3 py-3 text-xs sm:text-sm font-medium border-b-2 transition-all cursor-pointer whitespace-nowrap ${
                   isActive
                     ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
                     : 'border-transparent text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]'
@@ -543,63 +837,92 @@ export function CustomizeDrawer({ open, onClose }: CustomizeDrawerProps) {
             </div>
           )}
 
-          {/* ─── Text Tab ─── */}
+          {/* ─── Content & Text Tab ─── */}
           {activeTab === 'text' && (
-            <div className="space-y-5">
+            <div className="space-y-4">
               <p className="text-xs text-[var(--color-text-muted)]">
-                Edit key text sections across the site. Changes apply immediately to all visitors after saving.
+                Edit key text sections across the site, grouped by area. Changes apply immediately
+                to all visitors after saving.
               </p>
-              {TEXT_FIELDS.map((field) => {
-                const value = textDrafts[field.key] ?? field.fallback;
-                const isDirty = value !== getContent(field.key, field.fallback);
-                const isSaving = savingText === field.key;
+
+              {TEXT_GROUPS.map((group) => {
+                const isOpen = !!openGroups[group.id];
                 return (
-                  <div key={field.key} className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <label className="text-sm font-medium text-[var(--color-text-primary)]">
-                        {field.label}
-                      </label>
-                      {isDirty && (
-                        <span className="text-[10px] text-amber-600 font-medium flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                          Unsaved
-                        </span>
+                  <div key={group.id} className="rounded-xl border border-gray-200 overflow-hidden">
+                    <button
+                      onClick={() => toggleGroup(group.id)}
+                      className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer text-left"
+                      aria-expanded={isOpen}
+                    >
+                      <div>
+                        <p className="text-sm font-semibold text-[var(--color-text-primary)]">{group.title}</p>
+                        <p className="text-[11px] text-[var(--color-text-muted)] mt-0.5">{group.description}</p>
+                      </div>
+                      {isOpen ? (
+                        <ChevronUp size={16} className="text-[var(--color-text-muted)] shrink-0" />
+                      ) : (
+                        <ChevronDown size={16} className="text-[var(--color-text-muted)] shrink-0" />
                       )}
-                    </div>
-                    {field.multiline ? (
-                      <textarea
-                        value={value}
-                        onChange={(e) => handleTextChange(field.key, e.target.value)}
-                        rows={field.rows ?? 3}
-                        placeholder={field.placeholder}
-                        className="input-glass resize-none w-full text-sm"
-                      />
-                    ) : (
-                      <input
-                        type="text"
-                        value={value}
-                        onChange={(e) => handleTextChange(field.key, e.target.value)}
-                        placeholder={field.placeholder}
-                        className="input-glass w-full text-sm"
-                      />
+                    </button>
+                    {isOpen && (
+                      <div className="p-4 space-y-5 bg-white">
+                        {group.fields.map(renderTextField)}
+
+                        {/* Support contact info lives inside the Support & FAQ group */}
+                        {group.id === 'support' && (
+                          <div className="pt-4 border-t border-gray-100 space-y-4">
+                            <p className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
+                              Support Contact Info
+                            </p>
+                            {SUPPORT_SETTING_FIELDS.map((field) => (
+                              <div key={field.field} className="space-y-1.5">
+                                <label className="text-sm font-medium text-[var(--color-text-primary)]">
+                                  {field.label}
+                                </label>
+                                {field.multiline ? (
+                                  <textarea
+                                    value={supportDrafts[field.field] ?? ''}
+                                    onChange={(e) => handleSupportChange(field.field, e.target.value)}
+                                    rows={3}
+                                    placeholder={field.placeholder}
+                                    className="input-glass resize-none w-full text-sm"
+                                  />
+                                ) : (
+                                  <input
+                                    type="text"
+                                    value={supportDrafts[field.field] ?? ''}
+                                    onChange={(e) => handleSupportChange(field.field, e.target.value)}
+                                    placeholder={field.placeholder}
+                                    className="input-glass w-full text-sm"
+                                  />
+                                )}
+                              </div>
+                            ))}
+                            <div className="flex justify-end">
+                              <button
+                                onClick={handleSaveSupport}
+                                disabled={savingText === 'support_settings'}
+                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-[var(--color-primary)] text-white hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity cursor-pointer"
+                              >
+                                {savingText === 'support_settings' ? (
+                                  <Loader2 size={12} className="animate-spin" />
+                                ) : (
+                                  <Save size={12} />
+                                )}
+                                {savingText === 'support_settings' ? 'Saving...' : 'Save Contact Info'}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     )}
-                    <div className="flex justify-end">
-                      <button
-                        onClick={() => handleSaveText(field.key)}
-                        disabled={!isDirty || isSaving}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-[var(--color-primary)] text-white hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity cursor-pointer"
-                      >
-                        {isSaving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
-                        {isSaving ? 'Saving...' : 'Save'}
-                      </button>
-                    </div>
                   </div>
                 );
               })}
             </div>
           )}
 
-          {/* ─── Images Tab ─── */}
+          {/* ─── Media & Images Tab ─── */}
           {activeTab === 'images' && (
             <div className="space-y-5">
               <p className="text-xs text-[var(--color-text-muted)]">
@@ -657,6 +980,34 @@ export function CustomizeDrawer({ open, onClose }: CustomizeDrawerProps) {
           {/* ─── Reset Tab ─── */}
           {activeTab === 'reset' && (
             <div className="space-y-4">
+              <p className="text-xs text-[var(--color-text-muted)]">
+                Revert a specific section back to factory defaults, or reset everything at once.
+              </p>
+
+              {RESET_SECTIONS.map((section) => (
+                <div
+                  key={section.id}
+                  className="flex items-center justify-between gap-3 p-4 rounded-xl bg-gray-50 border border-gray-100"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-[var(--color-text-primary)]">{section.title}</p>
+                    <p className="text-xs text-[var(--color-text-muted)] mt-0.5">{section.description}</p>
+                  </div>
+                  <button
+                    onClick={() => handleResetSection(section)}
+                    disabled={resettingSection !== null || resetting}
+                    className="shrink-0 flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg border border-red-200 text-red-600 hover:bg-red-50 transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    {resettingSection === section.id ? (
+                      <Loader2 size={12} className="animate-spin" />
+                    ) : (
+                      <RotateCcw size={12} />
+                    )}
+                    Reset
+                  </button>
+                </div>
+              ))}
+
               <div className="p-5 rounded-xl bg-red-50 border border-red-200">
                 <div className="flex items-start gap-3 mb-4">
                   <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
@@ -676,7 +1027,11 @@ export function CustomizeDrawer({ open, onClose }: CustomizeDrawerProps) {
                       </li>
                       <li className="flex items-center gap-1.5">
                         <span className="w-1 h-1 rounded-full bg-red-400" />
-                        All text content (hero, TOS, footer) → original copy
+                        All text content (hero, legal docs, footer) → original copy
+                      </li>
+                      <li className="flex items-center gap-1.5">
+                        <span className="w-1 h-1 rounded-full bg-red-400" />
+                        Support info &amp; FAQs → factory defaults
                       </li>
                       <li className="flex items-center gap-1.5">
                         <span className="w-1 h-1 rounded-full bg-red-400" />
@@ -690,7 +1045,7 @@ export function CustomizeDrawer({ open, onClose }: CustomizeDrawerProps) {
                 </div>
                 <button
                   onClick={handleResetEverything}
-                  disabled={resetting}
+                  disabled={resetting || resettingSection !== null}
                   className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold bg-red-600 text-white hover:bg-red-700 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {resetting ? <Loader2 size={16} className="animate-spin" /> : <RotateCcw size={16} />}

@@ -161,14 +161,25 @@ export function BeautySection({ isOwner }: BeautySectionProps) {
                   { emoji: '🎓', title: 'Academy', desc: 'Learn from professional courses and tutorials', badge: 'icon-badge-blue' },
                   { emoji: '🎁', title: 'Loyalty Rewards', desc: 'Earn points and unlock exclusive perks', badge: 'icon-badge-green' },
                   { emoji: '💬', title: 'Direct Chat', desc: 'Message your stylist directly in-app', badge: 'icon-badge-purple' },
-                ].map((f) => (
+                ].map((f, i) => (
                   <div key={f.title} className="flex items-start gap-4 group">
                     <div className={`icon-badge ${f.badge} group-hover:scale-110 transition-transform duration-300`}>
                       <span>{f.emoji}</span>
                     </div>
                     <div>
-                      <h3 className="font-semibold text-[var(--color-text-primary)]">{f.title}</h3>
-                      <p className="text-sm text-[var(--color-text-secondary)]">{f.desc}</p>
+                      <EditableText
+                        contentKey={`landing.features.f${i + 1}_title`}
+                        fallback={f.title}
+                        as="h3"
+                        className="font-semibold text-[var(--color-text-primary)]"
+                      />
+                      <EditableText
+                        contentKey={`landing.features.f${i + 1}_desc`}
+                        fallback={f.desc}
+                        as="p"
+                        multiline
+                        className="text-sm text-[var(--color-text-secondary)]"
+                      />
                     </div>
                   </div>
                 ))}

@@ -2,15 +2,23 @@
 
 import Link from 'next/link';
 import { useSection } from '@/contexts/SectionContext';
+import { useEditMode } from '@/contexts/EditContext';
 import { EditableText } from '@/components/editable/EditableText';
 
 export function Footer() {
   const { buildPath } = useSection();
+  const { getContent } = useEditMode();
+  const logoUrl = getContent('image.logo', '');
   return (
     <footer className="bg-[var(--color-primary)] text-white py-12 px-6">
       <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8">
         <div>
-          <span className="text-2xl font-[family-name:var(--font-playfair)] italic">Merakí</span>
+          {logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={logoUrl} alt={getContent('brand.logo_text', 'Merakí')} className="h-8 w-auto object-contain brightness-0 invert" />
+          ) : (
+            <EditableText contentKey="brand.logo_text" fallback="Merakí" as="span" className="text-2xl font-[family-name:var(--font-playfair)] italic" />
+          )}
           <EditableText contentKey="footer.tagline" fallback="Beauty with soul" as="p" className="text-white/50 text-sm mt-2" />
         </div>
         <div>
@@ -37,7 +45,8 @@ export function Footer() {
         </div>
       </div>
       <div className="max-w-6xl mx-auto mt-10 pt-6 border-t border-white/10 text-center text-xs text-white/30">
-        © {new Date().getFullYear()} Merakí. All rights reserved.
+        © {new Date().getFullYear()}{' '}
+        <EditableText contentKey="footer.copyright" fallback="Merakí. All rights reserved." as="span" />
       </div>
     </footer>
   );

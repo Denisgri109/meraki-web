@@ -5,6 +5,7 @@ import { MainNavbar } from '@/components/MainNavbar';
 import { Footer } from '@/components/Footer';
 import { Smartphone, Check, ArrowLeft, Sparkles, Clock } from 'lucide-react';
 import Link from 'next/link';
+import { EditableText } from '@/components/editable/EditableText';
 
 export default function GetAppPage() {
   return (
@@ -36,23 +37,30 @@ export default function GetAppPage() {
               <div>
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[var(--color-brand-pink-light)] text-[var(--color-brand-pink-dark)] mb-4">
                   <Clock size={12} className="stroke-[2.5]" />
-                  <span>Coming Soon</span>
+                  <EditableText contentKey="getapp.badge" fallback="Coming Soon" as="span" />
                 </span>
 
-                <h1 className="text-4xl sm:text-5xl font-[family-name:var(--font-playfair)] italic text-[var(--color-text-primary)] leading-tight">
-                  Meraká is Coming to Your Pocket
-                </h1>
+                <EditableText
+                  contentKey="getapp.heading"
+                  fallback="Meraká is Coming to Your Pocket"
+                  as="h1"
+                  className="text-4xl sm:text-5xl font-[family-name:var(--font-playfair)] italic text-[var(--color-text-primary)] leading-tight"
+                />
 
-                <p className="mt-4 text-base text-[var(--color-text-secondary)] leading-relaxed max-w-xl">
-                  We're crafting the official Meraká mobile app to bring real-time messaging, instant booking updates, stamp tag scanning, and personalized alerts right to your phone. It's almost here.
-                </p>
+                <EditableText
+                  contentKey="getapp.subtext"
+                  fallback="We're crafting the official Meraká mobile app to bring real-time messaging, instant booking updates, stamp tag scanning, and personalized alerts right to your phone. It's almost here."
+                  as="p"
+                  multiline
+                  className="mt-4 text-base text-[var(--color-text-secondary)] leading-relaxed max-w-xl"
+                />
               </div>
 
               {/* App Features checklist */}
               <div className="space-y-3.5">
                 <p className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)] flex items-center gap-1.5">
                   <Sparkles size={12} className="text-[var(--color-brand-pink-dark)]" />
-                  <span>What's Inside</span>
+                  <EditableText contentKey="getapp.features_label" fallback="What's Inside" as="span" />
                 </p>
                 {[
                   { title: 'NFC Stamp Card Pairing', desc: 'Scan and pair physical loyalty tags directly with your phone\'s NFC reader.' },
@@ -65,8 +73,19 @@ export default function GetAppPage() {
                       <Check size={12} className="text-[var(--color-brand-pink-dark)] stroke-[3]" />
                     </div>
                     <div>
-                      <h4 className="text-sm font-bold text-[var(--color-text-primary)]">{feat.title}</h4>
-                      <p className="text-xs text-[var(--color-text-secondary)] mt-0.5">{feat.desc}</p>
+                      <EditableText
+                        contentKey={`getapp.f${idx + 1}_title`}
+                        fallback={feat.title}
+                        as="h4"
+                        className="text-sm font-bold text-[var(--color-text-primary)]"
+                      />
+                      <EditableText
+                        contentKey={`getapp.f${idx + 1}_desc`}
+                        fallback={feat.desc}
+                        as="p"
+                        multiline
+                        className="text-xs text-[var(--color-text-secondary)] mt-0.5"
+                      />
                     </div>
                   </div>
                 ))}
@@ -79,8 +98,8 @@ export default function GetAppPage() {
                     <Clock size={20} className="text-white stroke-[2.5]" />
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-[var(--color-text-primary)]">Launching on iOS & Android</p>
-                    <p className="text-xs text-[var(--color-text-secondary)] mt-0.5">The Meraká app is still in the works. Check back soon for download links.</p>
+                    <EditableText contentKey="getapp.status_title" fallback="Launching on iOS & Android" as="p" className="text-sm font-bold text-[var(--color-text-primary)]" />
+                    <EditableText contentKey="getapp.status_text" fallback="The Meraká app is still in the works. Check back soon for download links." as="p" multiline className="text-xs text-[var(--color-text-secondary)] mt-0.5" />
                   </div>
                 </div>
               </div>

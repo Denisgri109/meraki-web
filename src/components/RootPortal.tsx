@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Sparkles, Activity, ArrowRight } from 'lucide-react';
 import { EditModeToggle } from '@/components/editable/EditModeToggle';
+import { EditableText } from '@/components/editable/EditableText';
 import { SectionSwitcher, type SectionId } from '@/components/SectionSwitcher';
 
 const STORAGE_KEY = 'meraki:active-section';
@@ -116,15 +117,25 @@ export function RootPortal({ isOwner }: RootPortalProps) {
         </div>
 
         <div className="relative z-10 text-center mb-12 animate-slide-up">
-          <span className="text-2xl font-[family-name:var(--font-playfair)] italic text-[var(--color-primary)]">
-            Merakí
-          </span>
-          <h1 className="mt-4 text-4xl sm:text-5xl font-[family-name:var(--font-playfair)] italic text-[var(--color-text-primary)]">
-            Choose your experience
-          </h1>
-          <p className="mt-3 text-base text-[var(--color-text-secondary)] max-w-md mx-auto">
-            Two worlds, one platform. Select a section to continue.
-          </p>
+          <EditableText
+            contentKey="brand.logo_text"
+            fallback="Merakí"
+            as="span"
+            className="text-2xl font-[family-name:var(--font-playfair)] italic text-[var(--color-primary)]"
+          />
+          <EditableText
+            contentKey="portal.heading"
+            fallback="Choose your experience"
+            as="h1"
+            className="mt-4 text-4xl sm:text-5xl font-[family-name:var(--font-playfair)] italic text-[var(--color-text-primary)]"
+          />
+          <EditableText
+            contentKey="portal.subtitle"
+            fallback="Two worlds, one platform. Select a section to continue."
+            as="p"
+            multiline
+            className="mt-3 text-base text-[var(--color-text-secondary)] max-w-md mx-auto"
+          />
         </div>
 
         <div key={view} className="relative z-10 w-full max-w-lg animate-scale-in">
@@ -140,14 +151,21 @@ export function RootPortal({ isOwner }: RootPortalProps) {
                 <Icon size={28} className="text-white" />
               )}
             </div>
-            <h2 className="text-2xl font-bold text-[var(--color-text-primary)] mb-2">
-              {card.title}
-            </h2>
-            <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed mb-6">
-              {card.description}
-            </p>
+            <EditableText
+              contentKey={`portal.${view}.title`}
+              fallback={card.title}
+              as="h2"
+              className="text-2xl font-bold text-[var(--color-text-primary)] mb-2"
+            />
+            <EditableText
+              contentKey={`portal.${view}.description`}
+              fallback={card.description}
+              as="p"
+              multiline
+              className="text-sm text-[var(--color-text-secondary)] leading-relaxed mb-6"
+            />
             <span className={`inline-flex items-center gap-2 text-sm font-semibold ${card.ctaClass} group-hover:gap-3 transition-all`}>
-              {card.cta}
+              <EditableText contentKey={`portal.${view}.cta`} fallback={card.cta} as="span" />
               <ArrowRight size={16} />
             </span>
           </button>

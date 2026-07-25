@@ -44,7 +44,9 @@ export default function ContactPage() {
                 </div>
                 <div className="pt-1">
                   <p className="text-sm font-bold text-[var(--color-text-primary)] mb-0.5">Email Us</p>
-                  <a href="mailto:hello@merakiapp.com" className="text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors">hello@merakiapp.com</a>
+                  <a href="mailto:hello@merakiapp.com" className="text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors">
+                    <EditableText contentKey="contact.email" fallback="hello@merakiapp.com" as="span" />
+                  </a>
                 </div>
               </div>
               <div className="flex items-start gap-4 group">
@@ -53,7 +55,9 @@ export default function ContactPage() {
                 </div>
                 <div className="pt-1">
                   <p className="text-sm font-bold text-[var(--color-text-primary)] mb-0.5">Call Us</p>
-                  <a href="tel:+4402071234567" className="text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors">+44 (0) 20 7123 4567</a>
+                  <a href="tel:+4402071234567" className="text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors">
+                    <EditableText contentKey="contact.phone" fallback="+44 (0) 20 7123 4567" as="span" />
+                  </a>
                 </div>
               </div>
               <div className="flex items-start gap-4 group">
@@ -62,7 +66,7 @@ export default function ContactPage() {
                 </div>
                 <div className="pt-1">
                   <p className="text-sm font-bold text-[var(--color-text-primary)] mb-0.5">Opening Hours</p>
-                  <p className="text-sm text-[var(--color-text-secondary)]">Mon-Fri, 9am - 6pm GMT</p>
+                  <EditableText contentKey="contact.hours" fallback="Mon-Fri, 9am - 6pm GMT" as="p" className="text-sm text-[var(--color-text-secondary)]" />
                 </div>
               </div>
             </div>

@@ -160,14 +160,25 @@ export function PilatesSection({ isOwner }: PilatesSectionProps) {
                   { emoji: '📊', title: 'Progress Tracking', desc: 'Monitor your improvements over time', badge: 'icon-badge-blue' },
                   { emoji: '🏋️', title: 'All Levels Welcome', desc: 'From beginner to advanced, find your fit', badge: 'icon-badge-amber' },
                   { emoji: '💬', title: 'Direct Chat', desc: 'Message your instructor directly', badge: 'icon-badge-purple' },
-                ].map((f) => (
+                ].map((f, i) => (
                   <div key={f.title} className="flex items-start gap-4 group">
                     <div className={`icon-badge ${f.badge} group-hover:scale-110 transition-transform duration-300`}>
                       <span>{f.emoji}</span>
                     </div>
                     <div>
-                      <h3 className="font-semibold text-[var(--color-text-primary)]">{f.title}</h3>
-                      <p className="text-sm text-[var(--color-text-secondary)]">{f.desc}</p>
+                      <EditableText
+                        contentKey={`landing.pilates.features.f${i + 1}_title`}
+                        fallback={f.title}
+                        as="h3"
+                        className="font-semibold text-[var(--color-text-primary)]"
+                      />
+                      <EditableText
+                        contentKey={`landing.pilates.features.f${i + 1}_desc`}
+                        fallback={f.desc}
+                        as="p"
+                        multiline
+                        className="text-sm text-[var(--color-text-secondary)]"
+                      />
                     </div>
                   </div>
                 ))}

@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { Footer } from '@/components/Footer';
 import { MainNavbar } from '@/components/MainNavbar';
+import { EditableLegalBody } from '@/components/editable/EditableLegalBody';
+import { DEFAULT_TOS_BODY } from '@/lib/constants/legal';
 import { createClient } from '@/lib/supabase/server';
 
 export default async function TermsOfServicePage() {
@@ -36,9 +38,12 @@ export default async function TermsOfServicePage() {
           </div>
 
           <div className="bg-white p-8 sm:p-12 rounded-[var(--radius-3xl)] text-sm text-[var(--color-text-secondary)] space-y-8 leading-relaxed shadow-sm border border-gray-100">
-            {customTosBody ? (
-              <div className="whitespace-pre-wrap">{customTosBody}</div>
-            ) : (
+            <EditableLegalBody
+              contentKey="legal.tos_body"
+              initialValue={customTosBody}
+              defaultText={DEFAULT_TOS_BODY}
+              label="Terms of Service"
+            >
               <>
                 <section>
                   <h2 className="text-lg font-bold text-[var(--color-text-primary)] mb-3">1. Acceptance of Terms</h2>
@@ -113,7 +118,7 @@ export default async function TermsOfServicePage() {
                   </p>
                 </section>
               </>
-            )}
+            </EditableLegalBody>
           </div>
         </div>
       </main>
