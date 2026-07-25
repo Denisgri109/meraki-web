@@ -8,6 +8,7 @@ interface EditContextType {
   isEditMode: boolean;
   canEdit: boolean;
   toggleEditMode: () => void;
+  setEditMode: (enabled: boolean) => void;
   content: Record<string, string>;
   getContent: (key: string, fallback: string) => string;
   updateContent: (key: string, value: string) => Promise<{ error: string | null }>;
@@ -100,6 +101,15 @@ export function EditProvider({
     }
   }, [canEdit]);
 
+  const setEditMode = useCallback(
+    (enabled: boolean) => {
+      if (canEdit) {
+        setIsEditMode(enabled);
+      }
+    },
+    [canEdit]
+  );
+
   const refreshContent = useCallback(async () => {
     await fetchContent();
   }, [fetchContent]);
@@ -143,6 +153,7 @@ export function EditProvider({
         isEditMode,
         canEdit,
         toggleEditMode,
+        setEditMode,
         content,
         getContent,
         updateContent,

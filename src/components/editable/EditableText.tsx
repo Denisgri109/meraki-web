@@ -33,11 +33,18 @@ export function EditableText({
     }
   }, [editing]);
 
-  const startEditing = useCallback(() => {
-    if (!isEditMode) return;
-    setDraft(getContent(contentKey, fallback));
-    setEditing(true);
-  }, [isEditMode, getContent, contentKey, fallback]);
+  const startEditing = useCallback(
+    (e?: React.MouseEvent) => {
+      if (!isEditMode) return;
+      // Prevent parent links/buttons from navigating or firing when the
+      // owner clicks an editable element inside an interactive wrapper.
+      e?.preventDefault();
+      e?.stopPropagation();
+      setDraft(getContent(contentKey, fallback));
+      setEditing(true);
+    },
+    [isEditMode, getContent, contentKey, fallback]
+  );
 
   const save = useCallback(async () => {
     setSaving(true);

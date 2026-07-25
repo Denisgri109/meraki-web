@@ -4,6 +4,9 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { EditProvider } from "@/contexts/EditContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { CartProvider } from "@/contexts/CartContext";
+import { ModalProvider } from "@/contexts/ModalContext";
+import { ToastProvider } from "@/components/Toast";
+import { EditToolbar } from "@/components/editable/EditToolbar";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import "./globals.css";
 
@@ -48,6 +51,15 @@ export default function RootLayout({
               <ThemeProvider>
                 <CartProvider>
                   <ErrorBoundary name="app">{children}</ErrorBoundary>
+                  {/* Owner-only floating visual editor toolbar. Wrapped in its
+                      own Toast/Modal providers so the customization drawer
+                      works on public pages too (dashboard routes nest their
+                      own providers, which take precedence there). */}
+                  <ToastProvider>
+                    <ModalProvider>
+                      <EditToolbar />
+                    </ModalProvider>
+                  </ToastProvider>
                 </CartProvider>
               </ThemeProvider>
             </EditProvider>
