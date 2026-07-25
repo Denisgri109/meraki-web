@@ -7,7 +7,7 @@ import { Pencil, Check, X } from 'lucide-react';
 interface EditableTextProps {
   contentKey: string;
   fallback: string;
-  as?: 'h1' | 'h2' | 'h3' | 'p' | 'span';
+  as?: 'h1' | 'h2' | 'h3' | 'h4' | 'p' | 'span';
   className?: string;
   multiline?: boolean;
 }
