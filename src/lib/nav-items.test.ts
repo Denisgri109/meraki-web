@@ -104,13 +104,13 @@ describe('clientSecondaryNav', () => {
 });
 
 describe('ownerPrimaryNav', () => {
-  it('has exactly 4 items', () => {
-    expect(ownerPrimaryNav).toHaveLength(4);
+  it('has exactly 5 items', () => {
+    expect(ownerPrimaryNav).toHaveLength(5);
   });
 
-  it('includes Home, Bookings, Finance, Services', () => {
+  it('includes Home, Bookings, Finance, Services, Schedule', () => {
     const labels = ownerPrimaryNav.map((i) => i.label);
-    expect(labels).toEqual(['Home', 'Bookings', 'Finance', 'Services']);
+    expect(labels).toEqual(['Home', 'Bookings', 'Finance', 'Services', 'Schedule']);
   });
 
   it('does NOT include Inventory (moved to secondary)', () => {
@@ -120,15 +120,14 @@ describe('ownerPrimaryNav', () => {
 });
 
 describe('ownerSecondaryNav', () => {
-  it('has exactly 14 items', () => {
-    expect(ownerSecondaryNav).toHaveLength(14);
+  it('has exactly 13 items', () => {
+    expect(ownerSecondaryNav).toHaveLength(13);
   });
 
-  it('includes Inventory, Supplies, Bulk Finance, Staff, Analytics', () => {
+  it('includes Inventory, Supplies, Staff, Analytics', () => {
     const labels = ownerSecondaryNav.map((i) => i.label);
     expect(labels).toContain('Inventory');
     expect(labels).toContain('Supplies');
-    expect(labels).toContain('Bulk Finance');
     expect(labels).toContain('Staff');
     expect(labels).toContain('Analytics');
   });

@@ -93,7 +93,7 @@ export default function GetAppPage() {
 
               {/* Coming Soon Status */}
               <div className="pt-4 border-t border-[var(--color-brand-pink)]/15 max-w-lg">
-                <div className="flex items-center gap-3 bg-[var(--color-brand-pink-light)]/60 border border-[var(--color-brand-pink)]/25 rounded-2xl px-5 py-4">
+                <div className="flex items-center gap-3 bg-pink-50/60 border border-[var(--color-brand-pink)]/25 rounded-2xl px-5 py-4">
                   <div className="w-10 h-10 rounded-full bg-[var(--color-brand-pink-dark)] flex items-center justify-center shrink-0">
                     <Clock size={20} className="text-white stroke-[2.5]" />
                   </div>

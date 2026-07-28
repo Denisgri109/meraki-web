@@ -10,6 +10,13 @@ jest.mock('@/components/editable/EditModeToggle', () => ({
   EditModeToggle: () => <div data-testid="edit-toggle">EditToggle</div>,
 }));
 
+jest.mock('@/components/editable/EditableText', () => ({
+  EditableText: ({ fallback, as: Tag = 'p' }: any) => {
+    const Component = Tag;
+    return <Component>{fallback}</Component>;
+  },
+}));
+
 import { useRouter } from 'next/navigation';
 
 describe('RootPortal', () => {

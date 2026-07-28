@@ -1048,6 +1048,29 @@ body {
   background: linear-gradient(135deg, var(--color-background) 0%, var(--color-surface) 40%, var(--color-surface-light) 70%, var(--color-background) 100%);
 }
 
+/* Section landing cards — dark surfaces with brand-tinted ambient glow */
+/* Text on these cards uses var(--color-text-primary) which flips to near-white */
+/* in dark mode, so the light hardcoded gradients must be overridden. */
+[data-theme="dark"] .section-landing-card-beauty {
+  background: linear-gradient(135deg, var(--color-surface) 0%, var(--color-surface-light) 50%, var(--color-background) 100%) !important;
+  border: 1px solid rgba(224, 122, 150, 0.15) !important;
+  box-shadow: 0 0 40px rgba(230, 164, 180, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
+}
+
+[data-theme="dark"] .section-landing-card-pilates {
+  background: linear-gradient(135deg, var(--color-surface) 0%, var(--color-surface-light) 50%, var(--color-background) 100%) !important;
+  border: 1px solid rgba(52, 211, 153, 0.15) !important;
+  box-shadow: 0 0 40px rgba(52, 211, 153, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
+}
+
+[data-theme="dark"] .section-landing-card-beauty:hover {
+  box-shadow: 0 20px 60px rgba(230, 164, 180, 0.15) !important;
+}
+
+[data-theme="dark"] .section-landing-card-pilates:hover {
+  box-shadow: 0 20px 60px rgba(52, 211, 153, 0.15) !important;
+}
+
 /* gradient-mesh — main page background on dashboard, landing, and section pages */
 [data-theme="dark"] .gradient-mesh {
   background:
@@ -1118,6 +1141,35 @@ body {
 [data-theme="dark"] .bg-emerald-100 { background-color: var(--color-surface-light) !important; }
 [data-theme="dark"] .bg-teal-100 { background-color: var(--color-surface-light) !important; }
 [data-theme="dark"] .bg-amber-50 { background-color: var(--color-surface) !important; }
+
+/* ─── Unmapped light pink/lavender backgrounds → dark surface ─────────── */
+/* --color-brand-pink-light (#FCEFF2) and --color-lavender (#E6E6FA) are  */
+/* NOT in ThemeContext.THEME_KEYS — they stay light in dark mode, making  */
+/* any text on them invisible. Override to dark surface for contrast.      */
+[data-theme="dark"] .bg-\[var\(--color-brand-pink-light\)\] {
+  background-color: var(--color-surface) !important;
+}
+[data-theme="dark"] .bg-\[var\(--color-brand-pink-light\)\]\/40 {
+  background-color: color-mix(in srgb, var(--color-surface) 40%, transparent) !important;
+}
+[data-theme="dark"] .bg-\[var\(--color-brand-pink-light\)\]\/60 {
+  background-color: color-mix(in srgb, var(--color-surface) 60%, transparent) !important;
+}
+[data-theme="dark"] .hover\:bg-\[var\(--color-brand-pink-light\)\]:hover {
+  background-color: var(--color-surface-light) !important;
+}
+[data-theme="dark"] .from-\[var\(--color-brand-pink-light\)\] {
+  --tw-gradient-from: var(--color-surface) !important;
+}
+[data-theme="dark"] .to-\[var\(--color-lavender\)\] {
+  --tw-gradient-to: var(--color-surface-light) !important;
+}
+[data-theme="dark"] .to-\[var\(--color-lavender\)\]\/60 {
+  --tw-gradient-to: color-mix(in srgb, var(--color-surface-light) 60%, transparent) !important;
+}
+[data-theme="dark"] .bg-\[var\(--color-lavender\)\]\/40 {
+  background-color: color-mix(in srgb, var(--color-surface) 40%, transparent) !important;
+}
 
 /* Pink/violet/emerald borders → dark border */
 [data-theme="dark"] .border-pink-100\/50 { border-color: var(--color-border) !important; }

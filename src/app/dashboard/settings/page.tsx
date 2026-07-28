@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/components/Toast';
 import { useModal } from '@/contexts/ModalContext';
-import { Settings, User, Shield, Save, Loader2, Camera, CreditCard, Mail, Dumbbell, AlertTriangle, X, Briefcase, Image as ImageIcon, Trash2, Plus, ExternalLink, MapPin, Crosshair, Palette } from 'lucide-react';
+import { Settings, User, Shield, Save, Loader2, Camera, CreditCard, Mail, Dumbbell, AlertTriangle, X, Briefcase, Image as ImageIcon, Trash2, Plus, ExternalLink, MapPin, Crosshair, Palette, Pencil, Sparkles } from 'lucide-react';
 import pLimit from 'p-limit';
 import BusinessSettingsPanel from '@/components/BusinessSettingsPanel';
 import type { BusinessSettingsPanelRef } from '@/components/BusinessSettingsPanel';
@@ -24,6 +24,7 @@ import {
 import CountryCodeDropdown from '@/components/CountryCodeDropdown';
 import { useSection } from '@/contexts/SectionContext';
 import { CustomizeDrawer } from '@/components/CustomizeDrawer';
+import { useEditMode } from '@/contexts/EditContext';
 
 const DELETE_PHRASE = 'DELETE MY ACCOUNT';
 
@@ -75,11 +76,13 @@ export default function SettingsPage() {
   const { showConfirm } = useModal();
   const searchParams = useSearchParams();
   const { buildPath } = useSection();
+  const { isEditMode, setEditMode } = useEditMode();
   const initialTab = searchParams.get('tab') || 'profile';
   const [activeSection, setActiveSection] = useState(initialTab);
   const [saving, setSaving] = useState(false);
   const [savingAll, setSavingAll] = useState(false);
   const [customizeOpen, setCustomizeOpen] = useState(false);
+  const [launchingEditMode, setLaunchingEditMode] = useState(false);
   const businessPanelRef = useRef<BusinessSettingsPanelRef>(null);
   const profileFormRef = useRef<HTMLFormElement>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -676,6 +679,14 @@ export default function SettingsPage() {
     }
   };
 
+  // ─── Launch Visual On-Page Edit Mode ──────────────────────────────────────
+  const handleEditWebsite = () => {
+    setLaunchingEditMode(true);
+    setEditMode(true);
+    showToast('Visual edit mode activated. Browse any page to edit content inline.', 'success');
+    router.push('/');
+  };
+
   return (
     <div className="max-w-4xl mx-auto animate-fade-in">
       <div className="mb-8 flex items-start justify-between">
@@ -1213,28 +1224,84 @@ export default function SettingsPage() {
           )}
 
           {activeSection === 'customize' && canManagePilates && (
-            <div className="glass-card p-6">
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[var(--color-brand-pink)] to-[var(--color-secondary)] flex items-center justify-center shrink-0">
-                  <Palette size={22} className="text-white" />
+            <div className="space-y-6">
+              {/* Visual On-Page Editor — primary banner */}
+              <div className="glass-card p-6 border-2 border-[var(--color-brand-pink)]/40 relative overflow-hidden">
+                <div className="absolute -top-12 -right-12 w-40 h-40 rounded-full bg-gradient-to-br from-[var(--color-brand-pink)]/15 to-[var(--color-secondary)]/15 blur-2xl pointer-events-none" aria-hidden="true" />
+                <div className="relative flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[var(--color-brand-pink)] to-[var(--color-secondary)] flex items-center justify-center shrink-0 shadow-md">
+                    <Sparkles size={22} className="text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">
+                        Visual On-Page Editor
+                      </h2>
+                      {isEditMode && (
+                        <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700 border border-green-200">
+                          <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+                          </span>
+                          Active
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm text-[var(--color-text-secondary)] mt-1.5 max-w-xl leading-relaxed">
+                      When On-Page Edit Mode is ON, browse any page to edit text inline or swap images directly.
+                      Click Save on any element to publish changes globally.
+                    </p>
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">
-                    Customize Website
-                  </h2>
-                  <p className="text-sm text-[var(--color-text-secondary)] mt-1 max-w-md">
-                    Change theme colors, edit text content (including Terms of Service), upload images and logos.
-                    Changes apply globally to all visitors immediately.
+                <div className="relative mt-5 flex flex-col sm:flex-row gap-3">
+                  <button
+                    onClick={handleEditWebsite}
+                    disabled={launchingEditMode}
+                    className="btn-primary flex items-center justify-center gap-2 px-6 py-3 text-sm font-medium cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {launchingEditMode ? <Loader2 size={16} className="animate-spin" /> : <Pencil size={16} />}
+                    {launchingEditMode ? 'Activating...' : 'Edit the Website'}
+                  </button>
+                  <button
+                    onClick={() => setCustomizeOpen(true)}
+                    className="btn-outline flex items-center justify-center gap-2 px-6 py-3 text-sm font-medium cursor-pointer border-slate-300"
+                  >
+                    <Palette size={16} />
+                    Open Central Drawer
+                  </button>
+                </div>
+                {!isEditMode && (
+                  <p className="relative text-[11px] text-[var(--color-text-muted)] mt-3 flex items-center gap-1.5">
+                    <Pencil size={11} className="text-[var(--color-brand-pink)]" />
+                    Tip: Click &ldquo;Edit the Website&rdquo; to reveal pencil icons over every editable text block and image across the public site.
                   </p>
-                </div>
+                )}
               </div>
-              <button
-                onClick={() => setCustomizeOpen(true)}
-                className="btn-primary flex items-center gap-2 px-6 py-3 text-sm font-medium cursor-pointer mt-5"
-              >
-                <Palette size={16} />
-                Customize Website
-              </button>
+
+              {/* Central Customization Drawer — secondary card */}
+              <div className="glass-card p-6">
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 rounded-full bg-[var(--color-surface-light)] border border-[var(--color-border-light)] flex items-center justify-center shrink-0">
+                    <Palette size={18} className="text-[var(--color-text-secondary)]" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-base font-semibold text-[var(--color-text-primary)]">
+                      Central Customization Drawer
+                    </h3>
+                    <p className="text-sm text-[var(--color-text-secondary)] mt-1 max-w-md">
+                      Change theme colors, edit text content (including Terms of Service), upload images and logos.
+                      Changes apply globally to all visitors immediately.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setCustomizeOpen(true)}
+                  className="btn-outline flex items-center gap-2 px-5 py-2.5 text-sm font-medium cursor-pointer mt-4 border-slate-300"
+                >
+                  <Palette size={15} />
+                  Open Central Drawer
+                </button>
+              </div>
             </div>
           )}
         </div>

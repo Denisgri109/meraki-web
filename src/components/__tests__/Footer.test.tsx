@@ -1,6 +1,21 @@
 import { render, screen } from '@testing-library/react';
 import { Footer } from '../Footer';
 
+jest.mock('@/contexts/EditContext', () => ({
+  useEditMode: () => ({
+    isEditMode: false,
+    getContent: (_key: string, fallback: string) => fallback,
+    updateContent: jest.fn(),
+  }),
+}));
+
+jest.mock('@/components/editable/EditableText', () => ({
+  EditableText: ({ fallback, as: Tag = 'p' }: any) => {
+    const Component = Tag;
+    return <Component>{fallback}</Component>;
+  },
+}));
+
 describe('Footer', () => {
   it('renders branding text', () => {
     render(<Footer />);
@@ -51,7 +66,8 @@ describe('Footer', () => {
   it('renders copyright text with the current year', () => {
     render(<Footer />);
     const currentYear = new Date().getFullYear();
-    const copyrightText = `© ${currentYear} Merakí. All rights reserved.`;
-    expect(screen.getByText(copyrightText)).toBeInTheDocument();
+    const footer = screen.getByRole('contentinfo');
+    expect(footer.textContent).toContain(`© ${currentYear}`);
+    expect(footer.textContent).toContain('All rights reserved');
   });
 });

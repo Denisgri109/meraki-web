@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useEditMode } from '@/contexts/EditContext';
 import { useToast } from '@/components/Toast';
 import { useModal } from '@/contexts/ModalContext';
 import { CustomizeDrawer } from '@/components/CustomizeDrawer';
-import { Pencil, SlidersHorizontal, RotateCcw, X, Loader2 } from 'lucide-react';
+import { Pencil, SlidersHorizontal, RotateCcw, X, Loader2, Eye, EyeOff } from 'lucide-react';
 
 /** Content prefixes owned by the visual editor (theme colors excluded). */
 const CONTENT_RESET_PREFIXES = [
@@ -31,8 +32,25 @@ export function EditToolbar() {
   const { isEditMode, canEdit, setEditMode, resetContent, refreshContent } = useEditMode();
   const { showToast } = useToast();
   const { showConfirm } = useModal();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const isClientPreview = searchParams?.get('preview') === 'client';
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
+
+  const handleToggleClientPreview = useCallback(() => {
+    const params = new URLSearchParams(searchParams?.toString() ?? '');
+    if (isClientPreview) {
+      params.delete('preview');
+      showToast('Exited client preview — showing owner view', 'success');
+    } else {
+      params.set('preview', 'client');
+      showToast('Client preview ON — seeing the site as clients do', 'success');
+    }
+    const qs = params.toString();
+    router.push(`${pathname}${qs ? `?${qs}` : ''}`);
+  }, [searchParams, isClientPreview, router, pathname, showToast]);
 
   const handleResetContent = useCallback(async () => {
     const confirmed = await showConfirm(
@@ -87,6 +105,19 @@ export function EditToolbar() {
         >
           <SlidersHorizontal size={12} />
           Open Settings Drawer
+        </button>
+
+        <button
+          onClick={handleToggleClientPreview}
+          className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full transition-colors cursor-pointer whitespace-nowrap ${
+            isClientPreview
+              ? 'bg-violet-600 text-white hover:bg-violet-700'
+              : 'bg-violet-100 text-violet-700 hover:bg-violet-200'
+          }`}
+          title={isClientPreview ? 'Exit client preview' : 'See the site as clients see it'}
+        >
+          {isClientPreview ? <EyeOff size={12} /> : <Eye size={12} />}
+          {isClientPreview ? 'Exit Client View' : 'Client View'}
         </button>
 
         <button
