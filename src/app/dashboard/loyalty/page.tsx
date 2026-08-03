@@ -272,7 +272,7 @@ function ClientView({
               className="flex items-center gap-2 px-6 py-3 rounded-full bg-white text-gray-900 text-sm font-bold hover:bg-gray-100 hover:scale-105 transition-all shadow-lg cursor-pointer"
             >
               <Camera size={16} />
-              Scan QR / NFC Tag
+              Scan QR Code
             </Link>
           </div>
         </div>

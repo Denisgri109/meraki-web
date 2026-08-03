@@ -49,7 +49,7 @@ export default function GetAppPage() {
 
                 <EditableText
                   contentKey="getapp.subtext"
-                  fallback="We're crafting the official Meraká mobile app to bring real-time messaging, instant booking updates, stamp tag scanning, and personalized alerts right to your phone. It's almost here."
+                  fallback="We're crafting the official Meraká mobile app to bring real-time messaging, instant booking updates, loyalty stamp scanning, and personalized alerts right to your phone. It's almost here."
                   as="p"
                   multiline
                   className="mt-4 text-base text-[var(--color-text-secondary)] leading-relaxed max-w-xl"
@@ -63,7 +63,7 @@ export default function GetAppPage() {
                   <EditableText contentKey="getapp.features_label" fallback="What's Inside" as="span" />
                 </p>
                 {[
-                  { title: 'NFC Stamp Card Pairing', desc: 'Scan and pair physical loyalty tags directly with your phone\'s NFC reader.' },
+                  { title: 'QR Stamp Card Scanning', desc: 'Scan the salon\'s QR code right from your phone to collect loyalty stamps instantly.' },
                   { title: 'Push Notifications', desc: 'Instant reminders when your beauty session is approved, rescheduled, or cancelled.' },
                   { title: 'Direct Master Messaging', desc: 'Real-time chat with push alerts so you never miss custom instructions from professionals.' },
                   { title: 'Academy Offline Learning', desc: 'Watch video courses, submit academy homework, and complete tests on the go.' }
