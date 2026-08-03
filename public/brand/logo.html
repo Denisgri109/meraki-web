@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Merakí — Logo</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@200;400&display=swap');
+
+    *,
+    *::before,
+    *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      height: 100%;
+    }
+
+    body {
+      background-color: #000000;
+      color: #ffffff;
+      font-family: 'Montserrat', sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      min-height: 100dvh;
+      padding: 1.5rem;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      text-rendering: optimizeLegibility;
+    }
+
+    .logo {
+      text-align: center;
+    }
+
+    .logo__title {
+      font-weight: 200;
+      text-transform: uppercase;
+      letter-spacing: 0.38em;
+      font-size: clamp(2.5rem, 9vw, 4.5rem);
+      line-height: 1;
+      /* Compensate so the last letter's right-side tracking looks balanced */
+      padding-left: 0.38em;
+    }
+
+    .logo__subtitle {
+      margin-top: 0.85em;
+      font-weight: 400;
+      text-transform: uppercase;
+      letter-spacing: 0.48em;
+      font-size: clamp(0.75rem, 2.4vw, 1.2rem);
+      line-height: 1.5;
+      padding-left: 0.48em;
+    }
+
+    .logo__subtitle span {
+      display: block;
+    }
+
+    .logo__subtitle span + span {
+      margin-top: 0.15em;
+    }
+
+    /* Tighten things up a touch on very small screens */
+    @media (max-width: 380px) {
+      .logo__title {
+        letter-spacing: 0.32em;
+        padding-left: 0.32em;
+      }
+      .logo__subtitle {
+        letter-spacing: 0.42em;
+        padding-left: 0.42em;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="logo">
+    <h1 class="logo__title">Merak&iacute;</h1>
+    <div class="logo__subtitle">
+      <span>Beauty Studio & Reformer</span>
+      <span>Pilates</span>
+    </div>
+  </div>
+</body>
+</html>

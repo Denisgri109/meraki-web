@@ -7,8 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
 import { useSection } from '@/contexts/SectionContext';
 import { useNotifications, type NotificationItem } from '@/contexts/NotificationsContext';
-import { useEditMode } from '@/contexts/EditContext';
-import { EditableText } from '@/components/editable/EditableText';
+import { Logo } from '@/components/Logo';
 import { SectionSwitcher, type SectionId } from '@/components/SectionSwitcher';
 import {
   clientPrimaryNav, ownerPrimaryNav, masterPrimaryNav, qrPayNavItem,
@@ -48,9 +47,6 @@ export function MainNavbar({ transparent = false }: MainNavbarProps) {
   const { getItemCount } = useCart();
   const { section, buildPath } = useSection();
   const { unreadMessages, notifications, unreadNotifications, markNotificationsSeen } = useNotifications();
-  const { getContent } = useEditMode();
-  const logoUrl = getContent('image.logo', '');
-  const brandAlt = getContent('brand.logo_text', 'Merakí');
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -140,12 +136,7 @@ export function MainNavbar({ transparent = false }: MainNavbarProps) {
         <header className={`${transparent ? 'absolute top-0 left-0 right-0 z-50' : 'sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100'}`}>
           <div className="h-16 flex items-center justify-between px-4 sm:px-6 lg:px-8">
             <Link href="/" className={`text-2xl font-[family-name:var(--font-playfair)] italic drop-shadow-sm ${transparent ? 'text-white drop-shadow-md' : 'text-[var(--color-primary)]'}`}>
-              {logoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={logoUrl} alt={brandAlt} className="h-8 w-auto object-contain" />
-              ) : (
-                <EditableText contentKey="brand.logo_text" fallback="Merakí" as="span" />
-              )}
+              <Logo />
             </Link>
             <div className="flex items-center gap-3">
               <Link href="/login" className={`text-sm font-medium transition-colors px-4 py-2 ${transparent ? 'text-white/90 hover:text-white' : 'text-gray-700 hover:text-black'}`}>
@@ -183,12 +174,7 @@ export function MainNavbar({ transparent = false }: MainNavbarProps) {
           {/* Left: Logo + Nav */}
           <div className="flex items-center gap-4 lg:gap-8 min-w-0 flex-1">
             <Link href={pathname === '/' ? '/' : withPreview(buildPath('dashboard'))} className="flex items-center gap-2 shrink-0">
-              {logoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={logoUrl} alt={brandAlt} className="h-8 w-auto object-contain" />
-              ) : (
-                <EditableText contentKey="brand.logo_text" fallback="Merakí" as="span" className="text-2xl font-[family-name:var(--font-playfair)] italic text-[var(--color-primary)]" />
-              )}
+              <Logo textClassName="text-2xl font-[family-name:var(--font-playfair)] italic text-[var(--color-primary)]" />
             </Link>
 
             {/* Desktop nav links */}

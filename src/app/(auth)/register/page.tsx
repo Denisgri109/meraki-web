@@ -542,6 +542,7 @@ export default function RegisterPage() {
                 marginTop: '4px',
                 zIndex: 50,
                 boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                color: '#1A1A1A',
               }}>
                 {countries
                   .filter(c => !countrySearch || c.name.toLowerCase().includes(countrySearch.toLowerCase()))
@@ -619,6 +620,7 @@ export default function RegisterPage() {
                   marginTop: '4px',
                   zIndex: 50,
                   boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                  color: '#1A1A1A',
                 }}>
                   {states
                     .filter(s => !stateSearch || s.name.toLowerCase().includes(stateSearch.toLowerCase()))
