@@ -142,7 +142,7 @@ export function MainNavbar({ transparent = false }: MainNavbarProps) {
               <Link href="/login" className={`text-sm font-medium transition-colors px-4 py-2 ${transparent ? 'text-white/90 hover:text-white' : 'text-gray-700 hover:text-black'}`}>
                 Sign In
               </Link>
-              <Link href="/register" className={`text-sm font-semibold px-5 py-2.5 rounded-full transition-colors shadow-md ${transparent ? 'bg-white text-[var(--color-primary)] hover:bg-white/90 shadow-lg' : 'bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary)]/90'}`}>
+              <Link href="/register" className={`text-sm font-semibold px-5 py-2.5 rounded-full transition-colors shadow-md ${transparent ? 'bg-white text-[var(--color-primary)] hover:bg-white/90 shadow-lg' : 'bg-[var(--color-primary)] text-[var(--color-text-invert)] hover:bg-[var(--color-primary)]/90'}`}>
                 Get Started
               </Link>
             </div>

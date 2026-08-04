@@ -499,7 +499,7 @@ export default function ServicesPage() {
                 onClick={() => setCategoryFilter(cat)}
                 className={`px-4 py-1.5 rounded-full text-xs font-semibold cursor-pointer transition-all border ${
                   categoryFilter === cat
-                    ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)] shadow-sm'
+                    ? 'bg-[var(--color-primary)] text-[var(--color-text-invert)] border-[var(--color-primary)] shadow-sm'
                     : 'bg-[var(--color-surface-light)] text-[var(--color-text-secondary)] border-[var(--color-border-light)] hover:border-[var(--color-primary)]/30'
                 }`}
               >
@@ -804,7 +804,7 @@ export default function ServicesPage() {
       {/* Create/Edit Service Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)' }}>
-          <div className="glass-card p-6 w-full max-w-lg max-h-[85vh] overflow-y-auto animate-scale-in" style={{ background: 'white' }}>
+          <div className="glass-card p-6 w-full max-w-lg max-h-[85vh] overflow-y-auto animate-scale-in">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-[var(--color-text-primary)]">{editingService ? 'Edit Service' : 'Create Service'}</h2>
               <button onClick={() => setShowModal(false)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[var(--color-surface-light)] cursor-pointer"><X size={18} /></button>
@@ -829,7 +829,7 @@ export default function ServicesPage() {
                       onClick={() => setForm({ ...form, category: cat })}
                       className={`px-4 py-1.5 rounded-full text-xs font-semibold cursor-pointer transition-all ${
                         form.category === cat
-                          ? 'bg-[var(--color-primary)] text-white'
+                          ? 'bg-[var(--color-primary)] text-[var(--color-text-invert)]'
                           : 'bg-[var(--color-surface-light)] text-[var(--color-text-secondary)] border border-[var(--color-border-light)]'
                       }`}
                     >
@@ -968,7 +968,7 @@ export default function ServicesPage() {
                         setSelectedSupplyQty('1');
                         setSelectedSupplyNotes('');
                       }}
-                      className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg border border-[var(--color-primary)] text-[var(--color-primary)] hover:bg-[var(--color-primary)] hover:text-white transition-all text-xs font-semibold cursor-pointer"
+                      className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg border border-[var(--color-primary)] text-[var(--color-primary)] hover:bg-[var(--color-primary)] hover:text-[var(--color-text-invert)] transition-all text-xs font-semibold cursor-pointer"
                     >
                       <Plus size={14} /> Link Supply
                     </button>
@@ -1001,7 +1001,7 @@ export default function ServicesPage() {
       )}
       {deleteTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)' }}>
-          <div className="glass-card p-6 w-full max-w-md animate-scale-in" style={{ background: 'white' }}>
+          <div className="glass-card p-6 w-full max-w-md animate-scale-in">
             <div className="flex items-start gap-4">
               <div className="w-12 h-12 rounded-full bg-rose-50 flex items-center justify-center shrink-0">
                 <AlertTriangle size={22} className="text-rose-600" />
@@ -1034,7 +1034,7 @@ export default function ServicesPage() {
       )}
       {showPilatesHub && isOwner && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)' }}>
-          <div className="glass-card p-6 w-full max-w-xl max-h-[85vh] overflow-y-auto animate-scale-in" style={{ background: 'white' }}>
+          <div className="glass-card p-6 w-full max-w-xl max-h-[85vh] overflow-y-auto animate-scale-in">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)' }}>

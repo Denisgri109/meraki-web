@@ -343,7 +343,7 @@ function NotificationsContent({ userId }: { userId: string }) {
                       onClick={() => { setSendAudience(a); setUseTargeted(false); setSelectedClients([]); }}
                       className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors cursor-pointer ${
                         sendAudience === a && !useTargeted
-                          ? 'bg-[var(--color-primary)] text-white'
+                          ? 'bg-[var(--color-primary)] text-[var(--color-text-invert)]'
                           : 'bg-[var(--color-surface-light)] text-[var(--color-text-secondary)] hover:bg-[var(--color-border-light)]'
                       }`}
                     >
@@ -356,7 +356,7 @@ function NotificationsContent({ userId }: { userId: string }) {
                     onClick={() => setUseTargeted(!useTargeted)}
                     className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors cursor-pointer ${
                       useTargeted
-                        ? 'bg-[var(--color-primary)] text-white'
+                        ? 'bg-[var(--color-primary)] text-[var(--color-text-invert)]'
                         : 'bg-[var(--color-surface-light)] text-[var(--color-text-secondary)] hover:bg-[var(--color-border-light)]'
                     }`}
                   >
@@ -457,7 +457,7 @@ function NotificationsContent({ userId }: { userId: string }) {
                   onClick={() => setHistoryFilter(f)}
                   className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors cursor-pointer ${
                     historyFilter === f
-                      ? 'bg-[var(--color-primary)] text-white'
+                      ? 'bg-[var(--color-primary)] text-[var(--color-text-invert)]'
                       : 'bg-[var(--color-surface-light)] text-[var(--color-text-secondary)] hover:bg-[var(--color-border-light)]'
                   }`}
                 >

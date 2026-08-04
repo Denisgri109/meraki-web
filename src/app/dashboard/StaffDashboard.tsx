@@ -256,6 +256,7 @@ export default function StaffDashboard() {
   const businessActions = isOwner
     ? [
         { href: buildPath('masters'), icon: Users, label: 'Masters', color: '#EE2B5B' },
+        { href: buildPath('clients'), icon: Users, label: 'Clients', color: '#C47A90' },
         { href: buildPath('orders'), icon: Package, label: 'Orders', color: '#F472B6' },
         { href: buildPath('services'), icon: Calendar, label: 'Services', color: '#60A5FA' },
         { href: buildPath('availability'), icon: Clock, label: 'Availability', color: '#F472B6' },

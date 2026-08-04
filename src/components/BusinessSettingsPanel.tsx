@@ -298,7 +298,7 @@ const BusinessSettingsPanel = forwardRef<BusinessSettingsPanelRef>(function Busi
                     onClick={() => setSettings((s) => ({ ...s, deposit_percentage: pct }))}
                     className={`px-4 py-2 rounded-[var(--radius-lg)] text-sm font-semibold border transition-all cursor-pointer ${
                       settings.deposit_percentage === pct
-                        ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
+                        ? 'bg-[var(--color-primary)] text-[var(--color-text-invert)] border-[var(--color-primary)]'
                         : 'bg-[var(--color-surface-light)] text-[var(--color-text-secondary)] border-[var(--color-border-light)]'
                     }`}
                   >

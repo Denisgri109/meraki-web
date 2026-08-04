@@ -280,7 +280,7 @@ export default function ShopPage() {
                 <button
                   onClick={(e) => { e.stopPropagation(); handleAddToBag(product); }}
                   disabled={product.stock_count === 0}
-                  className="w-full mt-3 py-2.5 rounded-full bg-[var(--color-surface-light)] text-sm font-semibold text-[var(--color-text-primary)] hover:bg-[var(--color-primary)] hover:text-white transition-all duration-300 flex items-center justify-center gap-2 group/btn cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="w-full mt-3 py-2.5 rounded-full bg-[var(--color-surface-light)] text-sm font-semibold text-[var(--color-text-primary)] hover:bg-[var(--color-primary)] hover:text-[var(--color-text-invert)] transition-all duration-300 flex items-center justify-center gap-2 group/btn cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <span>{product.stock_count === 0 ? 'Out of Stock' : 'Add to Bag'}</span>
                   {product.stock_count > 0 && <ArrowRight size={14} className="opacity-0 -translate-x-2 group-hover/btn:opacity-100 group-hover/btn:translate-x-0 transition-all" />}

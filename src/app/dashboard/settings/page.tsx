@@ -722,7 +722,7 @@ export default function SettingsPage() {
                   onClick={() => setActiveSection(item.value)}
                   className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-[var(--radius-lg)] text-sm font-medium transition-all cursor-pointer ${
                     activeSection === item.value
-                      ? 'bg-[var(--color-primary)] text-white'
+                      ? 'bg-[var(--color-primary)] text-[var(--color-text-invert)]'
                       : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-light)]'
                   }`}
                 >
@@ -759,7 +759,7 @@ export default function SettingsPage() {
                   />
                   <label
                     htmlFor="avatar-upload"
-                    className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-[var(--color-primary)] text-white flex items-center justify-center shadow-md cursor-pointer hover:scale-110 transition-transform"
+                    className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-[var(--color-primary)] text-[var(--color-text-invert)] flex items-center justify-center shadow-md cursor-pointer hover:scale-110 transition-transform"
                     title="Change avatar"
                   >
                     {uploadingAvatar ? <Loader2 size={12} className="animate-spin" /> : <Camera size={14} />}

@@ -101,7 +101,7 @@ export function EditToolbar() {
         {/* Quick actions */}
         <button
           onClick={() => setDrawerOpen(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full bg-[var(--color-primary)] text-white hover:opacity-90 transition-opacity cursor-pointer whitespace-nowrap"
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full bg-[var(--color-primary)] text-[var(--color-text-invert)] hover:opacity-90 transition-opacity cursor-pointer whitespace-nowrap"
         >
           <SlidersHorizontal size={12} />
           Open Settings Drawer

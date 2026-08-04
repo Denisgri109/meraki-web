@@ -581,7 +581,7 @@ export default function AvailabilityPage() {
                 {/* Actions */}
                 <div className="flex gap-3">
                   <button onClick={() => setShowBlockModal(false)} className="flex-1 py-2.5 rounded-xl text-sm font-semibold border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-slate-50 cursor-pointer transition-colors">Cancel</button>
-                  <button onClick={handleAddBlock} disabled={blockSubmitting} className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-[var(--color-primary)] text-white hover:opacity-90 cursor-pointer transition-opacity disabled:opacity-50">
+                  <button onClick={handleAddBlock} disabled={blockSubmitting} className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-[var(--color-primary)] text-[var(--color-text-invert)] hover:opacity-90 cursor-pointer transition-opacity disabled:opacity-50">
                     {blockSubmitting ? 'Saving...' : 'Block Time'}
                   </button>
                 </div>

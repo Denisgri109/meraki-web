@@ -53,6 +53,7 @@ export const ownerSecondaryNav: NavItem[] = [
   { path: 'loyalty', label: 'Rewards', icon: Gift },
   { path: 'consultations', label: 'Consults', icon: ClipboardList },
   { path: 'masters', label: 'Staff', icon: Users },
+  { path: 'clients', label: 'Clients', icon: Users },
   { path: 'analytics', label: 'Analytics', icon: BarChart3 },
   { path: 'support', label: 'Support', icon: HelpCircle },
   { path: 'settings', label: 'Settings', icon: Settings },

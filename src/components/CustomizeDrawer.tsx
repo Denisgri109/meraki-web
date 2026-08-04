@@ -675,7 +675,7 @@ export function CustomizeDrawer({ open, onClose }: CustomizeDrawerProps) {
           <button
             onClick={() => handleSaveText(field.key)}
             disabled={!isDirty || isSaving}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-[var(--color-primary)] text-white hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-[var(--color-primary)] text-[var(--color-text-invert)] hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity cursor-pointer"
           >
             {isSaving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
             {isSaving ? 'Saving...' : 'Save'}
@@ -902,7 +902,7 @@ export function CustomizeDrawer({ open, onClose }: CustomizeDrawerProps) {
                               <button
                                 onClick={handleSaveSupport}
                                 disabled={savingText === 'support_settings'}
-                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-[var(--color-primary)] text-white hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity cursor-pointer"
+                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-[var(--color-primary)] text-[var(--color-text-invert)] hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity cursor-pointer"
                               >
                                 {savingText === 'support_settings' ? (
                                   <Loader2 size={12} className="animate-spin" />
@@ -1069,7 +1069,7 @@ export function CustomizeDrawer({ open, onClose }: CustomizeDrawerProps) {
             <button
               onClick={handleSaveTheme}
               disabled={savingTheme}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold bg-[var(--color-primary)] text-white hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold bg-[var(--color-primary)] text-[var(--color-text-invert)] hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {savingTheme ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
               {savingTheme ? 'Saving...' : 'Save Theme'}
