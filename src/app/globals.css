@@ -1142,6 +1142,12 @@ body {
 [data-theme="dark"] .bg-teal-100 { background-color: var(--color-surface-light) !important; }
 [data-theme="dark"] .bg-amber-50 { background-color: var(--color-surface) !important; }
 
+/* Raw hex #FCEFF2 (= --color-brand-pink-light) used in AddToBookingModal   */
+/* selected session card — same bug class as the var()-based override below */
+[data-theme="dark"] .bg-\[\#FCEFF2\] { background-color: var(--color-surface) !important; }
+/* Dark green #047857 on near-transparent emerald bg is unreadable on dark  */
+[data-theme="dark"] .text-\[\#047857\] { color: #6EE7B7 !important; }
+
 /* ─── Unmapped light pink/lavender backgrounds → dark surface ─────────── */
 /* --color-brand-pink-light (#FCEFF2) and --color-lavender (#E6E6FA) are  */
 /* NOT in ThemeContext.THEME_KEYS — they stay light in dark mode, making  */

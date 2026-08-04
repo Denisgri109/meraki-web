@@ -195,11 +195,11 @@ export default function ClientsDirectoryPage() {
             <p className="text-xs text-[var(--color-text-muted)] mb-4">Creates a client account and emails them a password-set link.</p>
             <div className="space-y-3">
               <input value={inviteName} onChange={e => setInviteName(e.target.value)} placeholder="Full name *"
-                className="w-full px-3 py-2.5 rounded-xl bg-[var(--color-input-background,#f5f5f7)] border border-white text-sm outline-none focus:ring-2 focus:ring-[#C47A90]/40" />
+                className="w-full px-3 py-2.5 rounded-xl bg-[var(--color-surface-input)] border border-white text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none focus:ring-2 focus:ring-[#C47A90]/40" />
               <input value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="Email *" type="email"
-                className="w-full px-3 py-2.5 rounded-xl bg-[var(--color-input-background,#f5f5f7)] border border-white text-sm outline-none focus:ring-2 focus:ring-[#C47A90]/40" />
+                className="w-full px-3 py-2.5 rounded-xl bg-[var(--color-surface-input)] border border-white text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none focus:ring-2 focus:ring-[#C47A90]/40" />
               <input value={invitePhone} onChange={e => setInvitePhone(e.target.value)} placeholder="Phone (optional)"
-                className="w-full px-3 py-2.5 rounded-xl bg-[var(--color-input-background,#f5f5f7)] border border-white text-sm outline-none focus:ring-2 focus:ring-[#C47A90]/40" />
+                className="w-full px-3 py-2.5 rounded-xl bg-[var(--color-surface-input)] border border-white text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none focus:ring-2 focus:ring-[#C47A90]/40" />
             </div>
             <div className="flex gap-3 mt-5">
               <button onClick={() => setShowInvite(false)} disabled={inviting}

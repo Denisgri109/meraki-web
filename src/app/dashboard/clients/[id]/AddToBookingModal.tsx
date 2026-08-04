@@ -299,18 +299,18 @@ export default function AddToBookingModal({
         ) : (
           <div className="space-y-3">
             <select value={serviceId} onChange={e => setServiceId(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl bg-[var(--color-input-background,#f5f5f7)] border border-white text-sm outline-none">
+              className="w-full px-3 py-2.5 rounded-xl bg-[var(--color-surface-input)] border border-white text-sm text-[var(--color-text-primary)] outline-none">
               <option value="">Select service…</option>
               {services.map(s => <option key={s.id} value={s.id}>{s.name}{s.base_price != null ? ` — €${s.base_price.toFixed(2)}` : ''}</option>)}
             </select>
             <select value={masterId} onChange={e => setMasterId(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl bg-[var(--color-input-background,#f5f5f7)] border border-white text-sm outline-none">
+              className="w-full px-3 py-2.5 rounded-xl bg-[var(--color-surface-input)] border border-white text-sm text-[var(--color-text-primary)] outline-none">
               <option value="">{serviceId && masters.length === 0 ? 'No professional offers this service' : 'Select master…'}</option>
               {masters.map(m => <option key={m.id} value={m.id}>{m.full_name || 'Staff'}</option>)}
             </select>
             <input type="date" value={date} onChange={e => setDate(e.target.value)}
               min={new Date().toISOString().slice(0, 10)}
-              className="w-full px-3 py-2.5 rounded-xl bg-[var(--color-input-background,#f5f5f7)] border border-white text-sm outline-none" />
+              className="w-full px-3 py-2.5 rounded-xl bg-[var(--color-surface-input)] border border-white text-sm text-[var(--color-text-primary)] outline-none" />
             <div>
               <p className="text-xs font-semibold text-[var(--color-text-secondary)] mb-1.5">
                 {slotsLoading ? 'Finding slots…' : slots.length > 0 ? 'Available times' : (serviceId && masterId && date ? 'No free slots this day' : 'Pick service, master & date')}
@@ -328,7 +328,7 @@ export default function AddToBookingModal({
         )}
 
         <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Notes (optional)" rows={2}
-          className="w-full mt-4 px-3 py-2.5 rounded-xl bg-[var(--color-input-background,#f5f5f7)] border border-white text-sm outline-none resize-none" />
+          className="w-full mt-4 px-3 py-2.5 rounded-xl bg-[var(--color-surface-input)] border border-white text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none resize-none" />
 
         <div className="flex gap-3 mt-5">
           <button onClick={() => !submitting && onClose()} disabled={submitting}
