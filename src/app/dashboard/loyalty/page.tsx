@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { EditableText } from '@/components/editable/EditableText';
 import { createClient } from '@/lib/supabase/client';
 import { DeleteButton } from '@/components/DeleteButton';
 import { useModal } from '@/contexts/ModalContext';
@@ -203,16 +204,23 @@ export default function LoyaltyPage() {
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center text-white p-6">
           <div className="flex items-center gap-2 mb-2">
             <Gift size={18} className="text-amber-300" />
-            <span className="text-xs tracking-[0.2em] uppercase text-amber-300 font-bold">Rewards</span>
+            <EditableText contentKey="dashboard.loyalty.eyebrow" fallback="Rewards" as="span" className="text-xs tracking-[0.2em] uppercase text-amber-300 font-bold" />
           </div>
-          <h1 className="text-4xl font-bold drop-shadow-lg">
-            {isMasterOrOwner ? 'Reward Your Clients' : 'Earn & Redeem'}
-          </h1>
-          <p className="text-white/80 text-sm mt-2 max-w-md">
-            {isMasterOrOwner
+          <EditableText
+            contentKey={isMasterOrOwner ? 'dashboard.loyalty.title_staff' : 'dashboard.loyalty.title_client'}
+            fallback={isMasterOrOwner ? 'Reward Your Clients' : 'Earn & Redeem'}
+            as="h1"
+            className="text-4xl font-bold drop-shadow-lg"
+          />
+          <EditableText
+            contentKey={isMasterOrOwner ? 'dashboard.loyalty.subtitle_staff' : 'dashboard.loyalty.subtitle_client'}
+            fallback={isMasterOrOwner
               ? 'Show your QR for clients to collect stamps and manage your stamp cards'
               : 'Collect stamps with every visit and unlock exclusive rewards'}
-          </p>
+            as="p"
+            className="text-white/80 text-sm mt-2 max-w-md"
+            multiline
+          />
         </div>
       </div>
 

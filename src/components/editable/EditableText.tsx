@@ -2,13 +2,15 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useEditMode } from '@/contexts/EditContext';
-import { Pencil, Check, X } from 'lucide-react';
+import { Pencil, Check, X, RotateCcw } from 'lucide-react';
 
 interface EditableTextProps {
   contentKey: string;
   fallback: string;
   as?: 'h1' | 'h2' | 'h3' | 'h4' | 'p' | 'span';
   className?: string;
+  /** Inline styles for headers that are not styled with Tailwind classes. */
+  style?: React.CSSProperties;
   multiline?: boolean;
 }
 
@@ -17,10 +19,12 @@ export function EditableText({
   fallback,
   as: Tag = 'p',
   className = '',
+  style,
   multiline = false,
 }: EditableTextProps) {
-  const { isEditMode, getContent, updateContent } = useEditMode();
+  const { isEditMode, content, getContent, updateContent, clearContent } = useEditMode();
   const value = getContent(contentKey, fallback);
+  const isCustom = content[contentKey] !== undefined && content[contentKey] !== '';
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
   const [saving, setSaving] = useState(false);
@@ -58,6 +62,13 @@ export function EditableText({
     setEditing(false);
   }, [getContent, contentKey, fallback]);
 
+  const restoreDefault = useCallback(async () => {
+    setSaving(true);
+    await clearContent(contentKey);
+    setSaving(false);
+    setEditing(false);
+  }, [clearContent, contentKey]);
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !multiline) {
       e.preventDefault();
@@ -82,6 +93,17 @@ export function EditableText({
           style={{ minHeight: '1.5em' }}
         />
         <span className="absolute -top-2 -right-2 flex gap-1">
+          {isCustom && (
+            <button
+              onMouseDown={(e) => { e.preventDefault(); restoreDefault(); }}
+              disabled={saving}
+              title="Restore original text"
+              aria-label="Restore original text"
+              className="w-6 h-6 rounded-full bg-gray-600 text-white flex items-center justify-center shadow-md hover:bg-gray-700"
+            >
+              <RotateCcw size={12} />
+            </button>
+          )}
           <button
             onMouseDown={(e) => { e.preventDefault(); save(); }}
             disabled={saving}
@@ -103,6 +125,7 @@ export function EditableText({
   return (
     <Tag
       className={`${className} ${isEditMode ? 'cursor-text rounded-md transition-all hover:bg-pink-50/60 hover:ring-2 hover:ring-pink-200 hover:ring-offset-1' : ''}`}
+      style={style}
       onClick={startEditing}
       title={isEditMode ? 'Click to edit' : undefined}
     >

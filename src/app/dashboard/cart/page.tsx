@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { ArrowRight, Minus, Package, Plus, ShoppingBag, Trash2, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { EditableText } from '@/components/editable/EditableText';
 import { useSection } from '@/contexts/SectionContext';
 import { useCart } from '@/contexts/CartContext';
 import { DEFAULT_PRODUCT_IMAGE } from '@/lib/constants/images';
@@ -38,7 +39,7 @@ export default function CartPage() {
           <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-pink-200 to-rose-200 flex items-center justify-center mx-auto mb-5">
             <ShoppingBag size={34} className="text-[var(--color-brand-pink-dark)]" />
           </div>
-          <h1 className="text-3xl font-bold text-[var(--color-text-primary)] mb-3">Your bag is empty</h1>
+          <EditableText contentKey="dashboard.cart.empty_title" fallback="Your bag is empty" as="h1" className="text-3xl font-bold text-[var(--color-text-primary)] mb-3" />
           <p className="text-[var(--color-text-secondary)] mb-8">Add curated beauty products from the shop before checkout.</p>
           <Link href={buildPath('shop')} className="btn-pink inline-flex items-center gap-2 px-7 py-3 text-sm">
             Browse Shop <ArrowRight size={16} />
@@ -53,7 +54,7 @@ export default function CartPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.25em] text-[var(--color-brand-pink-dark)] mb-2">Shopping Bag</p>
-          <h1 className="text-3xl font-bold text-[var(--color-text-primary)]">Cart</h1>
+          <EditableText contentKey="dashboard.cart.title" fallback="Cart" as="h1" className="text-3xl font-bold text-[var(--color-text-primary)]" />
           <p className="text-sm text-[var(--color-text-secondary)] mt-1">{getItemCount()} item{getItemCount() !== 1 ? 's' : ''} ready for checkout</p>
         </div>
         <button onClick={clearCart} className="btn-outline px-5 py-2.5 text-sm self-start sm:self-auto">

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { EditableText } from '@/components/editable/EditableText';
 import { useCart } from '@/contexts/CartContext';
 import { useSection } from '@/contexts/SectionContext';
 import { createClient } from '@/lib/supabase/client';
@@ -152,13 +153,13 @@ export default function ShopPage() {
         <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', color: 'white', padding: '24px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
             <ShoppingBag size={18} style={{ color: '#FCD34D' }} />
-            <span style={{ fontSize: '12px', letterSpacing: '3px', textTransform: 'uppercase', color: '#FCD34D', fontWeight: 700 }}>Shop</span>
+            <EditableText contentKey="dashboard.shop.eyebrow" fallback="Shop" as="span" style={{ fontSize: '12px', letterSpacing: '3px', textTransform: 'uppercase', color: '#FCD34D', fontWeight: 700 }} />
           </div>
-          <h1 style={{ fontSize: '36px', fontWeight: 700, textShadow: '0 2px 10px rgba(0,0,0,0.3)', margin: 0 }}>Curated Beauty Products</h1>
-          <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: '14px', marginTop: '8px', maxWidth: '400px' }}>
-            Premium beauty essentials handpicked for you
+          <EditableText contentKey="dashboard.shop.title" fallback="Curated Beauty Products" as="h1" style={{ fontSize: '36px', fontWeight: 700, textShadow: '0 2px 10px rgba(0,0,0,0.3)', margin: 0 }} />
+          <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '14px', marginTop: '8px', maxWidth: '400px' }}>
+            <EditableText contentKey="dashboard.shop.subtitle" fallback="Premium beauty essentials handpicked for you" as="span" multiline />
             {isMasterOrOwner && <span className="block text-xs mt-1 text-amber-300">Wholesale pricing applied</span>}
-          </p>
+          </div>
         </div>
       </div>
 

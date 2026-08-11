@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { EditableText } from '@/components/editable/EditableText';
 import { useSection } from '@/contexts/SectionContext';
 import { createClient } from '@/lib/supabase/client';
 import { DeleteButton } from '@/components/DeleteButton';
@@ -1038,14 +1039,25 @@ export default function AppointmentsPage() {
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-transparent" />
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center color-white p-6">
-          <h1 className="text-4xl font-extrabold text-white tracking-tight drop-shadow-md">
-            {role === 'master' || role === 'owner' ? 'Professional Bookings' : 'Your Appointments'}
-          </h1>
-          <p className="text-white/80 text-sm mt-2 max-w-md font-medium">
-            {role === 'master' || role === 'owner'
+          <EditableText
+            contentKey={role === 'master' || role === 'owner'
+              ? 'dashboard.appointments.title_staff'
+              : 'dashboard.appointments.title_client'}
+            fallback={role === 'master' || role === 'owner' ? 'Professional Bookings' : 'Your Appointments'}
+            as="h1"
+            className="text-4xl font-extrabold text-white tracking-tight drop-shadow-md"
+          />
+          <EditableText
+            contentKey={role === 'master' || role === 'owner'
+              ? 'dashboard.appointments.subtitle_staff'
+              : 'dashboard.appointments.subtitle_client'}
+            fallback={role === 'master' || role === 'owner'
               ? 'Manage client attendance, reschedule proposals, and track late arrivals'
               : 'Track upcoming sessions, confirm attendance, or request reschedules'}
-          </p>
+            as="p"
+            className="text-white/80 text-sm mt-2 max-w-md font-medium"
+            multiline
+          />
         </div>
       </div>
 

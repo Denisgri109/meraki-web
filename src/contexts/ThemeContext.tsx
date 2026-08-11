@@ -162,6 +162,18 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 // ─── DOM Injection ──────────────────────────────────────────────────────
 
+/**
+ * Theme values are written to `global_settings` and injected into CSS custom
+ * properties for every visitor, so only recognised colour syntaxes are allowed
+ * through. Anything else is rejected before it is persisted or applied.
+ */
+const COLOR_PATTERN =
+  /^(#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})|rgba?\(\s*[\d.]+%?\s*(?:,\s*[\d.]+%?\s*){2}(?:,\s*[\d.]+\s*)?\)|hsla?\(\s*[\d.]+(?:deg)?\s*(?:,\s*[\d.]+%\s*){2}(?:,\s*[\d.]+\s*)?\)|transparent|currentcolor|inherit)$/i;
+
+export function isValidThemeColor(value: unknown): value is string {
+  return typeof value === 'string' && COLOR_PATTERN.test(value.trim());
+}
+
 /** Determine if a hex color is "dark" (luminance < 0.5). */
 function isColorDark(hex: string): boolean {
   const match = hex.match(/^#([0-9a-fA-F]{6})$/);
@@ -177,7 +189,7 @@ function applyThemeToDOM(theme: SiteTheme): void {
   const root = document.documentElement;
   for (const mapping of THEME_KEYS) {
     const value = theme[mapping.themeKey];
-    if (value) {
+    if (isValidThemeColor(value)) {
       root.style.setProperty(mapping.cssVar, value);
     } else {
       root.style.removeProperty(mapping.cssVar);
@@ -218,7 +230,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         const loadedTheme: SiteTheme = { ...DEFAULT_THEME };
         for (const mapping of THEME_KEYS) {
           const dbValue = dbMap[mapping.dbKey];
-          if (dbValue) {
+          // A malformed stored value falls back to the default rather than
+          // being injected into a CSS custom property.
+          if (isValidThemeColor(dbValue)) {
             loadedTheme[mapping.themeKey] = dbValue;
           }
         }
@@ -245,6 +259,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     async (partial: Partial<SiteTheme>) => {
       if (!user) return { error: 'Not authenticated' };
       if (!canEditTheme) return { error: 'Only owners can change the site theme' };
+
+      const invalid = (Object.entries(partial) as [keyof SiteTheme, string][])
+        .filter(([, value]) => value !== undefined && !isValidThemeColor(value))
+        .map(([key]) => key);
+
+      if (invalid.length > 0) {
+        return { error: `Not a valid colour: ${invalid.join(', ')}` };
+      }
 
       // Optimistic update — apply immediately for instant visual feedback
       const previousTheme = theme;

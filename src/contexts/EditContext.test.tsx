@@ -12,14 +12,25 @@ jest.mock('@/lib/supabase/client', () => {
   const mockSelect = jest.fn(() => Promise.resolve({ data: [], error: null }));
   const mockUpsert = jest.fn(() => Promise.resolve({ error: null }));
   const mockDeleteFilter = jest.fn(() => Promise.resolve({ error: null }));
+  const mockDeleteEq = jest.fn(() => Promise.resolve({ error: null }));
   const mockFrom = jest.fn(() => ({
     select: mockSelect,
     upsert: mockUpsert,
-    delete: jest.fn(() => ({ filter: mockDeleteFilter })),
+    delete: jest.fn(() => ({ filter: mockDeleteFilter, eq: mockDeleteEq })),
   }));
+  const mockChannel = jest.fn(() => {
+    const channel: any = {};
+    channel.on = jest.fn(() => channel);
+    channel.subscribe = jest.fn(() => channel);
+    return channel;
+  });
   return {
-    createClient: jest.fn(() => ({ from: mockFrom })),
-    _mocks: { mockSelect, mockUpsert, mockDeleteFilter },
+    createClient: jest.fn(() => ({
+      from: mockFrom,
+      channel: mockChannel,
+      removeChannel: jest.fn(),
+    })),
+    _mocks: { mockSelect, mockUpsert, mockDeleteFilter, mockDeleteEq },
   };
 });
 
@@ -142,12 +153,55 @@ describe('EditContext', () => {
       expect(result.current.content['k']).toBe('new-value');
     });
 
-    it('reverts content on upsert error', async () => {
+    it('restores the previous value on upsert error', async () => {
       supabaseMocks.mockUpsert.mockResolvedValueOnce({ error: { message: 'DB error' } });
       const { result } = renderWithProvider({ 'k': 'original' });
       const response = await act(() => result.current.updateContent('k', 'changed'));
       expect(response).toEqual({ error: 'DB error' });
+      // Not undefined: the row still holds 'original', so the UI must too.
+      expect(result.current.content['k']).toBe('original');
+    });
+
+    it('drops a never-persisted key entirely on upsert error', async () => {
+      supabaseMocks.mockUpsert.mockResolvedValueOnce({ error: { message: 'DB error' } });
+      const { result } = renderWithProvider({ 'other': 'v' });
+      await act(() => result.current.updateContent('k', 'changed'));
       expect(result.current.content['k']).toBeUndefined();
+    });
+  });
+
+  describe('getContent', () => {
+    it('treats an empty stored value as no override', () => {
+      const { result } = renderWithProvider({ 'k': '' });
+      expect(result.current.getContent('k', 'fallback')).toBe('fallback');
+    });
+  });
+
+  describe('clearContent', () => {
+    it('deletes the override so the fallback applies again', async () => {
+      supabaseMocks.mockDeleteEq.mockResolvedValueOnce({ error: null });
+      const { result } = renderWithProvider({ 'k': 'custom' });
+      const response = await act(() => result.current.clearContent('k'));
+      expect(response).toEqual({ error: null });
+      expect(result.current.getContent('k', 'fallback')).toBe('fallback');
+    });
+
+    it('restores the override when the delete fails', async () => {
+      supabaseMocks.mockDeleteEq.mockResolvedValueOnce({ error: { message: 'blocked' } });
+      const { result } = renderWithProvider({ 'k': 'custom' });
+      const response = await act(() => result.current.clearContent('k'));
+      expect(response).toEqual({ error: 'blocked' });
+      expect(result.current.content['k']).toBe('custom');
+    });
+
+    it('refuses non-owners', async () => {
+      (useAuth as jest.Mock).mockReturnValue({
+        user: { id: 'user-1' },
+        profile: { role: 'client' },
+      });
+      const { result } = renderWithProvider({ 'k': 'custom' });
+      const response = await result.current.clearContent('k');
+      expect(response).toEqual({ error: 'Only owners can reset content' });
     });
   });
 

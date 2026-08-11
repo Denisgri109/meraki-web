@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { EditableText } from '@/components/editable/EditableText';
 import { DeleteButton } from '@/components/DeleteButton';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/Toast';
@@ -754,10 +755,10 @@ function ClientAcademyView() {
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center text-white p-6">
           <div className="flex items-center gap-2 mb-2">
             <GraduationCap size={18} className="text-cyan-300" />
-            <span className="text-xs tracking-[3px] uppercase text-cyan-300 font-bold">Academy</span>
+            <EditableText contentKey="dashboard.academy.eyebrow" fallback="Academy" as="span" className="text-xs tracking-[3px] uppercase text-cyan-300 font-bold" />
           </div>
-          <h1 className="text-4xl font-bold drop-shadow-md">Master Your Craft</h1>
-          <p className="text-white/80 text-sm mt-2 max-w-md">Learn from industry experts and elevate your skills</p>
+          <EditableText contentKey="dashboard.academy.title" fallback="Master Your Craft" as="h1" className="text-4xl font-bold drop-shadow-md" />
+          <EditableText contentKey="dashboard.academy.subtitle" fallback="Learn from industry experts and elevate your skills" as="p" className="text-white/80 text-sm mt-2 max-w-md" multiline />
         </div>
       </div>
 

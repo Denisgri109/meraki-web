@@ -26,6 +26,7 @@ function mockEditContext(overrides: any = {}) {
     content: {},
     getContent: (_key: string, fallback: string) => fallback,
     updateContent: jest.fn(() => Promise.resolve({ error: null })),
+    clearContent: jest.fn(() => Promise.resolve({ error: null })),
     refreshContent: jest.fn(),
     resetContent: jest.fn(() => Promise.resolve({ error: null })),
   };
@@ -147,6 +148,37 @@ describe('EditableText', () => {
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
   });
 
+  it('offers restore-to-default only when a custom value is stored', () => {
+    mockEditContext({ isEditMode: true });
+    const { unmount } = render(<EditableText contentKey="k" fallback="Original" />);
+    fireEvent.click(screen.getByText('Original'));
+    expect(screen.queryByLabelText('Restore original text')).not.toBeInTheDocument();
+    unmount();
+
+    mockEditContext({
+      isEditMode: true,
+      content: { k: 'Custom' },
+      getContent: () => 'Custom',
+    });
+    render(<EditableText contentKey="k" fallback="Original" />);
+    fireEvent.click(screen.getByText('Custom'));
+    expect(screen.getByLabelText('Restore original text')).toBeInTheDocument();
+  });
+
+  it('restore-to-default deletes the override', async () => {
+    const clearContent = jest.fn(() => Promise.resolve({ error: null }));
+    mockEditContext({
+      isEditMode: true,
+      clearContent,
+      content: { k: 'Custom' },
+      getContent: () => 'Custom',
+    });
+    render(<EditableText contentKey="k" fallback="Original" />);
+    fireEvent.click(screen.getByText('Custom'));
+    fireEvent.mouseDown(screen.getByLabelText('Restore original text'));
+    await waitFor(() => expect(clearContent).toHaveBeenCalledWith('k'));
+  });
+
   it('Enter key saves in non-multiline mode', async () => {
     const updateContent = jest.fn(() => Promise.resolve({ error: null }));
     mockEditContext({ isEditMode: true, updateContent });
@@ -203,25 +235,31 @@ describe('EditableImage', () => {
     expect(screen.queryByTitle('Reset to default')).not.toBeInTheDocument();
   });
 
-  it('shows Reset button when src differs from fallback', () => {
+  it('shows Reset button when an override is stored', () => {
     mockEditContext({
       isEditMode: true,
+      content: { img: 'https://cdn.test/custom.jpg' },
       getContent: (_k: string, fb: string) => 'https://cdn.test/custom.jpg',
     });
     render(<EditableImage contentKey="img" fallback="https://test.com/fb.jpg" alt="Test" />);
     expect(screen.getByTitle('Reset to default')).toBeInTheDocument();
   });
 
-  it('Reset calls updateContent with fallback', async () => {
+  it('Reset deletes the override instead of storing the fallback', async () => {
+    const clearContent = jest.fn(() => Promise.resolve({ error: null }));
     const updateContent = jest.fn(() => Promise.resolve({ error: null }));
     mockEditContext({
       isEditMode: true,
+      clearContent,
       updateContent,
+      content: { img: 'https://cdn.test/custom.jpg' },
       getContent: (_k: string, fb: string) => 'https://cdn.test/custom.jpg',
     });
     render(<EditableImage contentKey="img" fallback="https://test.com/fb.jpg" alt="Test" />);
     fireEvent.click(screen.getByTitle('Reset to default'));
-    await waitFor(() => expect(updateContent).toHaveBeenCalledWith('img', 'https://test.com/fb.jpg'));
+    await waitFor(() => expect(clearContent).toHaveBeenCalledWith('img'));
+    // Storing the fallback as a value would leave a stale override behind.
+    expect(updateContent).not.toHaveBeenCalled();
   });
 
   it('Replace opens upload UI', () => {

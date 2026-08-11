@@ -13,6 +13,7 @@ import {
 import { useToast } from '@/components/Toast';
 import { useModal } from '@/contexts/ModalContext';
 import { ImageUrlUpload } from '@/components/ImageUrlUpload';
+import { DASHBOARD_TEXT_GROUPS } from '@/lib/dashboardContent';
 import {
   X,
   Palette,
@@ -278,7 +279,26 @@ const IMAGE_FIELDS: ImageField[] = [
   },
 ];
 
-const ALL_TEXT_FIELDS: TextField[] = TEXT_GROUPS.flatMap((g) => g.fields);
+// Dashboard header copy lives in its own registry because the signed-in pages
+// import the fallbacks directly; spreading it in keeps one editing surface.
+const ALL_TEXT_GROUPS: TextGroup[] = [
+  ...TEXT_GROUPS,
+  ...DASHBOARD_TEXT_GROUPS.map((group) => ({
+    id: group.id,
+    title: group.title,
+    description: group.description,
+    fields: group.fields.map((field) => ({
+      key: field.key,
+      label: field.label,
+      fallback: field.fallback,
+      multiline: field.multiline,
+      rows: field.multiline ? 2 : undefined,
+      placeholder: field.fallback,
+    })),
+  })),
+];
+
+const ALL_TEXT_FIELDS: TextField[] = ALL_TEXT_GROUPS.flatMap((g) => g.fields);
 
 const RESET_SECTIONS: ResetSection[] = [
   {
@@ -286,6 +306,13 @@ const RESET_SECTIONS: ResetSection[] = [
     title: 'Landing Pages',
     description: 'Hero copy, section titles, step cards, testimonials, and portal text (Beauty & Pilates).',
     prefixes: ['landing.', 'portal.'],
+    keys: [],
+  },
+  {
+    id: 'dashboard',
+    title: 'Dashboard Headers',
+    description: 'Shop, Booking, Academy, Rewards, Appointments and Cart header copy.',
+    prefixes: ['dashboard.'],
     keys: [],
   },
   {
@@ -845,7 +872,7 @@ export function CustomizeDrawer({ open, onClose }: CustomizeDrawerProps) {
                 to all visitors after saving.
               </p>
 
-              {TEXT_GROUPS.map((group) => {
+              {ALL_TEXT_GROUPS.map((group) => {
                 const isOpen = !!openGroups[group.id];
                 return (
                   <div key={group.id} className="rounded-xl border border-gray-200 overflow-hidden">

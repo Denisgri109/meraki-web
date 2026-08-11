@@ -33,7 +33,7 @@ export function EditableLegalBody({
   children,
 }: EditableLegalBodyProps) {
   const router = useRouter();
-  const { isEditMode, canEdit, content, updateContent } = useEditMode();
+  const { isEditMode, canEdit, content, updateContent, clearContent } = useEditMode();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
   const [saving, setSaving] = useState(false);
@@ -50,23 +50,28 @@ export function EditableLegalBody({
   const save = useCallback(async () => {
     setSaving(true);
     // Saving an empty body restores the rich factory default.
-    const { error } = await updateContent(contentKey, draft.trim() === defaultText.trim() ? '' : draft);
+    // Saving text identical to the factory default deletes the override so the
+    // rich built-in document renders again.
+    const isDefault = draft.trim() === '' || draft.trim() === defaultText.trim();
+    const { error } = isDefault
+      ? await clearContent(contentKey)
+      : await updateContent(contentKey, draft);
     setSaving(false);
     if (!error) {
       setEditing(false);
       router.refresh();
     }
-  }, [contentKey, draft, defaultText, updateContent, router]);
+  }, [contentKey, draft, defaultText, updateContent, clearContent, router]);
 
   const restoreDefault = useCallback(async () => {
     setSaving(true);
-    const { error } = await updateContent(contentKey, '');
+    const { error } = await clearContent(contentKey);
     setSaving(false);
     if (!error) {
       setEditing(false);
       router.refresh();
     }
-  }, [contentKey, updateContent, router]);
+  }, [contentKey, clearContent, router]);
 
   if (editing && isEditMode && canEdit) {
     return (

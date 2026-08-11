@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, type Dispatch, type SetStateAction } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { EditableText } from '@/components/editable/EditableText';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSection } from '@/contexts/SectionContext';
 import { useModal } from '@/contexts/ModalContext';
@@ -1089,9 +1090,9 @@ export default function BookingPage() {
           <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', color: 'white', padding: '24px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
               <Sparkles size={16} style={{ color: '#F9A8D4' }} />
-              <span style={{ fontSize: '12px', letterSpacing: '3px', textTransform: 'uppercase', color: '#F9A8D4', fontWeight: 700 }}>Book Now</span>
+              <EditableText contentKey="dashboard.booking.eyebrow" fallback="Book Now" as="span" style={{ fontSize: '12px', letterSpacing: '3px', textTransform: 'uppercase', color: '#F9A8D4', fontWeight: 700 }} />
             </div>
-            <h1 style={{ fontSize: '36px', fontWeight: 700, textShadow: '0 2px 10px rgba(0,0,0,0.3)', margin: 0 }}>Find Your Perfect Service</h1>
+            <EditableText contentKey="dashboard.booking.title" fallback="Find Your Perfect Service" as="h1" style={{ fontSize: '36px', fontWeight: 700, textShadow: '0 2px 10px rgba(0,0,0,0.3)', margin: 0 }} />
           </div>
         </div>
       )}

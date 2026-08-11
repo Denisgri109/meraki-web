@@ -24,8 +24,9 @@ export function EditableImage({
   bucket = 'site-images',
   pathPrefix = 'site-content',
 }: EditableImageProps) {
-  const { isEditMode, getContent, updateContent } = useEditMode();
+  const { isEditMode, content, getContent, updateContent, clearContent } = useEditMode();
   const src = getContent(contentKey, fallback);
+  const isCustom = content[contentKey] !== undefined && content[contentKey] !== '';
   const [showUpload, setShowUpload] = useState(false);
 
   const handleUpload = useCallback(
@@ -36,9 +37,12 @@ export function EditableImage({
     [contentKey, updateContent]
   );
 
+  // Deleting the row restores the built-in default. Storing the fallback as a
+  // value would leave a stale override behind that later default changes could
+  // never reach.
   const handleReset = useCallback(async () => {
-    await updateContent(contentKey, fallback);
-  }, [contentKey, fallback, updateContent]);
+    await clearContent(contentKey);
+  }, [contentKey, clearContent]);
 
   return (
     <div className={`relative group ${className}`}>
@@ -64,7 +68,7 @@ export function EditableImage({
                 <ImagePlus size={14} />
                 Replace
               </button>
-              {src !== fallback && (
+              {isCustom && (
                 <button
                   onClick={handleReset}
                   className="flex items-center gap-1 px-2 py-1.5 text-xs font-medium rounded-lg bg-gray-600 text-white shadow-md hover:bg-gray-700 transition-colors"

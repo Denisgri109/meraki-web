@@ -12,6 +12,7 @@ import { Pencil, SlidersHorizontal, RotateCcw, X, Loader2, Eye, EyeOff } from 'l
 const CONTENT_RESET_PREFIXES = [
   'landing.',
   'portal.',
+  'dashboard.',
   'legal.',
   'image.',
   'brand.',
