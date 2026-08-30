@@ -127,8 +127,20 @@ function QrCheckoutFlow() {
     discountType: string;
   } | null>(null);
 
+  // Read-only check — see /api/vouchers/redeem. The voucher is only consumed
+  // in handleCreateSession, immediately before the Stripe session is created.
   const handleValidateVoucher = async () => {
     if (!voucherCode.trim() || voucherCode.trim().length < 3) return;
+    if (!user) {
+      setVoucherResult({
+        valid: false,
+        message: 'Sign in to use a voucher code.',
+        discountAmountCents: 0,
+        newTotalCents: Math.round(priceEuros * 100),
+        discountType: '',
+      });
+      return;
+    }
     setVoucherValidating(true);
     setVoucherResult(null);
     try {
@@ -192,6 +204,22 @@ function QrCheckoutFlow() {
     setCreating(true);
     setCreateError(null);
     try {
+      // Claim the voucher now, not on "Apply". `create-stripe-session` reads
+      // the user_vouchers ledger (not the code in the request body), so a
+      // previewed-but-unclaimed voucher would show a discount in the UI and
+      // then charge full price. Claiming here also means an abandoned checkout
+      // never costs the customer their voucher.
+      if (!isGuest && voucherResult?.valid && voucherCode.trim()) {
+        const { error: claimError } = await supabase.functions.invoke('claim-voucher', {
+          body: { code: voucherCode.trim(), userId: user!.id },
+        });
+        if (claimError) {
+          setCreateError(await resolveQrCheckoutError(claimError));
+          setCreating(false);
+          return;
+        }
+      }
+
       // SECURITY: send productId only. The server resolves the real price/name
       // from the products table. We do not send priceInCents — the server
       // ignores it even if a legacy client does.

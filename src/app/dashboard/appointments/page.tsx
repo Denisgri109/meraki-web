@@ -365,18 +365,41 @@ export default function AppointmentsPage() {
       // which also refunds the class credit if outside the late window.
       if (isPilates) {
         const windowHours = settingsData?.late_cancellation_window_hours ?? 24;
+
+        // Money first — cancel-and-refund refuses an appointment that is
+        // already marked cancelled, and is a no-op when the class was paid for
+        // with a credit rather than a card. Card-paid Pilates classes were
+        // previously never refunded on the website at all.
+        const { data: refundResult, error: refundError } = await supabase.functions.invoke(
+          'cancel-and-refund',
+          {
+            body: {
+              appointment_id: selectedAppointment.id,
+              cancelled_by: 'client',
+              reason: 'Cancelled by Client',
+            },
+          },
+        );
+        if (refundError) throw refundError;
+        if (refundResult?.error) throw new Error(String(refundResult.error));
+
+        // Then release the seat and return the class credit.
         const { data: cancelResult, error: cancelError } = await supabase.rpc('cancel_pilates_booking', {
           p_appointment_id: selectedAppointment.id,
           p_refund_window_hours: windowHours,
         });
         if (cancelError) throw cancelError;
         const result = (cancelResult ?? {}) as { refunded?: boolean; reason?: string };
+
+        const cashRefunded = Number(refundResult?.refund_amount_cents ?? 0) / 100;
         showToast(
           result.refunded
             ? 'Class cancelled — 1 credit refunded to your pass.'
-            : result.reason === 'Late cancellation — no refund'
-              ? 'Class cancelled. Late cancellation — no credit refund.'
-              : 'Appointment cancelled successfully.',
+            : cashRefunded > 0
+              ? `Class cancelled. €${cashRefunded.toFixed(2)} refunded to your card.`
+              : result.reason?.startsWith('Late cancellation')
+                ? 'Class cancelled. Late cancellation — no credit refund.'
+                : 'Appointment cancelled successfully.',
           'success'
         );
         setSelectedAppointment(null);
@@ -384,22 +407,28 @@ export default function AppointmentsPage() {
         return;
       }
 
-      const { error } = await supabase
-        .from('appointments')
-        .update({
-          status: 'cancelled',
-          cancellation_fee_amount: Math.round(penaltyAmount), // in pounds (matches price column)
-          cancellation_reason: isLate ? 'Late cancellation under policy window' : 'Cancelled by Client',
-          status_updated_at: new Date().toISOString()
-        })
-        .eq('id', selectedAppointment.id);
+      // ── Beauty bookings: cancel + refund through the same edge function the
+      // app uses. The previous implementation only wrote `cancelled` and a fee
+      // amount to the row — the customer's card was never refunded, so the
+      // same cancellation gave a refund in the app and nothing on the website.
+      const { data: refundResult, error } = await supabase.functions.invoke('cancel-and-refund', {
+        body: {
+          appointment_id: selectedAppointment.id,
+          cancelled_by: 'client',
+          reason: isLate ? 'Late cancellation under policy window' : 'Cancelled by Client',
+        },
+      });
 
       if (error) throw error;
+      if (refundResult?.error) throw new Error(String(refundResult.error));
 
+      const refunded = Number(refundResult?.refund_amount_cents ?? 0) / 100;
       showToast(
-        isLate
-          ? `Appointment cancelled. Late fee of €${penaltyAmount.toFixed(2)} recorded.`
-          : 'Appointment cancelled successfully.',
+        refunded > 0
+          ? `Appointment cancelled. €${refunded.toFixed(2)} refunded to your card.`
+          : isLate
+            ? `Appointment cancelled. Late fee of €${penaltyAmount.toFixed(2)} applied.`
+            : 'Appointment cancelled successfully.',
         'success'
       );
 
@@ -411,30 +440,51 @@ export default function AppointmentsPage() {
   };
 
   // Attendance confirmations (Client)
+  //
+  // Goes through the `client_confirm_appointment` RPC, which is the same call
+  // the app makes, so both platforms write the appointment and its
+  // confirmation row identically and both set `client_confirmed` (without it,
+  // auto-cancel would still sweep up a confirmed booking). Writing the two
+  // tables straight from the browser also skipped the master's notification
+  // entirely — a client could confirm or cancel on the website and the master
+  // would never hear about it.
   const handleClientConfirmation = async (confirmed: boolean) => {
     if (!selectedAppointment) return;
     try {
-      const statusUpdate = confirmed ? 'confirmed' : 'cancelled';
-      const { error } = await supabase
-        .from('appointments')
-        .update({
-          client_confirmed: confirmed,
-          status: statusUpdate,
-          status_updated_at: new Date().toISOString()
-        })
-        .eq('id', selectedAppointment.id);
+      const { data, error } = await supabase.rpc('client_confirm_appointment', {
+        p_appointment_id: selectedAppointment.id,
+        p_response: confirmed ? 'yes' : 'no',
+      });
 
       if (error) throw error;
 
-      // Update confirmations table
-      await supabase
-        .from('appointment_confirmations')
-        .upsert({
-          appointment_id: selectedAppointment.id,
-          confirmed: confirmed,
-          responded_at: new Date().toISOString(),
-          response_type: confirmed ? 'yes' : 'no'
-        }, { onConflict: 'appointment_id' });
+      const result = Array.isArray(data) ? data[0] : data;
+      if (!result?.success) {
+        throw new Error(result?.message || 'Failed to submit confirmation');
+      }
+
+      // Notify the master, same message the app sends.
+      const masterPushToken = selectedAppointment.master?.push_token;
+      if (masterPushToken) {
+        try {
+          await supabase.functions.invoke('send-push-notification', {
+            body: {
+              to: masterPushToken,
+              sound: 'default',
+              title: confirmed ? 'Appointment Confirmed ✅' : 'Appointment Cancelled',
+              body: confirmed
+                ? 'A client confirmed their attendance.'
+                : 'A client cancelled their appointment. The slot is open again.',
+              data: {
+                appointmentId: selectedAppointment.id,
+                type: confirmed ? 'appointment_confirmed' : 'appointment_cancelled',
+              },
+            },
+          });
+        } catch (notifyErr) {
+          console.error('Failed to notify master:', notifyErr);
+        }
+      }
 
       showToast(confirmed ? 'Attendance confirmed!' : 'Attendance declined & booking cancelled.', 'success');
       setSelectedAppointment(null);

@@ -114,6 +114,53 @@ function CheckoutForm({ user, profile, selectedService, selectedMaster, selected
     if (useCredit) return;
   }, [useCredit]);
 
+  // ── Loyalty reward credits (all services) ──────────────────────────────
+  // Distinct from class passes above: `user_credits` are the € discounts a
+  // client gets by redeeming a loyalty reward. The app has always let clients
+  // spend them on a booking; the website only listed them on the loyalty page,
+  // so a reward redeemed here could never be used here.
+  type LoyaltyCredit = {
+    id: string;
+    amount: number;
+    description: string | null;
+    expires_at: string | null;
+  };
+  const [loyaltyCredits, setLoyaltyCredits] = useState<LoyaltyCredit[]>([]);
+  const [appliedCreditId, setAppliedCreditId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user) {
+      setLoyaltyCredits([]);
+      setAppliedCreditId(null);
+      return;
+    }
+    let cancelled = false;
+    const loadCredits = async () => {
+      const { data, error } = await supabase
+        .from('user_credits')
+        .select('id, amount, description, expires_at')
+        .eq('user_id', user.id)
+        .eq('is_used', false)
+        .order('created_at', { ascending: false });
+      if (cancelled || error) return;
+      const usable = (data ?? []).filter(
+        (c) => !c.expires_at || new Date(c.expires_at) > new Date(),
+      ) as LoyaltyCredit[];
+      setLoyaltyCredits(usable);
+    };
+    loadCredits();
+    return () => { cancelled = true; };
+  }, [user, supabase]);
+
+  const appliedCredit = loyaltyCredits.find((c) => c.id === appliedCreditId) ?? null;
+
+  // A class-pass credit replaces the payment entirely, so a € credit on top of
+  // it would be thrown away — only offer one or the other.
+  const creditDiscount = useCredit
+    ? 0
+    : Math.min(Number(appliedCredit?.amount ?? 0), selectedService?.base_price ?? 0);
+  const amountDueEuros = Math.max(0, (selectedService?.base_price ?? 0) - creditDiscount);
+
   const usingSavedCard = selectedPm !== 'new';
 
   const processStripePayment = async (bookingMasterId: string, bookingHostName: string) => {
@@ -143,7 +190,7 @@ function CheckoutForm({ user, profile, selectedService, selectedMaster, selected
       customerId = setupIntentData.customerId;
     }
 
-    const amountToPay = Math.round(selectedService!.base_price * 100);
+    const amountToPay = Math.round(amountDueEuros * 100);
 
     const { data: paymentIntentData, error: piError } = await supabase.functions.invoke('create-payment-intent', {
       body: {
@@ -185,8 +232,10 @@ function CheckoutForm({ user, profile, selectedService, selectedMaster, selected
       return;
     }
 
-    // Card path needs Stripe + Elements.
-    if (!useCredit) {
+    // Card path needs Stripe + Elements. A loyalty credit that covers the whole
+    // price leaves nothing to charge, so no card is needed there either.
+    const needsCard = !useCredit && amountDueEuros > 0;
+    if (needsCard) {
       if (!stripe || (!usingSavedCard && !elements)) return;
     }
 
@@ -203,16 +252,26 @@ function CheckoutForm({ user, profile, selectedService, selectedMaster, selected
         return;
       }
 
-      // ── Paid path: charge via Stripe, then create the booking.
-      const { setupIntentId, paymentIntentData } = await processStripePayment(bookingMasterId, bookingHostName);
+      // ── Paid path: charge via Stripe, then create the booking. When a
+      // loyalty credit covers the full price there is nothing to charge, so
+      // Stripe is skipped and no payment reference is sent.
+      let setupIntentId: string | null = null;
+      let paymentIntentId: string | null = null;
+
+      if (needsCard) {
+        const result = await processStripePayment(bookingMasterId, bookingHostName);
+        setupIntentId = result.setupIntentId;
+        paymentIntentId = result.paymentIntentData.paymentIntentId;
+      }
 
       const { error: bookError } = isPilates && selectedPilatesSession
         ? await supabase.rpc('book_pilates_session', {
           p_session_id: selectedPilatesSession.id,
           p_stripe_setup_intent_id: setupIntentId ?? undefined,
-          p_stripe_payment_intent_id: paymentIntentData.paymentIntentId,
-          p_deposit_amount: selectedService.base_price,
-          p_deposit_payment_intent_id: paymentIntentData.paymentIntentId,
+          p_stripe_payment_intent_id: paymentIntentId ?? undefined,
+          p_deposit_amount: amountDueEuros,
+          p_deposit_payment_intent_id: paymentIntentId ?? undefined,
+          p_credit_id: appliedCredit?.id ?? undefined,
         })
         : await supabase.rpc(
           'book_appointment_with_confirmation',
@@ -221,9 +280,10 @@ function CheckoutForm({ user, profile, selectedService, selectedMaster, selected
               p_service_id: selectedService.id,
               p_start_time: appointmentStartDate!.toISOString(),
               p_stripe_setup_intent_id: setupIntentId ?? undefined,
-              p_stripe_payment_intent_id: paymentIntentData.paymentIntentId,
-              p_deposit_amount: selectedService.base_price,
-              p_deposit_payment_intent_id: paymentIntentData.paymentIntentId,
+              p_stripe_payment_intent_id: paymentIntentId ?? undefined,
+              p_deposit_amount: amountDueEuros,
+              p_deposit_payment_intent_id: paymentIntentId ?? undefined,
+              p_credit_id: appliedCredit?.id ?? undefined,
           }
         );
       if (bookError) throw bookError;
@@ -291,8 +351,63 @@ function CheckoutForm({ user, profile, selectedService, selectedMaster, selected
         </div>
       )}
 
-      {/* ── Payment details (hidden when redeeming a credit) ───────────── */}
-      {!useCredit && (
+      {/* ── Loyalty reward credits ─────────────────────────────────────── */}
+      {!useCredit && loyaltyCredits.length > 0 && (
+        <div className="p-4 bg-white/60 border border-white rounded-xl mb-4 shadow-sm">
+          <h4 className="font-bold text-[var(--color-text-primary)] mb-3 flex items-center gap-2">
+            <Ticket size={18} /> Your Rewards
+          </h4>
+          <div className="space-y-2">
+            {loyaltyCredits.map((credit) => {
+              const isApplied = appliedCreditId === credit.id;
+              return (
+                <label
+                  key={credit.id}
+                  className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
+                    isApplied
+                      ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/5 ring-1 ring-[var(--color-primary)]/20'
+                      : 'border-[var(--color-border-light)] hover:border-[var(--color-primary)]/30'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="loyalty_credit"
+                    checked={isApplied}
+                    onChange={() => setAppliedCreditId(isApplied ? null : credit.id)}
+                    onClick={() => { if (isApplied) setAppliedCreditId(null); }}
+                    className="accent-[var(--color-primary)]"
+                  />
+                  <div className="flex-1">
+                    <span className="font-semibold text-sm text-[var(--color-text-primary)]">
+                      €{Number(credit.amount).toFixed(2)} off
+                    </span>
+                    <p className="text-xs text-[var(--color-text-muted)]">
+                      {credit.description || 'Loyalty reward'}
+                      {credit.expires_at ? ` · ${formatExpiryShort(credit.expires_at)}` : ''}
+                    </p>
+                  </div>
+                  {isApplied && (
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
+                      Applied
+                    </span>
+                  )}
+                </label>
+              );
+            })}
+          </div>
+          {creditDiscount > 0 && (
+            <p className="mt-3 text-sm font-semibold text-[var(--color-text-primary)]">
+              Total due: €{amountDueEuros.toFixed(2)}
+              <span className="ml-2 text-xs font-normal text-emerald-600">
+                (−€{creditDiscount.toFixed(2)})
+              </span>
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* ── Payment details (hidden when a credit covers the booking) ──── */}
+      {!useCredit && amountDueEuros > 0 && (
       <div className="p-4 bg-white/60 border border-white rounded-xl mb-6 shadow-sm">
          <h4 className="font-bold text-[var(--color-text-primary)] mb-4 flex items-center gap-2">
             <CreditCard size={18} /> Payment Details

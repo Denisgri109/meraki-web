@@ -4303,6 +4303,10 @@ export type Database = {
         Args: { p_code: string; p_user_id: string; p_amount_cents?: number | null }
         Returns: Json
       }
+      preview_voucher: {
+        Args: { p_code: string; p_amount_cents?: number | null }
+        Returns: Json
+      }
       expire_voucher_redemptions: {
         Args: never
         Returns: number

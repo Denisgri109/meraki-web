@@ -120,16 +120,20 @@ describe('ownerPrimaryNav', () => {
 });
 
 describe('ownerSecondaryNav', () => {
-  it('has exactly 13 items', () => {
-    expect(ownerSecondaryNav).toHaveLength(13);
+  // 14 since the Clients entry was added on 2026-08-04. The assertion was
+  // left at 13 and went unnoticed because the whole jest run was failing on a
+  // Haste module-map collision from the vendored Tests/ directory.
+  it('has exactly 14 items', () => {
+    expect(ownerSecondaryNav).toHaveLength(14);
   });
 
-  it('includes Inventory, Supplies, Staff, Analytics', () => {
+  it('includes Inventory, Supplies, Staff, Analytics, Clients', () => {
     const labels = ownerSecondaryNav.map((i) => i.label);
     expect(labels).toContain('Inventory');
     expect(labels).toContain('Supplies');
     expect(labels).toContain('Staff');
     expect(labels).toContain('Analytics');
+    expect(labels).toContain('Clients');
   });
 });
 

@@ -1,6 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
+/**
+ * Read-only voucher check for the checkout "Apply" button.
+ *
+ * This route used to call `redeem_voucher`, which is a *commit*: it writes the
+ * redemption row and increments `current_uses`. Pressing Apply therefore burned
+ * the voucher before the customer had paid, and the code was never passed on to
+ * the charge — so the customer lost the voucher and was billed full price.
+ *
+ * `preview_voucher` runs the same validation ladder and writes nothing. The
+ * voucher is only consumed once the customer proceeds to payment (via
+ * `claim-voucher`, which is the ledger `create-stripe-session` reads).
+ */
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -14,9 +26,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Voucher code is required.' }, { status: 400 });
   }
 
-  const { data, error } = await supabase.rpc('redeem_voucher', {
+  if (amount_cents !== undefined && amount_cents !== null) {
+    if (!Number.isInteger(amount_cents) || amount_cents < 0) {
+      return NextResponse.json({ error: 'Invalid amount.' }, { status: 400 });
+    }
+  }
+
+  const { data, error } = await supabase.rpc('preview_voucher', {
     p_code: code.trim(),
-    p_user_id: user.id,
     p_amount_cents: amount_cents ?? null,
   });
 

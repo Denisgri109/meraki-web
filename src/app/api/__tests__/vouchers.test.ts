@@ -218,4 +218,40 @@ describe('POST /api/vouchers/redeem', () => {
     const data = await res.json();
     expect(data.success).toBe(true);
   });
+
+  // The Apply button must not consume the voucher. This route used to call
+  // redeem_voucher, which writes the redemption row and increments
+  // current_uses, so abandoning the checkout destroyed the voucher and the
+  // customer was still billed full price.
+  it('calls the read-only preview_voucher RPC and never redeem_voucher', async () => {
+    const client = makeMockSupabase({ rpcResult: { success: true } });
+    (createClient as jest.Mock).mockResolvedValue(client);
+
+    await RedeemVoucher(makeReq({ code: '  summer50 ', amount_cents: 5000 }));
+
+    expect(client.rpc).toHaveBeenCalledTimes(1);
+    expect(client.rpc).toHaveBeenCalledWith('preview_voucher', {
+      p_code: 'summer50',
+      p_amount_cents: 5000,
+    });
+    expect(client.rpc).not.toHaveBeenCalledWith('redeem_voucher', expect.anything());
+  });
+
+  it('passes a null amount when none is supplied', async () => {
+    const client = makeMockSupabase({ rpcResult: { success: true } });
+    (createClient as jest.Mock).mockResolvedValue(client);
+
+    await RedeemVoucher(makeReq({ code: 'SUMMER50' }));
+
+    expect(client.rpc).toHaveBeenCalledWith('preview_voucher', {
+      p_code: 'SUMMER50',
+      p_amount_cents: null,
+    });
+  });
+
+  it('rejects a non-integer or negative amount', async () => {
+    (createClient as jest.Mock).mockResolvedValue(makeMockSupabase({}));
+    expect((await RedeemVoucher(makeReq({ code: 'TEST', amount_cents: -1 }))).status).toBe(400);
+    expect((await RedeemVoucher(makeReq({ code: 'TEST', amount_cents: 12.5 }))).status).toBe(400);
+  });
 });
