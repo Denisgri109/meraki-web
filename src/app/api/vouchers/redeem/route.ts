@@ -34,7 +34,9 @@ export async function POST(req: NextRequest) {
 
   const { data, error } = await supabase.rpc('preview_voucher', {
     p_code: code.trim(),
-    p_amount_cents: amount_cents ?? null,
+    // The SQL parameter defaults to NULL, so omitting it is the same as passing null —
+    // and the generated Args type only accepts undefined for an optional argument.
+    p_amount_cents: amount_cents ?? undefined,
   });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

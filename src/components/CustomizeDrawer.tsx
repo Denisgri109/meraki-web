@@ -155,8 +155,8 @@ const TEXT_GROUPS: TextGroup[] = [
       { key: 'contact.hours', label: 'Contact Opening Hours', fallback: 'Mon-Fri, 9am - 6pm GMT', placeholder: 'Mon-Fri, 9am - 6pm GMT' },
       { key: 'contact.form_heading', label: 'Contact Form Heading', fallback: 'Send us a message', placeholder: 'Send us a message' },
       { key: 'contact.form_button', label: 'Contact Form Button', fallback: 'Send Message', placeholder: 'Send Message' },
-      { key: 'getapp.heading', label: 'Get App Heading', fallback: 'Meraká is Coming to Your Pocket', placeholder: 'Meraká is Coming to Your Pocket' },
-      { key: 'getapp.subtext', label: 'Get App Subtext', fallback: "We're crafting the official Meraká mobile app to bring real-time messaging, instant booking updates, stamp tag scanning, and personalized alerts right to your phone. It's almost here.", multiline: true, rows: 3, placeholder: "We're crafting the official Meraká mobile app..." },
+      { key: 'getapp.heading', label: 'Get App Heading', fallback: 'Merakí is Coming to Your Pocket', placeholder: 'Merakí is Coming to Your Pocket' },
+      { key: 'getapp.subtext', label: 'Get App Subtext', fallback: "We're crafting the official Merakí mobile app to bring real-time messaging, instant booking updates, stamp tag scanning, and personalized alerts right to your phone. It's almost here.", multiline: true, rows: 3, placeholder: "We're crafting the official Merakí mobile app..." },
     ],
   },
   {

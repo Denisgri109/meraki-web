@@ -42,14 +42,14 @@ export default function GetAppPage() {
 
                 <EditableText
                   contentKey="getapp.heading"
-                  fallback="Meraká is Coming to Your Pocket"
+                  fallback="Merakí is Coming to Your Pocket"
                   as="h1"
                   className="text-4xl sm:text-5xl font-[family-name:var(--font-playfair)] italic text-[var(--color-text-primary)] leading-tight"
                 />
 
                 <EditableText
                   contentKey="getapp.subtext"
-                  fallback="We're crafting the official Meraká mobile app to bring real-time messaging, instant booking updates, loyalty stamp scanning, and personalized alerts right to your phone. It's almost here."
+                  fallback="We're crafting the official Merakí mobile app to bring real-time messaging, instant booking updates, loyalty stamp scanning, and personalized alerts right to your phone. It's almost here."
                   as="p"
                   multiline
                   className="mt-4 text-base text-[var(--color-text-secondary)] leading-relaxed max-w-xl"
@@ -99,7 +99,7 @@ export default function GetAppPage() {
                   </div>
                   <div>
                     <EditableText contentKey="getapp.status_title" fallback="Launching on iOS & Android" as="p" className="text-sm font-bold text-[var(--color-text-primary)]" />
-                    <EditableText contentKey="getapp.status_text" fallback="The Meraká app is still in the works. Check back soon for download links." as="p" multiline className="text-xs text-[var(--color-text-secondary)] mt-0.5" />
+                    <EditableText contentKey="getapp.status_text" fallback="The Merakí app is still in the works. Check back soon for download links." as="p" multiline className="text-xs text-[var(--color-text-secondary)] mt-0.5" />
                   </div>
                 </div>
               </div>
@@ -135,7 +135,7 @@ export default function GetAppPage() {
 
                   {/* Mock App Header */}
                   <div className="flex items-center justify-between mb-6">
-                    <span className="text-lg font-[family-name:var(--font-playfair)] italic text-pink-400">Meraká</span>
+                    <span className="text-lg font-[family-name:var(--font-playfair)] italic text-pink-400">Merakí</span>
                     <div className="w-7 h-7 rounded-full bg-neutral-800 flex items-center justify-center text-xs font-bold text-pink-400">
                       M
                     </div>

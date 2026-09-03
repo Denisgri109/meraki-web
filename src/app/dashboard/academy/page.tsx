@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { EditableText } from '@/components/editable/EditableText';
-import { DeleteButton } from '@/components/DeleteButton';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/Toast';
 import {
@@ -385,17 +384,11 @@ function OwnerAcademyView() {
                   </button>
                   <button
                     onClick={() => setDeleteTarget(course)}
+                    title="Delete course"
                     className="text-xs px-2 py-2 rounded-lg text-red-500 hover:bg-red-50 transition-colors"
                   >
                     <Trash2 size={14} />
                   </button>
-                  <DeleteButton
-                    table="courses"
-                    id={course.id}
-                    entityName="course"
-                    entityLabel={course.title}
-                    size={14}
-                  />
                 </div>
               </div>
             </div>

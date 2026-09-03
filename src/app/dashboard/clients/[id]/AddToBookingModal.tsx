@@ -225,7 +225,7 @@ export default function AddToBookingModal({
         const { error } = await supabase.rpc('owner_book_for_client', {
           p_client_id: client.id,
           p_session_id: selectedSession,
-          p_notes: notes.trim() || null,
+          p_notes: notes.trim() || undefined,
         });
         if (error) throw new Error(error.message);
         await notifyClient(s.service_name, s.starts_at, true);
@@ -238,7 +238,7 @@ export default function AddToBookingModal({
           p_master_id: masterId,
           p_service_id: serviceId,
           p_start_time: new Date(slot).toISOString(),
-          p_notes: notes.trim() || null,
+          p_notes: notes.trim() || undefined,
         });
         if (error) throw new Error(error.message);
         await notifyClient(svc?.name || 'appointment', slot, false);

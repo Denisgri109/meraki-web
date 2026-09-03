@@ -237,7 +237,7 @@ describe('POST /api/vouchers/redeem', () => {
     expect(client.rpc).not.toHaveBeenCalledWith('redeem_voucher', expect.anything());
   });
 
-  it('passes a null amount when none is supplied', async () => {
+  it('omits the amount when none is supplied, so the SQL default of NULL applies', async () => {
     const client = makeMockSupabase({ rpcResult: { success: true } });
     (createClient as jest.Mock).mockResolvedValue(client);
 
@@ -245,7 +245,7 @@ describe('POST /api/vouchers/redeem', () => {
 
     expect(client.rpc).toHaveBeenCalledWith('preview_voucher', {
       p_code: 'SUMMER50',
-      p_amount_cents: null,
+      p_amount_cents: undefined,
     });
   });
 
