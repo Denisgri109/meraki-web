@@ -27,7 +27,6 @@ interface DetailProfile {
   country: string | null;
   role: string;
   created_at: string | null;
-  push_token: string | null;
 }
 
 interface UpcomingAppointment {
@@ -71,7 +70,7 @@ export default function ClientDetailPage() {
     try {
       const [{ data: p, error: pErr }, { data: appts }, { data: passRows }, { data: waivers }] = await Promise.all([
         supabase.from('profiles')
-          .select('id, full_name, email, phone, avatar_url, city, state, country, role, created_at, push_token')
+          .select('id, full_name, email, phone, avatar_url, city, state, country, role, created_at')
           .eq('id', clientId).maybeSingle(),
         supabase.from('appointments')
           .select('id, service_name, service_category, start_time, status, price')
@@ -257,7 +256,7 @@ export default function ClientDetailPage() {
 
           {showBookingModal && (
             <AddToBookingModal
-              client={{ id: client.id, full_name: client.full_name, push_token: client.push_token }}
+              client={{ id: client.id, full_name: client.full_name }}
               onClose={() => setShowBookingModal(false)}
               onBooked={() => { setShowBookingModal(false); void load(); }}
             />

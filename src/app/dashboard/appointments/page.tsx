@@ -167,7 +167,7 @@ interface Appointment {
   service_duration_minutes: number | null;
   payment_hold_amount: number | null;
   service?: { name: string; base_price?: number; duration_minutes?: number; description?: string; category?: string } | null;
-  master?: { id: string; full_name: string; avatar_url: string | null; specialties: string[] | null; push_token: string | null } | null;
+  master?: { id: string; full_name: string; avatar_url: string | null; specialties: string[] | null } | null;
   client?: { id: string; full_name: string; avatar_url: string | null; email: string; phone: string | null } | null;
 }
 
@@ -274,7 +274,7 @@ export default function AppointmentsPage() {
           cancellation_fee_amount, cancellation_reason, no_show_charge_amount, no_show_processed_at,
           stripe_payment_intent_id, service_duration_minutes, payment_hold_amount,
           service:services(name, base_price, duration_minutes, description, category),
-          master:profiles!appointments_master_id_fkey(id, full_name, avatar_url, specialties, push_token),
+          master:profiles!appointments_master_id_fkey(id, full_name, avatar_url, specialties),
           client:profiles!appointments_client_id_fkey(id, full_name, avatar_url, email, phone)
         `);
 
@@ -463,21 +463,23 @@ export default function AppointmentsPage() {
         throw new Error(result?.message || 'Failed to submit confirmation');
       }
 
-      // Notify the master, same message the app sends.
-      const masterPushToken = selectedAppointment.master?.push_token;
-      if (masterPushToken) {
+      // Notify the master, same message the app sends. Addressed by user id: the edge
+      // function resolves the push token with the service role, so no client ever needs to
+      // read someone else's token.
+      const masterId = selectedAppointment.master?.id;
+      if (masterId) {
         try {
           await supabase.functions.invoke('send-push-notification', {
             body: {
-              to: masterPushToken,
-              sound: 'default',
+              userId: masterId,
               title: confirmed ? 'Appointment Confirmed ✅' : 'Appointment Cancelled',
               body: confirmed
                 ? 'A client confirmed their attendance.'
                 : 'A client cancelled their appointment. The slot is open again.',
+              // Only the types NotificationContext knows about route on tap.
               data: {
                 appointmentId: selectedAppointment.id,
-                type: confirmed ? 'appointment_confirmed' : 'appointment_cancelled',
+                type: 'appointment_reminder',
               },
             },
           });
@@ -876,8 +878,8 @@ export default function AppointmentsPage() {
       }
 
       // Push notification
-      const masterPushToken = selectedAppointment.master?.push_token;
-      if (masterPushToken) {
+      const rescheduleMasterId = selectedAppointment.master?.id;
+      if (rescheduleMasterId) {
         const oldTime = new Date(selectedAppointment.start_time);
         const formatStrStr = (d: Date) => d.toLocaleString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
         const message = `${user?.user_metadata?.full_name || 'Client'} rescheduled their appointment from ${formatStrStr(oldTime)} to ${formatStrStr(newStartTime)}.`;
@@ -885,11 +887,10 @@ export default function AppointmentsPage() {
         try {
           await supabase.functions.invoke('send-push-notification', {
             body: {
-              to: masterPushToken,
-              sound: 'default',
+              userId: rescheduleMasterId,
               title: 'Appointment Rescheduled',
               body: message,
-              data: { appointmentId: selectedAppointment.id },
+              data: { type: 'appointment_reminder', appointmentId: selectedAppointment.id },
             }
           });
         } catch (e) {

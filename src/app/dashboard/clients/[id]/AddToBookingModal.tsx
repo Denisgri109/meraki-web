@@ -14,7 +14,6 @@ import { X, Loader2 } from 'lucide-react';
 interface ClientInfo {
   id: string;
   full_name: string | null;
-  push_token: string | null;
 }
 
 interface SessionOption {
@@ -194,21 +193,19 @@ export default function AddToBookingModal({
         });
       }
 
-      // Push (non-blocking failure)
-      if (client.push_token) {
-        try {
-          await supabase.functions.invoke('send-push-notification', {
-            body: {
-              to: client.push_token,
-              sound: 'default',
-              title: 'New booking from Merakí',
-              body: text,
-              data: { clientId: client.id },
-            },
-          });
-        } catch (e) {
-          console.error('push failed (non-fatal):', e);
-        }
+      // Push (non-blocking failure). Addressed by client id; the edge function looks the
+      // token up and reports {skipped: true} when the client has notifications off.
+      try {
+        await supabase.functions.invoke('send-push-notification', {
+          body: {
+            userId: client.id,
+            title: 'New booking from Merakí',
+            body: text,
+            data: { type: 'appointment_reminder', clientId: client.id },
+          },
+        });
+      } catch (e) {
+        console.error('push failed (non-fatal):', e);
       }
     } catch (e) {
       console.error('notify failed (non-fatal):', e);
