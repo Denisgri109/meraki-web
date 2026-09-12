@@ -5,7 +5,9 @@
   /* Brand Pink */
   --color-brand-pink: #E6A4B4;
   --color-brand-pink-light: #FCEFF2;
-  --color-brand-pink-dark: #C47888;
+  /* Darkened from #C47888 (3.29:1) so it passes WCAG 1.4.3 as text/icon
+     colour on white and on --color-surface-light. 5.23:1 / 4.92:1. */
+  --color-brand-pink-dark: #B04A66;
   --color-brand-pink-muted: #D1A4B0;
   --color-champagne: #F5E6E0;
   --color-rose-white: #FFF5F5;
@@ -37,10 +39,11 @@
 
   /* Text */
   --color-text-primary: #1A1A1A;
-  --color-text-secondary: #6B7280;
-  --color-text-muted: #9CA3AF;
+  --color-text-secondary: #4B5563;
+  /* Was #9CA3AF — 2.54:1 on white, below the 4.5:1 minimum. */
+  --color-text-muted: #6B7280;
   --color-text-invert: #FFFFFF;
-  --color-text-accent: #C47A90;
+  --color-text-accent: #9A3C52;
 
   /* Borders */
   --color-border: #E5E7EB;
@@ -49,10 +52,12 @@
   --color-border-gold: rgba(232, 160, 180, 0.25);
 
   /* Status */
-  --color-success: #22C55E;
-  --color-error: #EF4444;
-  --color-warning: #F59E0B;
-  --color-info: #3B82F6;
+  /* Status colours darkened to clear 4.5:1 as text on white, while still
+     clearing 4.5:1 with white text when used as a fill. */
+  --color-success: #15803D;
+  --color-error: #DC2626;
+  --color-warning: #B45309;
+  --color-info: #1D4ED8;
 
   /* Spacing scale removed to prevent conflict with Tailwind sizing (max-w-) */
 
@@ -1320,4 +1325,107 @@ body {
 }
 [data-theme="dark"] .focus\:bg-white\/90:focus {
   background-color: color-mix(in srgb, var(--color-surface) 90%, transparent) !important;
+}
+
+/* ─── Accessibility baseline (WCAG 2.2 AA) ──────────────────────────── */
+/* Unlayered, so these win over Tailwind's utility layer.               */
+
+/* 2.4.1 Bypass Blocks — visible only while focused. */
+.skip-link {
+  position: absolute;
+  left: 8px;
+  top: -100px;
+  z-index: 1000;
+  padding: 12px 20px;
+  border-radius: 10px;
+  background: var(--color-primary);
+  color: var(--color-text-invert);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: top 0.15s ease;
+}
+.skip-link:focus {
+  top: 8px;
+}
+
+/*
+ * 2.4.7 Focus Visible + 2.4.11 Focus Not Obscured.
+ * Several components set `outline: none` inline for aesthetics, which leaves
+ * keyboard users with no indication of where they are. This restores a ring
+ * for keyboard focus only, so mouse users see no change.
+ */
+:where(a, button, input, select, textarea, summary, [tabindex], [role="button"], [role="checkbox"], [role="radio"], [role="tab"], [role="switch"]):focus-visible {
+  outline: 3px solid var(--color-text-accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Elements that opt out inline still get a ring when reached by keyboard. */
+[style*="outline: none"]:focus-visible,
+[style*="outline:none"]:focus-visible {
+  outline: 3px solid var(--color-text-accent) !important;
+  outline-offset: 2px;
+}
+
+/* Screen-reader-only text that is still reachable when focused. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+.sr-only-focusable:focus,
+.sr-only-focusable:focus-within {
+  position: static;
+  width: auto;
+  height: auto;
+  margin: 0;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+}
+
+/* 2.3.3 Animation from Interactions — honour the OS "reduce motion" setting. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Windows High Contrast / forced-colors: keep focus and borders visible. */
+@media (forced-colors: active) {
+  :where(a, button, [role="button"]):focus-visible {
+    outline: 3px solid CanvasText;
+  }
+  .skip-link {
+    border: 2px solid CanvasText;
+  }
+}
+
+/* 1.4.12 Text Spacing — never clip text when a user overrides spacing. */
+p,
+li,
+h1,
+h2,
+h3,
+h4 {
+  overflow-wrap: break-word;
+}
+
+/* 2.5.8 Target Size (Minimum) — icon-only controls need a 24px target. */
+button,
+[role="button"],
+a[href] {
+  touch-action: manipulation;
 }

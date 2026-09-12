@@ -40,7 +40,7 @@ export default function ClientsDirectoryPage() {
     setLoading(true);
     try {
       let q = supabase
-        .from('profiles')
+        .from('profiles_with_contact')
         .select('id, full_name, email, phone, avatar_url, role, created_at')
         .in('role', ['client', 'master'])
         .order('full_name', { ascending: true, nullsFirst: false })

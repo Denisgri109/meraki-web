@@ -39,7 +39,7 @@ export function PilatesSection({ isOwner }: PilatesSectionProps) {
           />
           <EditableText
             contentKey="landing.pilates.hero.subtitle"
-            fallback="Book group classes, follow weekly schedules, and train with expert instructors — for every level, every body."
+            fallback="Book group classes, follow weekly schedules, and train with qualified instructors — for every level, every body."
             as="p"
             multiline
             className="text-lg text-white/90 leading-relaxed mb-10 max-w-xl mx-auto drop-shadow"
@@ -156,7 +156,7 @@ export function PilatesSection({ isOwner }: PilatesSectionProps) {
               <div className="space-y-5">
                 {[
                   { emoji: '📅', title: 'Class Booking', desc: 'Reserve spots in group or private sessions', badge: 'icon-badge-green' },
-                  { emoji: '👥', title: 'Expert Instructors', desc: 'Learn from certified Pilates teachers', badge: 'icon-badge-cyan' },
+                  { emoji: '👥', title: 'Qualified Instructors', desc: 'Classes led by trained Pilates instructors', badge: 'icon-badge-cyan' },
                   { emoji: '📊', title: 'Progress Tracking', desc: 'Monitor your improvements over time', badge: 'icon-badge-blue' },
                   { emoji: '🏋️', title: 'All Levels Welcome', desc: 'From beginner to advanced, find your fit', badge: 'icon-badge-amber' },
                   { emoji: '💬', title: 'Direct Chat', desc: 'Message your instructor directly', badge: 'icon-badge-purple' },
@@ -214,22 +214,22 @@ export function PilatesSection({ isOwner }: PilatesSectionProps) {
         <div className="relative z-10 max-w-2xl mx-auto text-center">
           <EditableText
             contentKey="landing.pilates.testimonial.badge"
-            fallback="Join Hundreds of Stronger Bodies"
+            fallback="Ready When You Are"
             as="p"
             className="text-xs tracking-[4px] uppercase text-emerald-300 font-bold mb-4 drop-shadow-md"
           />
           <EditableText
             contentKey="landing.pilates.testimonial.quote"
-            fallback="Pilates at Merakí changed how I move. The classes, the instructors — everything just clicks."
+            fallback="Small classes, qualified instructors, and a plan that fits the body you have today."
             as="h2"
             multiline
             className="text-3xl sm:text-4xl font-[family-name:var(--font-playfair)] italic text-transparent bg-clip-text bg-gradient-to-r from-white to-emerald-200 mb-6 drop-shadow-lg"
           />
           <EditableText
-            contentKey="landing.pilates.testimonial.author"
-            fallback="— Emma R., London"
+            contentKey="landing.pilates.testimonial.subline"
+            fallback="Book a single class first — no membership, no commitment."
             as="p"
-            className="text-white/80 text-sm mb-10 font-medium"
+            className="text-white/90 text-sm mb-10 font-medium"
           />
           {isOwner ? (
             <Link href="/dashboard" className="inline-block px-10 py-4 text-sm rounded-full font-semibold text-white bg-gradient-to-br from-[#34D399] to-[#10B981] shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all">

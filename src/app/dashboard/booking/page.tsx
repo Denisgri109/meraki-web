@@ -680,7 +680,7 @@ export default function BookingPage() {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, full_name, email, avatar_url, specialties, city, country, state, state_code, latitude, longitude, bio, years_of_experience')
+        .select('id, full_name, avatar_url, specialties, city, country, state, state_code, latitude, longitude, bio, years_of_experience')
         .eq('id', profileId)
         .single();
       if (!error && data) {
@@ -868,7 +868,7 @@ export default function BookingPage() {
         if (profIdArray.length > 0) {
           const mastersRes = await supabase
             .from('profiles')
-            .select('id, full_name, email, avatar_url, specialties, city, country, state, state_code, latitude, longitude, bio, years_of_experience')
+            .select('id, full_name, avatar_url, specialties, city, country, state, state_code, latitude, longitude, bio, years_of_experience')
             .in('id', profIdArray);
           rawMasters = ((mastersRes.data as unknown as Master[]) || []);
         }
@@ -1239,7 +1239,7 @@ export default function BookingPage() {
                 style={{ paddingLeft: '44px', width: '100%', boxSizing: 'border-box' }} 
               />
             </div>
-            <button style={{ width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-lg)', background: 'var(--color-surface-light)', border: 'none', cursor: 'pointer', flexShrink: 0 }} className="shadow-md hover:shadow-lg transition-shadow">
+            <button aria-label="Filter services" style={{ width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-lg)', background: 'var(--color-surface-light)', border: 'none', cursor: 'pointer', flexShrink: 0 }} className="shadow-md hover:shadow-lg transition-shadow">
               <SlidersHorizontal size={18} style={{ color: 'var(--color-text-secondary)' }} />
             </button>
           </div>

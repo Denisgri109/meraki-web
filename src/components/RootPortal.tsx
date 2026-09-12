@@ -7,6 +7,7 @@ import { Sparkles, Activity, ArrowRight } from 'lucide-react';
 import { EditModeToggle } from '@/components/editable/EditModeToggle';
 import { EditableText } from '@/components/editable/EditableText';
 import { SectionSwitcher, type SectionId } from '@/components/SectionSwitcher';
+import { BUSINESS, REGISTERED_ADDRESS_LINE } from '@/lib/constants/business';
 
 const STORAGE_KEY = 'meraki:active-section';
 
@@ -109,8 +110,8 @@ export function RootPortal({ isOwner }: RootPortalProps) {
       </div>
 
       {/* ── Selection Screen ────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col items-center justify-center px-6 py-16 gradient-mesh relative overflow-hidden">
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      <main id="main-content" className="flex-1 flex flex-col items-center justify-center px-6 py-16 gradient-mesh relative overflow-hidden">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
           <div className="blob-pink -top-20 -left-40 opacity-30" />
           <div className="blob-mint -bottom-20 -right-40 opacity-30" />
           <div className="blob-purple top-1/3 right-1/4 opacity-15" />
@@ -180,7 +181,29 @@ export function RootPortal({ isOwner }: RootPortalProps) {
             Get Started
           </Link>
         </div>
-      </div>
+      </main>
+
+      {/*
+        The portal is the first page a visitor sees, so the legal documents and
+        the trader identity have to be reachable from it — "easily, directly and
+        permanently accessible" under S.I. 68/2003 reg. 8.
+      */}
+      <footer className="relative z-10 px-6 pb-8 text-center text-xs text-[var(--color-text-secondary)]">
+        <nav aria-label="Legal" className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
+          <Link href="/privacy-policy" className="hover:text-[var(--color-text-primary)] transition-colors">Privacy Policy</Link>
+          <Link href="/terms-of-service" className="hover:text-[var(--color-text-primary)] transition-colors">Terms of Service</Link>
+          <Link href="/cookie-policy" className="hover:text-[var(--color-text-primary)] transition-colors">Cookie Policy</Link>
+          <Link href="/refund-policy" className="hover:text-[var(--color-text-primary)] transition-colors">Refunds</Link>
+          <Link href="/delete-account" className="hover:text-[var(--color-text-primary)] transition-colors">Delete account</Link>
+          <Link href="/professional-terms" className="hover:text-[var(--color-text-primary)] transition-colors">For specialists</Link>
+          <Link href="/accessibility" className="hover:text-[var(--color-text-primary)] transition-colors">Accessibility</Link>
+          <Link href="/contact" className="hover:text-[var(--color-text-primary)] transition-colors">Contact</Link>
+        </nav>
+        <p className="mt-3">
+          {BUSINESS.legalName} — registered in {BUSINESS.placeOfRegistration}, company number{' '}
+          {BUSINESS.companyNumber}. {REGISTERED_ADDRESS_LINE}.
+        </p>
+      </footer>
     </div>
   );
 }

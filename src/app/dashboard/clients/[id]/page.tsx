@@ -69,7 +69,7 @@ export default function ClientDetailPage() {
     setLoading(true);
     try {
       const [{ data: p, error: pErr }, { data: appts }, { data: passRows }, { data: waivers }] = await Promise.all([
-        supabase.from('profiles')
+        supabase.from('profiles_with_contact')
           .select('id, full_name, email, phone, avatar_url, city, state, country, role, created_at')
           .eq('id', clientId).maybeSingle(),
         supabase.from('appointments')

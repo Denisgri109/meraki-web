@@ -700,6 +700,8 @@ export type Database = {
           created_at: string | null
           description: string | null
           id: string
+          ios_product_id: string | null
+          android_product_id: string | null
           instructor_id: string | null
           is_published: boolean | null
           price: number | null
@@ -711,6 +713,8 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           id?: string
+          ios_product_id?: string | null
+          android_product_id?: string | null
           instructor_id?: string | null
           is_published?: boolean | null
           price?: number | null
@@ -722,6 +726,8 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           id?: string
+          ios_product_id?: string | null
+          android_product_id?: string | null
           instructor_id?: string | null
           is_published?: boolean | null
           price?: number | null
@@ -2734,6 +2740,9 @@ export type Database = {
       pilates_waivers: {
         Row: {
           agreed_email_marketing: boolean | null
+          agreed_health_data_processing: boolean | null
+          health_data_consent_at: string | null
+          health_data_consent_version: string | null
           agreed_liability_waiver: boolean | null
           agreed_sms_marketing: boolean | null
           agreed_terms_of_use: boolean | null
@@ -2762,6 +2771,9 @@ export type Database = {
         }
         Insert: {
           agreed_email_marketing?: boolean | null
+          agreed_health_data_processing?: boolean | null
+          health_data_consent_at?: string | null
+          health_data_consent_version?: string | null
           agreed_liability_waiver?: boolean | null
           agreed_sms_marketing?: boolean | null
           agreed_terms_of_use?: boolean | null
@@ -2790,6 +2802,9 @@ export type Database = {
         }
         Update: {
           agreed_email_marketing?: boolean | null
+          agreed_health_data_processing?: boolean | null
+          health_data_consent_at?: string | null
+          health_data_consent_version?: string | null
           agreed_liability_waiver?: boolean | null
           agreed_sms_marketing?: boolean | null
           agreed_terms_of_use?: boolean | null
@@ -2991,8 +3006,94 @@ export type Database = {
           },
         ]
       }
+      consent_events: {
+        Row: {
+          consent_type: string
+          created_at: string
+          document_version: string | null
+          granted: boolean
+          id: string
+          source: string | null
+          user_id: string
+        }
+        Insert: {
+          consent_type: string
+          created_at?: string
+          document_version?: string | null
+          granted: boolean
+          id?: string
+          source?: string | null
+          user_id: string
+        }
+        Update: {
+          consent_type?: string
+          created_at?: string
+          document_version?: string | null
+          granted?: boolean
+          id?: string
+          source?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consent_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      iap_transactions: {
+        Row: {
+          course_id: string
+          created_at: string
+          currency: string | null
+          id: string
+          platform: string
+          price_cents: number | null
+          product_id: string
+          purchased_at: string | null
+          store_response: Json | null
+          transaction_id: string
+          user_id: string
+        }
+        Insert: {
+          course_id: string
+          created_at?: string
+          currency?: string | null
+          id?: string
+          platform: string
+          price_cents?: number | null
+          product_id: string
+          purchased_at?: string | null
+          store_response?: Json | null
+          transaction_id: string
+          user_id: string
+        }
+        Update: {
+          course_id?: string
+          created_at?: string
+          currency?: string | null
+          id?: string
+          platform?: string
+          price_cents?: number | null
+          product_id?: string
+          purchased_at?: string | null
+          store_response?: Json | null
+          transaction_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
+          age_confirmed: boolean
+          age_confirmed_at: string | null
+          marketing_consent_updated_at: string | null
+          marketing_email_consent: boolean
+          marketing_sms_consent: boolean
+          privacy_version: string | null
           avatar_url: string | null
           bio: string | null
           can_view_qr_pay: boolean
@@ -3039,6 +3140,12 @@ export type Database = {
           years_of_experience: number | null
         }
         Insert: {
+          age_confirmed?: boolean
+          age_confirmed_at?: string | null
+          marketing_consent_updated_at?: string | null
+          marketing_email_consent?: boolean
+          marketing_sms_consent?: boolean
+          privacy_version?: string | null
           avatar_url?: string | null
           bio?: string | null
           can_view_qr_pay?: boolean
@@ -3085,6 +3192,12 @@ export type Database = {
           years_of_experience?: number | null
         }
         Update: {
+          age_confirmed?: boolean
+          age_confirmed_at?: string | null
+          marketing_consent_updated_at?: string | null
+          marketing_email_consent?: boolean
+          marketing_sms_consent?: boolean
+          privacy_version?: string | null
           avatar_url?: string | null
           bio?: string | null
           can_view_qr_pay?: boolean
@@ -3895,6 +4008,61 @@ export type Database = {
       }
     }
     Views: {
+      profiles_with_contact: {
+        Row: {
+          age_confirmed: boolean
+          age_confirmed_at: string | null
+          marketing_consent_updated_at: string | null
+          marketing_email_consent: boolean
+          marketing_sms_consent: boolean
+          privacy_version: string | null
+          avatar_url: string | null
+          bio: string | null
+          can_view_qr_pay: boolean
+          city: string | null
+          commission_rate: number | null
+          country: string | null
+          country_code: string | null
+          created_at: string | null
+          currency: string | null
+          currency_code: string | null
+          email: string
+          full_name: string | null
+          id: string
+          invite_accepted_at: string | null
+          invited_by: string | null
+          is_authorized_instructor: boolean
+          is_master: boolean | null
+          is_verified: boolean | null
+          latitude: number | null
+          location_setup_completed: boolean
+          longitude: number | null
+          loyalty_points: number | null
+          master_status: string | null
+          notification_preferences: Json | null
+          onboarding_completed: boolean | null
+          phone: string | null
+          push_token: string | null
+          push_token_updated_at: string | null
+          role: Database["public"]["Enums"]["user_role"]
+          search_radius_km: number | null
+          service_radius_km: number | null
+          specialties: string[] | null
+          state: string | null
+          state_code: string | null
+          stripe_connect_id: string | null
+          stripe_connect_status: string | null
+          stripe_customer_id: string | null
+          timezone: string | null
+          tos_accepted: boolean | null
+          tos_accepted_at: string | null
+          tos_version: string | null
+          updated_at: string | null
+          verification_documents: string[] | null
+          years_of_experience: number | null
+        }
+        Relationships: []
+      }
       low_stock_supplies: {
         Row: {
           cost_per_unit: number | null
@@ -3965,6 +4133,10 @@ export type Database = {
       }
     }
     Functions: {
+      get_my_profile: {
+        Args: Record<PropertyKey, never>
+        Returns: Database["public"]["Tables"]["profiles"]["Row"]
+      }
       add_loyalty_stamp: {
         Args: {
           p_appointment_id?: string

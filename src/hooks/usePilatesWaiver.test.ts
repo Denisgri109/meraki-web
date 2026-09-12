@@ -10,6 +10,7 @@ jest.mock('@/contexts/AuthContext', () => ({
 jest.mock('@/lib/supabase/client', () => {
   const mockMaybeSingle = jest.fn(() => Promise.resolve({ data: null, error: null }));
   const mockUpsert = jest.fn(() => Promise.resolve({ error: null }));
+  const mockInsert = jest.fn(() => Promise.resolve({ error: null }));
   const mockFrom = jest.fn(() => ({
     select: jest.fn(() => ({
       eq: jest.fn(() => ({
@@ -17,10 +18,11 @@ jest.mock('@/lib/supabase/client', () => {
       })),
     })),
     upsert: mockUpsert,
+    insert: mockInsert,
   }));
   return {
     createClient: jest.fn(() => ({ from: mockFrom })),
-    _mocks: { mockMaybeSingle, mockUpsert, mockFrom },
+    _mocks: { mockMaybeSingle, mockUpsert, mockInsert, mockFrom },
   };
 });
 
@@ -137,6 +139,7 @@ describe('usePilatesWaiver', () => {
       goalsExpectations: 'Improve core strength',
       hasBoneCondition: false,
       agreedTermsOfUse: true,
+      agreedHealthDataProcessing: true,
       agreedLiabilityWaiver: true,
       emergencyContactName: 'Jane Doe',
       emergencyContactRelationship: 'Spouse',

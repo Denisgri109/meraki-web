@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import type { TablesInsert } from '@/types/database';
+import { LEGAL_VERSIONS } from '@/lib/constants/legalVersions';
 
 export interface PilatesWaiverData {
   injuriesJointProblems: string;
@@ -18,6 +19,8 @@ export interface PilatesWaiverData {
   hasBoneCondition: boolean;
   agreedTermsOfUse: boolean;
   agreedLiabilityWaiver: boolean;
+  /** Explicit consent to process health data — GDPR art. 9(2)(a). */
+  agreedHealthDataProcessing: boolean;
   emergencyContactName: string;
   emergencyContactRelationship: string;
   emergencyContactPhone: string;
@@ -121,6 +124,9 @@ export function usePilatesWaiver(): UsePilatesWaiverResult {
           has_bone_condition: data.hasBoneCondition,
           agreed_terms_of_use: data.agreedTermsOfUse,
           agreed_liability_waiver: data.agreedLiabilityWaiver,
+          agreed_health_data_processing: data.agreedHealthDataProcessing,
+          health_data_consent_at: new Date().toISOString(),
+          health_data_consent_version: LEGAL_VERSIONS.healthScreening,
         };
 
         const { error: upsertError } = await supabase
@@ -128,6 +134,17 @@ export function usePilatesWaiver(): UsePilatesWaiverResult {
           .upsert(payload, { onConflict: 'user_id' });
 
         if (upsertError) throw upsertError;
+
+        // Append-only evidence that explicit health-data consent was given.
+        // A failure here must not lose the waiver itself, which is the
+        // primary record, so it is not thrown.
+        await supabase.from('consent_events').insert({
+          user_id: user.id,
+          consent_type: 'health_data',
+          granted: data.agreedHealthDataProcessing,
+          document_version: LEGAL_VERSIONS.healthScreening,
+          source: 'web:pilates-waiver',
+        });
 
         setHasWaiver(true);
       } catch (err) {

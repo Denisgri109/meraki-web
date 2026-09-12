@@ -12,7 +12,7 @@ export default function GetAppPage() {
     <div className="min-h-screen flex flex-col bg-[var(--color-background)]">
       <MainNavbar />
 
-      <main className="flex-grow pt-12 pb-24 px-4 sm:px-6 lg:px-8 relative overflow-hidden section-warm">
+      <main id="main-content" className="flex-grow pt-12 pb-24 px-4 sm:px-6 lg:px-8 relative overflow-hidden section-warm">
         {/* Abstract background graphics */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="blob-pink -top-20 -left-40 opacity-40" />

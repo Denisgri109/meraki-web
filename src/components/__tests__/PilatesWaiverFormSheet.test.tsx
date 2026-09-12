@@ -185,6 +185,7 @@ describe('PilatesWaiverFormSheet', () => {
     fireEvent.change(screen.getByPlaceholderText('Phone number'), {
       target: { value: '+353861234567' },
     });
+    fireEvent.click(screen.getByLabelText(/explicitly consent/i));
     fireEvent.click(screen.getByLabelText(/General Terms of Use/i));
     fireEvent.click(screen.getByLabelText(/I understand and agree to the above terms/i));
   };

@@ -457,7 +457,7 @@ export default function InventoryPage() {
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 animate-fade-in my-8" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-xl font-semibold text-[var(--color-text-primary)]">Edit Product</h2>
-              <button onClick={closeEdit} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[var(--color-surface-light)] cursor-pointer">
+              <button aria-label="Close" onClick={closeEdit} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[var(--color-surface-light)] cursor-pointer">
                 <X size={18} />
               </button>
             </div>

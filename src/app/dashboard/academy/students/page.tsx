@@ -719,7 +719,7 @@ export default function AcademyStudentsPage() {
                   <p className="text-[11px] text-[var(--color-text-muted)]">Launch day help-desk</p>
                 </div>
               </div>
-              <button
+              <button aria-label="Close"
                 onClick={resetVoucherForm}
                 className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center transition-colors"
               >

@@ -331,7 +331,7 @@ export function QrPayMethodsManager() {
                   </p>
                 </div>
               </div>
-              <button onClick={closeModal} className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center transition-colors">
+              <button aria-label="Close" onClick={closeModal} className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center transition-colors">
                 <X size={18} />
               </button>
             </div>

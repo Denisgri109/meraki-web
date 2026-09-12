@@ -118,8 +118,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (authUser: User) => {
       let cancelled = false;
       try {
+        // `profiles_with_contact` rather than `profiles`: the base table no
+        // longer grants email / phone / push token / Stripe identifiers to
+        // `authenticated`, and the view's predicate includes `id = auth.uid()`,
+        // so this still returns the caller's own complete row and nobody else's.
         const profilePromise = supabase
-          .from('profiles')
+          .from('profiles_with_contact')
           .select('*')
           .eq('id', authUser.id)
           .maybeSingle();

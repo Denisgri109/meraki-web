@@ -789,7 +789,7 @@ export default function SuppliesPage() {
               <h2 className="text-xl font-semibold text-[var(--color-text-primary)]">
                 {editing ? 'Edit Supply' : 'Add Supply'}
               </h2>
-              <button
+              <button aria-label="Close"
                 onClick={closeEdit}
                 className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[var(--color-surface-light)] cursor-pointer"
               >
@@ -940,7 +940,7 @@ export default function SuppliesPage() {
                 <h2 className="text-xl font-semibold text-[var(--color-text-primary)]">{historyFor.name}</h2>
                 <p className="text-xs text-[var(--color-text-muted)]">Usage history (last 100)</p>
               </div>
-              <button
+              <button aria-label="Close"
                 onClick={closeHistory}
                 className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[var(--color-surface-light)] cursor-pointer"
               >
@@ -1013,7 +1013,7 @@ export default function SuppliesPage() {
                   {linkingService.name}
                 </h2>
               </div>
-              <button
+              <button aria-label="Close"
                 onClick={closeLinkModal}
                 className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[var(--color-surface-light)] cursor-pointer shrink-0"
               >

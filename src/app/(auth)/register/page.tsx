@@ -16,6 +16,9 @@ import {
   SUPPORTED_COUNTRIES,
 } from '@/lib/validation';
 import CountryCodeDropdown from '@/components/CountryCodeDropdown';
+import { ConsentCheckbox } from '@/components/forms/ConsentCheckbox';
+import { MINIMUM_AGE } from '@/lib/constants/business';
+import { LEGAL_VERSIONS } from '@/lib/constants/legalVersions';
 import {
   Loader2,
   User,
@@ -26,7 +29,6 @@ import {
   Lock,
   Phone,
   ShieldCheck,
-  Check,
   MapPin,
 } from 'lucide-react';
 import {
@@ -67,6 +69,10 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [tosAccepted, setTosAccepted] = useState(false);
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
+  const [marketingEmail, setMarketingEmail] = useState(false);
+  const [marketingSms, setMarketingSms] = useState(false);
+  const [consentAttempted, setConsentAttempted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [topError, setTopError] = useState<string | null>(null);
@@ -181,9 +187,12 @@ export default function RegisterPage() {
     e.preventDefault();
     setTopError(null);
 
+    setConsentAttempted(true);
     if (!validate()) return;
-    if (!tosAccepted) {
-      setTopError('Please accept the Terms of Service to continue.');
+    if (!tosAccepted || !ageConfirmed) {
+      setTopError(
+        'Please confirm your age and accept the Terms of Service and Privacy Policy to continue.',
+      );
       return;
     }
 
@@ -196,7 +205,7 @@ export default function RegisterPage() {
       fullName.trim(),
       selectedRole,
       tosAccepted,
-      '1.0'
+      LEGAL_VERSIONS.tos
     );
 
     if (signUpError) {
@@ -220,6 +229,8 @@ export default function RegisterPage() {
       if (phone.trim()) {
         normalizedPhone = normalizePhone(phone, phoneCountryCode);
       }
+      const consentTimestamp = new Date().toISOString();
+
       await supabase
         .from('profiles')
         .update({
@@ -230,6 +241,32 @@ export default function RegisterPage() {
           phone: normalizedPhone,
         })
         .eq('id', newUser.id);
+
+      // Written separately from the location update above so that a database
+      // that has not yet had 20260911100000_consent_and_marketing_columns.sql
+      // applied fails only this write, rather than silently dropping the
+      // user's country and phone number along with it.
+      await supabase
+        .from('profiles')
+        .update({
+          age_confirmed: ageConfirmed,
+          age_confirmed_at: consentTimestamp,
+          privacy_version: LEGAL_VERSIONS.privacy,
+          marketing_email_consent: marketingEmail,
+          marketing_sms_consent: marketingSms,
+          marketing_consent_updated_at: consentTimestamp,
+        })
+        .eq('id', newUser.id);
+
+      // Append-only evidence that consent was given, per GDPR art. 7(1).
+      // Failure here must not block sign-up, so the result is not awaited into
+      // the error path — the profile columns above are the primary record.
+      await supabase.from('consent_events').insert([
+        { user_id: newUser.id, consent_type: 'tos', granted: tosAccepted, document_version: LEGAL_VERSIONS.tos, source: 'web:register' },
+        { user_id: newUser.id, consent_type: 'privacy', granted: true, document_version: LEGAL_VERSIONS.privacy, source: 'web:register' },
+        { user_id: newUser.id, consent_type: 'marketing_email', granted: marketingEmail, document_version: LEGAL_VERSIONS.privacy, source: 'web:register' },
+        { user_id: newUser.id, consent_type: 'marketing_sms', granted: marketingSms, document_version: LEGAL_VERSIONS.privacy, source: 'web:register' },
+      ]);
     }
 
     // Mirror mobile: explicitly resend the signup OTP to ensure delivery
@@ -345,8 +382,8 @@ export default function RegisterPage() {
 
         {/* Role Selection */}
         <div style={{ width: '100%' }}>
-          <label style={labelStyle}>I am a...</label>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <span id="reg-role-label" style={labelStyle}>I am a...</span>
+          <div role="group" aria-labelledby="reg-role-label" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
             {/* Client */}
             <button
               type="button"
@@ -450,12 +487,15 @@ export default function RegisterPage() {
 
         {/* Full Name */}
         <div style={{ width: '100%' }}>
-          <label style={labelStyle}>Full Name</label>
+          <label htmlFor="reg-full-name" style={labelStyle}>Full Name</label>
           <div style={{ position: 'relative', width: '100%' }}>
             <User size={18} style={iconStyle} />
             <input
               type="text"
               value={fullName}
+              id="reg-full-name"
+              aria-invalid={errors.fullName ? true : undefined}
+              aria-describedby={errors.fullName ? "reg-full-name-error" : undefined}
               onChange={(e) => {
                 setFullName(e.target.value);
                 clearError('fullName');
@@ -472,12 +512,12 @@ export default function RegisterPage() {
               }}
             />
           </div>
-          {errors.fullName && <p style={fieldErrorStyle}>{errors.fullName}</p>}
+          {errors.fullName && <p id="reg-full-name-error" style={fieldErrorStyle}>{errors.fullName}</p>}
         </div>
 
         {/* Phone */}
         <div style={{ width: '100%' }}>
-          <label style={labelStyle}>Phone Number</label>
+          <label htmlFor="reg-phone" style={labelStyle}>Phone Number</label>
           <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
             <CountryCodeDropdown
               selectedCountryCode={phoneCountryCode}
@@ -488,6 +528,9 @@ export default function RegisterPage() {
               <input
                 type="tel"
                 value={phone}
+                id="reg-phone"
+                aria-invalid={errors.phone ? true : undefined}
+                aria-describedby={errors.phone ? "reg-phone-error" : undefined}
                 onChange={handlePhoneChange}
                 onBlur={handlePhoneBlur}
                 placeholder={SUPPORTED_COUNTRIES.find(c => c.code === phoneCountryCode)?.placeholder || "Enter phone"}
@@ -502,23 +545,32 @@ export default function RegisterPage() {
               />
             </div>
           </div>
-          {errors.phone && <p style={fieldErrorStyle}>{errors.phone}</p>}
+          {errors.phone && <p id="reg-phone-error" style={fieldErrorStyle}>{errors.phone}</p>}
         </div>
 
         {/* Country */}
         <div style={{ width: '100%' }} onClick={(e) => e.stopPropagation()}>
-          <label style={labelStyle}>Country</label>
+          <label htmlFor="reg-country" style={labelStyle}>Country</label>
           <div style={{ position: 'relative', width: '100%' }}>
             <MapPin size={18} style={iconStyle} />
             <input
               type="text"
               value={countrySearch || selectedCountry}
+              id="reg-country"
+              role="combobox"
+              aria-expanded={showCountryDropdown}
+              aria-controls="reg-country-listbox"
+              aria-autocomplete="list"
+              autoComplete="off"
+              aria-invalid={errors.country ? true : undefined}
+              aria-describedby={errors.country ? "reg-country-error" : undefined}
               onChange={(e) => {
                 setCountrySearch(e.target.value);
                 setShowCountryDropdown(true);
                 clearError('country');
               }}
               onFocus={() => setShowCountryDropdown(true)}
+              onKeyDown={(e) => { if (e.key === 'Escape') setShowCountryDropdown(false); }}
               placeholder={loadingCountries ? 'Loading...' : 'Select your country'}
               className="input-glass"
               style={{
@@ -529,7 +581,11 @@ export default function RegisterPage() {
               }}
             />
             {showCountryDropdown && (
-              <div style={{
+              <div
+                id="reg-country-listbox"
+                role="listbox"
+                aria-label="Countries"
+                style={{
                 position: 'absolute',
                 top: '100%',
                 left: 0,
@@ -548,8 +604,11 @@ export default function RegisterPage() {
                   .filter(c => !countrySearch || c.name.toLowerCase().includes(countrySearch.toLowerCase()))
                   .slice(0, 30)
                   .map(c => (
-                    <div
+                    <button
                       key={c.id}
+                      type="button"
+                      role="option"
+                      aria-selected={selectedCountry === c.name}
                       onClick={() => {
                         setSelectedCountry(c.name);
                         setSelectedCountryCode(c.iso2);
@@ -566,37 +625,50 @@ export default function RegisterPage() {
                         }).catch(() => setLoadingStates(false));
                       }}
                       style={{
+                        display: 'block',
+                        width: '100%',
+                        textAlign: 'left',
+                        border: 'none',
                         padding: '10px 16px',
                         cursor: 'pointer',
                         fontSize: '14px',
                         borderBottom: '1px solid rgba(0,0,0,0.04)',
-                        background: selectedCountry === c.name ? 'rgba(139,92,246,0.06)' : undefined,
+                        background: selectedCountry === c.name ? 'rgba(139,92,246,0.06)' : 'transparent',
                       }}
                     >
                       {c.name}
-                    </div>
+                    </button>
                   ))}
               </div>
             )}
           </div>
-          {errors.country && <p style={fieldErrorStyle}>{errors.country}</p>}
+          {errors.country && <p id="reg-country-error" style={fieldErrorStyle}>{errors.country}</p>}
         </div>
 
         {/* State / Region */}
         {states.length > 0 && (
           <div style={{ width: '100%' }} onClick={(e) => e.stopPropagation()}>
-            <label style={labelStyle}>State / Region</label>
+            <label htmlFor="reg-state" style={labelStyle}>State / Region</label>
             <div style={{ position: 'relative', width: '100%' }}>
               <MapPin size={18} style={iconStyle} />
               <input
                 type="text"
                 value={stateSearch || selectedStateName}
+                id="reg-state"
+                role="combobox"
+                aria-expanded={showStateDropdown}
+                aria-controls="reg-state-listbox"
+                aria-autocomplete="list"
+                autoComplete="off"
+                aria-invalid={errors.state ? true : undefined}
+                aria-describedby={errors.state ? "reg-state-error" : undefined}
                 onChange={(e) => {
                   setStateSearch(e.target.value);
                   setShowStateDropdown(true);
                   clearError('state');
                 }}
                 onFocus={() => setShowStateDropdown(true)}
+                onKeyDown={(e) => { if (e.key === 'Escape') setShowStateDropdown(false); }}
                 placeholder={loadingStates ? 'Loading...' : 'Select your state'}
                 className="input-glass"
                 style={{
@@ -607,7 +679,11 @@ export default function RegisterPage() {
                 }}
               />
               {showStateDropdown && (
-                <div style={{
+                <div
+                  id="reg-state-listbox"
+                  role="listbox"
+                  aria-label="States and regions"
+                  style={{
                   position: 'absolute',
                   top: '100%',
                   left: 0,
@@ -626,8 +702,11 @@ export default function RegisterPage() {
                     .filter(s => !stateSearch || s.name.toLowerCase().includes(stateSearch.toLowerCase()))
                     .slice(0, 30)
                     .map(s => (
-                      <div
+                      <button
                         key={s.id}
+                        type="button"
+                        role="option"
+                        aria-selected={selectedStateName === s.name}
                         onClick={() => {
                           setSelectedStateName(s.name);
                           setSelectedStateCode(s.iso2);
@@ -636,31 +715,38 @@ export default function RegisterPage() {
                           clearError('state');
                         }}
                         style={{
+                          display: 'block',
+                          width: '100%',
+                          textAlign: 'left',
+                          border: 'none',
                           padding: '10px 16px',
                           cursor: 'pointer',
                           fontSize: '14px',
                           borderBottom: '1px solid rgba(0,0,0,0.04)',
-                          background: selectedStateName === s.name ? 'rgba(139,92,246,0.06)' : undefined,
+                          background: selectedStateName === s.name ? 'rgba(139,92,246,0.06)' : 'transparent',
                         }}
                       >
                         {s.name}
-                      </div>
+                      </button>
                     ))}
                 </div>
               )}
             </div>
-            {errors.state && <p style={fieldErrorStyle}>{errors.state}</p>}
+            {errors.state && <p id="reg-state-error" style={fieldErrorStyle}>{errors.state}</p>}
           </div>
         )}
 
         {/* Email */}
         <div style={{ width: '100%' }}>
-          <label style={labelStyle}>Email Address</label>
+          <label htmlFor="reg-email" style={labelStyle}>Email Address</label>
           <div style={{ position: 'relative', width: '100%' }}>
             <Mail size={18} style={iconStyle} />
             <input
               type="email"
               value={email}
+              id="reg-email"
+              aria-invalid={errors.email ? true : undefined}
+              aria-describedby={errors.email ? "reg-email-error" : undefined}
               onChange={(e) => {
                 if (!isInvited) {
                   setEmail(e.target.value);
@@ -680,17 +766,20 @@ export default function RegisterPage() {
               }}
             />
           </div>
-          {errors.email && <p style={fieldErrorStyle}>{errors.email}</p>}
+          {errors.email && <p id="reg-email-error" style={fieldErrorStyle}>{errors.email}</p>}
         </div>
 
         {/* Password */}
         <div style={{ width: '100%' }}>
-          <label style={labelStyle}>Password</label>
+          <label htmlFor="reg-password" style={labelStyle}>Password</label>
           <div style={{ position: 'relative', width: '100%' }}>
             <Lock size={18} style={iconStyle} />
             <input
               type={showPassword ? 'text' : 'password'}
               value={password}
+              id="reg-password"
+              aria-invalid={errors.password ? true : undefined}
+              aria-describedby={errors.password ? "reg-password-error" : undefined}
               onChange={(e) => {
                 setPassword(e.target.value);
                 clearError('password');
@@ -727,7 +816,7 @@ export default function RegisterPage() {
             </button>
           </div>
 
-          {errors.password && <p style={fieldErrorStyle}>{errors.password}</p>}
+          {errors.password && <p id="reg-password-error" style={fieldErrorStyle}>{errors.password}</p>}
 
           {/* Password Strength Meter */}
           {password.length > 0 && (
@@ -773,12 +862,15 @@ export default function RegisterPage() {
 
         {/* Confirm Password */}
         <div style={{ width: '100%' }}>
-          <label style={labelStyle}>Confirm Password</label>
+          <label htmlFor="reg-confirm-password" style={labelStyle}>Confirm Password</label>
           <div style={{ position: 'relative', width: '100%' }}>
             <ShieldCheck size={18} style={iconStyle} />
             <input
               type="password"
               value={confirmPassword}
+              id="reg-confirm-password"
+              aria-invalid={errors.confirmPassword ? true : undefined}
+              aria-describedby={errors.confirmPassword ? "reg-confirm-password-error" : undefined}
               onChange={(e) => {
                 setConfirmPassword(e.target.value);
                 clearError('confirmPassword');
@@ -794,83 +886,87 @@ export default function RegisterPage() {
               }}
             />
           </div>
-          {errors.confirmPassword && <p style={fieldErrorStyle}>{errors.confirmPassword}</p>}
+          {errors.confirmPassword && <p id="reg-confirm-password-error" style={fieldErrorStyle}>{errors.confirmPassword}</p>}
         </div>
 
-        {/* TOS — custom checkbox to match mobile */}
-        <div
-          role="checkbox"
-          aria-checked={tosAccepted}
-          tabIndex={0}
-          onClick={() => setTosAccepted(!tosAccepted)}
-          onKeyDown={(e) => {
-            if (e.key === ' ' || e.key === 'Enter') {
-              e.preventDefault();
-              setTosAccepted(!tosAccepted);
-            }
-          }}
-          style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: '12px',
-            cursor: 'pointer',
-            userSelect: 'none',
-            marginTop: '4px',
-            outline: 'none',
-          }}
-        >
-          <span
-            style={{
-              flexShrink: 0,
-              width: '20px',
-              height: '20px',
-              borderRadius: '6px',
-              border: `2px solid ${
-                tosAccepted ? 'var(--color-primary)' : 'rgba(0,0,0,0.18)'
-              }`,
-              background: tosAccepted ? 'var(--color-primary)' : 'transparent',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'all 0.15s ease',
-              marginTop: '1px',
-            }}
+        {/*
+          Consent block. Three separate decisions, none pre-ticked:
+          - age and the Terms/Privacy are required to create an account;
+          - marketing is optional and is never bundled with the Terms, because
+            consent bundled with a service condition is not freely given
+            (GDPR art. 7(4)).
+        */}
+        <fieldset style={{ border: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <legend className="sr-only">Consent and confirmations</legend>
+
+          <ConsentCheckbox
+            id="consent-age"
+            checked={ageConfirmed}
+            onChange={setAgeConfirmed}
+            required
+            error={consentAttempted && !ageConfirmed ? `You must be at least ${MINIMUM_AGE} to create an account.` : undefined}
           >
-            {tosAccepted && <Check size={13} color="#fff" strokeWidth={3} />}
-          </span>
-          <span style={{ fontSize: '13px', color: 'rgba(0,0,0,0.6)', lineHeight: '20px' }}>
+            I am {MINIMUM_AGE} years of age or older
+          </ConsentCheckbox>
+
+          <ConsentCheckbox
+            id="consent-tos"
+            checked={tosAccepted}
+            onChange={setTosAccepted}
+            required
+            error={consentAttempted && !tosAccepted ? 'Please accept the Terms of Service and Privacy Policy.' : undefined}
+          >
             I agree to the{' '}
             <Link
               href="/terms-of-service"
               target="_blank"
               rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              style={{
-                color: 'var(--color-brand-pink-dark)',
-                fontWeight: 600,
-                textDecoration: 'underline',
-                textUnderlineOffset: '3px',
-              }}
+              className="font-semibold underline underline-offset-[3px]"
+              style={{ color: 'var(--color-text-accent)' }}
             >
               Terms of Service
             </Link>{' '}
-            &amp;{' '}
+            and have read the{' '}
             <Link
               href="/privacy-policy"
               target="_blank"
               rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              style={{
-                color: 'var(--color-brand-pink-dark)',
-                fontWeight: 600,
-                textDecoration: 'underline',
-                textUnderlineOffset: '3px',
-              }}
+              className="font-semibold underline underline-offset-[3px]"
+              style={{ color: 'var(--color-text-accent)' }}
             >
               Privacy Policy
             </Link>
-          </span>
-        </div>
+          </ConsentCheckbox>
+
+          <ConsentCheckbox
+            id="consent-marketing-email"
+            checked={marketingEmail}
+            onChange={setMarketingEmail}
+          >
+            Email me offers, new classes and Merakí news (optional — you can unsubscribe at any time)
+          </ConsentCheckbox>
+
+          <ConsentCheckbox
+            id="consent-marketing-sms"
+            checked={marketingSms}
+            onChange={setMarketingSms}
+          >
+            Text me offers and reminders (optional)
+          </ConsentCheckbox>
+        </fieldset>
+
+        {/*
+          Short-form privacy notice at the point of collection — GDPR arts. 13
+          and 12(1) require this information to be given when the data is
+          collected, not only buried in a policy page.
+        */}
+        <p style={{ fontSize: '12px', lineHeight: '18px', color: 'rgba(0,0,0,0.55)' }}>
+          We use your name, email and phone number to run your account, confirm bookings and take
+          payment. Booking and payment records are kept for 6 years because Irish tax law requires
+          it; everything else is deleted within 30 days of you closing your account. We do not use
+          advertising or analytics trackers, and we never sell your data. You can download or delete
+          your data at any time from Settings.
+        </p>
 
         {/* Submit */}
         <button

@@ -415,7 +415,7 @@ function PickerSheet({
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <h3 className="text-[16px] font-semibold text-gray-900">{title}</h3>
-          <button
+          <button aria-label="Close"
             onClick={onClose}
             className="p-1 rounded-full hover:bg-gray-100 transition"
           >

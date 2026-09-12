@@ -152,7 +152,7 @@ function NotificationsContent({ userId }: { userId: string }) {
   const loadClients = useCallback(async () => {
     try {
       const { data } = await supabase
-        .from('profiles')
+        .from('profiles_with_contact')
         .select('id, full_name, email, role, push_token')
         .in('role', ['client', 'master'])
         .order('full_name');
@@ -465,7 +465,7 @@ function NotificationsContent({ userId }: { userId: string }) {
                 </button>
               ))}
             </div>
-            <button onClick={loadHistory} disabled={loading} className="p-2 rounded-xl hover:bg-[var(--color-surface-light)] transition-colors cursor-pointer shrink-0">
+            <button aria-label="Refresh notifications" onClick={loadHistory} disabled={loading} className="p-2 rounded-xl hover:bg-[var(--color-surface-light)] transition-colors cursor-pointer shrink-0">
               <RefreshCw size={16} className={`text-[var(--color-text-muted)] ${loading ? 'animate-spin' : ''}`} />
             </button>
           </div>

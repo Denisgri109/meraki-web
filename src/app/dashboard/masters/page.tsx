@@ -66,7 +66,7 @@ export default function MastersPage() {
       setLoading(true);
       if (activeTab === 'active') {
         const { data } = await supabase
-          .from('profiles')
+          .from('profiles_with_contact')
           .select('id, full_name, email, phone, avatar_url, specialties, city, is_master, commission_rate')
           .eq('is_master', true)
           .order('full_name');

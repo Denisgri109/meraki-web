@@ -524,7 +524,7 @@ export default function OrdersPage() {
                 €{Number(order.total).toFixed(2)}
               </div>
               <div className="col-span-1 text-right">
-                <button className="w-8 h-8 rounded-full hover:bg-[var(--color-surface-light)] flex items-center justify-center cursor-pointer">
+                <button aria-label="View order details" className="w-8 h-8 rounded-full hover:bg-[var(--color-surface-light)] flex items-center justify-center cursor-pointer">
                   <Eye size={16} className="text-[var(--color-text-muted)]" />
                 </button>
                 <DeleteButton

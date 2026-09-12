@@ -35,6 +35,7 @@ export default function PilatesWaiverFormSheet({
   const [goalsExpectations, setGoalsExpectations] = useState('');
   const [hasBoneCondition, setHasBoneCondition] = useState<string | null>(null);
   const [agreedTermsOfUse, setAgreedTermsOfUse] = useState(false);
+  const [agreedHealthDataProcessing, setAgreedHealthDataProcessing] = useState(false);
   const [agreedLiabilityWaiver, setAgreedLiabilityWaiver] = useState(false);
   const [emergencyContactName, setEmergencyContactName] = useState('');
   const [emergencyContactRelationship, setEmergencyContactRelationship] = useState('');
@@ -96,6 +97,7 @@ export default function PilatesWaiverFormSheet({
     goalsExpectations: !goalsExpectations.trim(),
     hasBoneCondition: hasBoneCondition === null,
     agreedTermsOfUse: !agreedTermsOfUse,
+    agreedHealthDataProcessing: !agreedHealthDataProcessing,
     agreedLiabilityWaiver: !agreedLiabilityWaiver,
     emergencyContactName: emergencyContactName.trim().length < 2,
     emergencyContactRelationship: emergencyContactRelationship.trim().length < 2,
@@ -120,6 +122,7 @@ export default function PilatesWaiverFormSheet({
       goalsExpectations: goalsExpectations.trim(),
       hasBoneCondition: hasBoneCondition === 'yes',
       agreedTermsOfUse,
+      agreedHealthDataProcessing,
       agreedLiabilityWaiver,
       emergencyContactName: emergencyContactName.trim(),
       emergencyContactRelationship: emergencyContactRelationship.trim(),
@@ -531,7 +534,52 @@ export default function PilatesWaiverFormSheet({
               </h3>
             </div>
 
-            {/* Q11 */}
+            {/*
+              Explicit consent to process health data — GDPR art. 9(2)(a).
+              This is deliberately separate from the Terms of Use box: the
+              Terms are about the contract, and consent to special category
+              data has to be an express statement about that data.
+            */}
+            <div>
+              <label htmlFor="q11-health-data" className="flex items-start gap-2.5 cursor-pointer">
+                <input
+                  id="q11-health-data"
+                  type="checkbox"
+                  checked={agreedHealthDataProcessing}
+                  onChange={(e) => setAgreedHealthDataProcessing(e.target.checked)}
+                  aria-describedby="q11-health-data-help"
+                  className="mt-0.5 w-5 h-5 rounded-md border-gray-300 text-emerald-600 focus:ring-emerald-400 cursor-pointer shrink-0"
+                />
+                <span className="text-[13px] font-medium text-gray-700 leading-snug">
+                  I explicitly consent to Merak&iacute; and its instructors processing the health
+                  information I have given above, so that classes can be run safely for me.
+                  <span className="text-red-500"> *</span>
+                </span>
+              </label>
+              <p id="q11-health-data-help" className="mt-1 ml-7 text-[11px] leading-4 text-gray-500">
+                Health information is &ldquo;special category&rdquo; data under the GDPR. It is seen only
+                by the instructors teaching you, is kept for the duration of your membership and 7
+                years afterwards, and is never used for marketing. You can withdraw this consent at
+                any time by emailing us &mdash; we will then be unable to offer you Pilates sessions.
+                See our{' '}
+                <Link
+                  href="/privacy-policy"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-emerald-700 font-semibold underline"
+                >
+                  Privacy Policy
+                </Link>
+                .
+              </p>
+              {submitAttempted && errors.agreedHealthDataProcessing && (
+                <p className="mt-1 ml-7 text-xs text-red-600">
+                  We cannot run a class safely without your consent to use this information.
+                </p>
+              )}
+            </div>
+
+            {/* Q11b */}
             <div>
               <label htmlFor="q11-terms" className="flex items-start gap-2.5 cursor-pointer">
                 <input

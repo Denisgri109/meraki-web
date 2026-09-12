@@ -173,6 +173,6 @@ describe('PilatesSection', () => {
     render(<PilatesSection isOwner={false} />);
     expect(screen.getByText('One Studio, Every Level')).toBeInTheDocument();
     expect(screen.getByText('Class Booking')).toBeInTheDocument();
-    expect(screen.getByText('Expert Instructors')).toBeInTheDocument();
+    expect(screen.getByText('Qualified Instructors')).toBeInTheDocument();
   });
 });

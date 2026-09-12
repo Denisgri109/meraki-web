@@ -8,6 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 import { getAllCountries, getStatesOfCountry } from '@/lib/locationApi';
 import type { Country, State } from '@/lib/locationApi';
+import { LEGAL_VERSIONS } from '@/lib/constants/legalVersions';
 
 // ─── Test data ──────────────────────────────────────────────────────────────
 
@@ -57,7 +58,8 @@ jest.mock('@/components/CountryCodeDropdown', () => ({
 function makeMockSupabase() {
   const mockEq = jest.fn().mockResolvedValue({});
   const mockUpdate = jest.fn().mockReturnValue({ eq: mockEq });
-  const mockFrom = jest.fn().mockReturnValue({ update: mockUpdate });
+  const mockInsert = jest.fn().mockResolvedValue({ error: null });
+  const mockFrom = jest.fn().mockReturnValue({ update: mockUpdate, insert: mockInsert });
   return {
     auth: {
       getUser: jest.fn().mockResolvedValue({ data: { user: { id: 'test-user-id' } } }),
@@ -65,6 +67,7 @@ function makeMockSupabase() {
     },
     from: mockFrom,
     _mockUpdate: mockUpdate,
+    _mockInsert: mockInsert,
     _mockEq: mockEq,
   };
 }
@@ -113,6 +116,12 @@ async function selectLocation(countryName: string, stateName: string) {
 
 // ─── Tests ──────────────────────────────────────────────────────────────────
 
+/** Ticks the two consents that are required to create an account. */
+function acceptRequiredConsents() {
+  fireEvent.click(screen.getByRole('checkbox', { name: /16 years of age or older/i }));
+  fireEvent.click(screen.getByRole('checkbox', { name: /Terms of Service/i }));
+}
+
 describe('RegisterPage', () => {
 
   // ── Rendering ───────────────────────────────────────────────────────────
@@ -133,7 +142,10 @@ describe('RegisterPage', () => {
       expect(screen.getByPlaceholderText('Min. 6 characters')).toBeInTheDocument(); // Password
       expect(screen.getByPlaceholderText('••••••••')).toBeInTheDocument(); // Confirm password
       expect(screen.getByPlaceholderText('Select your country')).toBeInTheDocument();
-      expect(screen.getByRole('checkbox')).toBeInTheDocument();
+      expect(screen.getByRole('checkbox', { name: /Terms of Service/i })).toBeInTheDocument();
+      expect(screen.getByRole('checkbox', { name: /16 years of age or older/i })).toBeInTheDocument();
+      expect(screen.getByRole('checkbox', { name: /Email me offers/i })).toBeInTheDocument();
+      expect(screen.getByRole('checkbox', { name: /Text me offers/i })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /Create Account/i })).toBeInTheDocument();
     });
 
@@ -384,8 +396,8 @@ describe('RegisterPage', () => {
 
       await selectLocation('Ireland', 'Dublin');
 
-      // Accept TOS
-      fireEvent.click(screen.getByRole('checkbox'));
+      // Accept the two required consents
+      acceptRequiredConsents();
 
       mockSignUp.mockResolvedValueOnce({ error: null });
       fireEvent.click(screen.getByRole('button', { name: /Create Account/i }));
@@ -507,49 +519,55 @@ describe('RegisterPage', () => {
       // Don't accept TOS
       fireEvent.click(screen.getByRole('button', { name: /Create Account/i }));
 
-      expect(await screen.findByText('Please accept the Terms of Service to continue.')).toBeInTheDocument();
+      expect(
+        await screen.findByText(
+          'Please confirm your age and accept the Terms of Service and Privacy Policy to continue.',
+        ),
+      ).toBeInTheDocument();
       expect(mockSignUp).not.toHaveBeenCalled();
     });
 
     it('accepts TOS on click', async () => {
       await renderRegister();
 
-      const checkbox = screen.getByRole('checkbox');
-      expect(checkbox).toHaveAttribute('aria-checked', 'false');
+      const checkbox = screen.getByRole('checkbox', { name: /Terms of Service/i });
+      expect(checkbox).not.toBeChecked();
 
       fireEvent.click(checkbox);
-      expect(checkbox).toHaveAttribute('aria-checked', 'true');
+      expect(checkbox).toBeChecked();
 
       fireEvent.click(checkbox);
-      expect(checkbox).toHaveAttribute('aria-checked', 'false');
+      expect(checkbox).not.toBeChecked();
     });
 
-    it('accepts TOS on Space key', async () => {
+    it('no consent box is pre-ticked', async () => {
       await renderRegister();
 
-      const checkbox = screen.getByRole('checkbox');
-      expect(checkbox).toHaveAttribute('aria-checked', 'false');
-
-      fireEvent.keyDown(checkbox, { key: ' ' });
-      expect(checkbox).toHaveAttribute('aria-checked', 'true');
+      // GDPR recital 32 — pre-ticked boxes are not consent.
+      screen.getAllByRole('checkbox').forEach((box) => expect(box).not.toBeChecked());
     });
 
-    it('accepts TOS on Enter key', async () => {
+    it('marketing consent is separate from the Terms and is optional', async () => {
       await renderRegister();
 
-      const checkbox = screen.getByRole('checkbox');
-      expect(checkbox).toHaveAttribute('aria-checked', 'false');
+      const tos = screen.getByRole('checkbox', { name: /Terms of Service/i });
+      const email = screen.getByRole('checkbox', { name: /Email me offers/i });
 
-      fireEvent.keyDown(checkbox, { key: 'Enter' });
-      expect(checkbox).toHaveAttribute('aria-checked', 'true');
+      fireEvent.click(tos);
+      expect(tos).toBeChecked();
+      expect(email).not.toBeChecked();
+
+      expect(email).not.toBeRequired();
+      expect(tos).toBeRequired();
     });
 
-    it('does not toggle on other keys', async () => {
+    it('requires the age confirmation as well as the Terms', async () => {
       await renderRegister();
 
-      const checkbox = screen.getByRole('checkbox');
-      fireEvent.keyDown(checkbox, { key: 'Tab' });
-      expect(checkbox).toHaveAttribute('aria-checked', 'false');
+      const age = screen.getByRole('checkbox', { name: /16 years of age or older/i });
+      expect(age).toBeRequired();
+      fireEvent.click(age);
+      expect(age).toBeChecked();
     });
   });
 
@@ -569,7 +587,7 @@ describe('RegisterPage', () => {
 
       await selectLocation('Ireland', 'Dublin');
 
-      fireEvent.click(screen.getByRole('checkbox'));
+      acceptRequiredConsents();
     }
 
     it('calls signUp with client role and correct params on valid form', async () => {
@@ -586,7 +604,7 @@ describe('RegisterPage', () => {
           'John Doe',
           'client',
           true,
-          '1.0'
+          LEGAL_VERSIONS.tos
         );
       });
     });
@@ -606,7 +624,7 @@ describe('RegisterPage', () => {
           'John Doe',
           'master',
           true,
-          '1.0'
+          LEGAL_VERSIONS.tos
         );
       });
     });
@@ -640,7 +658,7 @@ describe('RegisterPage', () => {
       fireEvent.change(screen.getByPlaceholderText('••••••••'), { target: { value: 'password123' } });
 
       await selectLocation('Ireland', 'Dublin');
-      fireEvent.click(screen.getByRole('checkbox'));
+      acceptRequiredConsents();
 
       fireEvent.click(screen.getByRole('button', { name: /Create Account/i }));
 
@@ -797,11 +815,15 @@ describe('RegisterPage', () => {
       // Don't accept TOS
       fireEvent.click(screen.getByRole('button', { name: /Create Account/i }));
 
-      expect(await screen.findByText('Please accept the Terms of Service to continue.')).toBeInTheDocument();
+      expect(
+        await screen.findByText(
+          'Please confirm your age and accept the Terms of Service and Privacy Policy to continue.',
+        ),
+      ).toBeInTheDocument();
       expect(mockSignUp).not.toHaveBeenCalled();
     });
 
-    it('passes tosAccepted=true and tosVersion=1.0 to signUp', async () => {
+    it('passes tosAccepted=true and the current tosVersion to signUp', async () => {
       await renderRegister();
       mockSignUp.mockResolvedValueOnce({ error: null });
 
@@ -815,7 +837,7 @@ describe('RegisterPage', () => {
           expect.any(String),
           expect.any(String),
           true,
-          '1.0'
+          LEGAL_VERSIONS.tos
         );
       });
     });

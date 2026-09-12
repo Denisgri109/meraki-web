@@ -41,7 +41,8 @@ export default function AuthLayout({
       />
 
       {/* ── Centered glass card ──────────────────────────────────────── */}
-      <div className="relative w-full max-w-[480px] animate-fade-in">
+      {/* `main` so the skip link in the root layout has a target here too. */}
+      <main id="main-content" className="relative w-full max-w-[480px] animate-fade-in">
         <div
           className="w-full"
           style={{
@@ -67,7 +68,7 @@ export default function AuthLayout({
         >
           Beauty With Soul
         </p>
-      </div>
+      </main>
     </div>
   );
 }

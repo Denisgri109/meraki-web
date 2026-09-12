@@ -215,22 +215,22 @@ export function BeautySection({ isOwner }: BeautySectionProps) {
         <div className="relative z-10 max-w-2xl mx-auto text-center">
           <EditableText
             contentKey="landing.testimonial.badge"
-            fallback="Join Thousands of Happy Clients"
+            fallback="Everything In One Place"
             as="p"
             className="text-xs tracking-[4px] uppercase text-pink-300 font-bold mb-4 drop-shadow-md"
           />
           <EditableText
             contentKey="landing.testimonial.quote"
-            fallback="Merakí transformed how I do beauty. Everything I need in one beautiful app."
+            fallback="Booking, products and courses — in one place, on one account."
             as="h2"
             multiline
             className="text-3xl sm:text-4xl font-[family-name:var(--font-playfair)] italic text-transparent bg-clip-text bg-gradient-to-r from-white to-pink-200 mb-6 drop-shadow-lg"
           />
           <EditableText
-            contentKey="landing.testimonial.author"
-            fallback="— Sarah K., London"
+            contentKey="landing.testimonial.subline"
+            fallback="Create an account free — you only pay when you book."
             as="p"
-            className="text-white/80 text-sm mb-10 font-medium"
+            className="text-white/90 text-sm mb-10 font-medium"
           />
           {isOwner ? (
             <Link href="/dashboard" className="inline-block btn-pink px-10 py-4 text-sm shadow-glow">

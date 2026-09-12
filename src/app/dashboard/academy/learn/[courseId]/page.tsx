@@ -10,6 +10,7 @@ import {
   ChevronDown, ChevronRight, Send, MessageCircle, Upload, Loader2,
   GraduationCap, Link2, Download, Lock, Video, X, Image,
 } from 'lucide-react';
+import { EmbedGate } from '@/components/consent/EmbedGate';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface Course { id: string; title: string; description: string | null; thumbnail_url: string | null; instructor_id: string | null; }
@@ -302,13 +303,16 @@ export default function LearnCoursePage() {
   };
 
   // ── Video embed helper ──
-  const getVideoEmbed = (url: string) => {
+  // Returns the provider as well as the URL so the consent gate can name it.
+  // YouTube is loaded from youtube-nocookie.com, which still sets storage but
+  // omits the cross-site advertising cookies.
+  const getVideoEmbed = (url: string): { provider: string; embedUrl: string } | null => {
     // YouTube
     const ytMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-    if (ytMatch) return `https://www.youtube.com/embed/${ytMatch[1]}`;
+    if (ytMatch) return { provider: 'YouTube', embedUrl: `https://www.youtube-nocookie.com/embed/${ytMatch[1]}` };
     // Vimeo
     const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
-    if (vimeoMatch) return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
+    if (vimeoMatch) return { provider: 'Vimeo', embedUrl: `https://player.vimeo.com/video/${vimeoMatch[1]}?dnt=1` };
     return null;
   };
 
@@ -321,10 +325,21 @@ export default function LearnCoursePage() {
       );
     }
 
-    const embedUrl = getVideoEmbed(videoUrl);
-    if (embedUrl) {
-      return <iframe src={embedUrl} className="w-full h-full" allowFullScreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" />;
+    const embed = getVideoEmbed(videoUrl);
+    if (embed) {
+      return (
+        <EmbedGate provider={embed.provider} sourceUrl={videoUrl}>
+          <iframe
+            src={embed.embedUrl}
+            title={`${embed.provider} lesson video`}
+            className="w-full h-full"
+            allowFullScreen
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          />
+        </EmbedGate>
+      );
     }
+    // Self-hosted file — no third party involved, so no consent gate.
     return <video src={videoUrl} controls className="w-full h-full" />;
   };
 

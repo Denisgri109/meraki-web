@@ -94,7 +94,7 @@ export default function MasterPublicProfilePage() {
       try {
         // Fetch master profile
         const { data: masterData } = await supabase
-          .from('profiles')
+          .from('profiles_with_contact')
           .select('id, full_name, bio, avatar_url, city, country, years_of_experience, specialties, commission_rate, is_master, master_status, email, phone')
           .eq('id', masterId)
           .single();

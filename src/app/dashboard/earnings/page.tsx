@@ -744,7 +744,7 @@ export default function EarningsPage() {
                 <span className="text-xs text-[var(--color-text-muted)]">
                   {payoutRecords.filter(p => p.status === 'pending').length} pending · {payoutRecords.filter(p => p.status === 'completed').length} completed
                 </span>
-                <button onClick={loadPayouts} disabled={payoutsLoading} className="p-1.5 rounded-lg hover:bg-[var(--color-surface-light)] transition-colors cursor-pointer">
+                <button aria-label="Refresh payouts" onClick={loadPayouts} disabled={payoutsLoading} className="p-1.5 rounded-lg hover:bg-[var(--color-surface-light)] transition-colors cursor-pointer">
                   <RefreshCw size={14} className={`text-[var(--color-text-muted)] ${payoutsLoading ? 'animate-spin' : ''}`} />
                 </button>
               </div>

@@ -11,7 +11,7 @@ export default function AboutPage() {
       <MainNavbar />
 
       {/* ── About Content ───────────────────────────────────────── */}
-      <main className="flex-grow pt-16 pb-32 px-6 section-warm relative overflow-hidden">
+      <main id="main-content" className="flex-grow pt-16 pb-32 px-6 section-warm relative overflow-hidden">
         <div className="blob-pink -top-20 -left-40 opacity-30" />
         <div className="blob-purple -bottom-20 right-0 opacity-20" />
         

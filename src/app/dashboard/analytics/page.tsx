@@ -86,26 +86,26 @@ export default function AnalyticsPage() {
         // Active masters
         const { count: activeMasters } = await supabase
           .from('profiles')
-          .select('*', { count: 'exact', head: true })
+          .select('id', { count: 'exact', head: true })
           .eq('is_master', true);
 
         // New clients (profiles created this month with role=client)
         const { count: newClients } = await supabase
           .from('profiles')
-          .select('*', { count: 'exact', head: true })
+          .select('id', { count: 'exact', head: true })
           .eq('role', 'client')
           .gte('created_at', monthStart.toISOString());
           
         // Total Clients
         const { count: totalClients } = await supabase
           .from('profiles')
-          .select('*', { count: 'exact', head: true })
+          .select('id', { count: 'exact', head: true })
           .eq('role', 'client');
           
         // Total Owners
         const { count: totalOwners } = await supabase
           .from('profiles')
-          .select('*', { count: 'exact', head: true })
+          .select('id', { count: 'exact', head: true })
           .eq('role', 'owner');
 
         // Recent activity: latest appointments + recent profile signups

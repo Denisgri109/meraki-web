@@ -596,9 +596,9 @@ export default function AvailabilityPage() {
         <div>
           {/* Month Nav */}
           <div className="flex items-center justify-between mb-6">
-            <button onClick={prevMonth} className="p-2 rounded-xl hover:bg-slate-100 cursor-pointer transition-colors"><ChevronLeft size={20} /></button>
+            <button aria-label="Previous week" onClick={prevMonth} className="p-2 rounded-xl hover:bg-slate-100 cursor-pointer transition-colors"><ChevronLeft size={20} /></button>
             <h2 className="text-xl font-bold text-[var(--color-text-primary)]">{monthLabel}</h2>
-            <button onClick={nextMonth} className="p-2 rounded-xl hover:bg-slate-100 cursor-pointer transition-colors"><ChevronRight size={20} /></button>
+            <button aria-label="Next week" onClick={nextMonth} className="p-2 rounded-xl hover:bg-slate-100 cursor-pointer transition-colors"><ChevronRight size={20} /></button>
           </div>
 
           {/* Legend */}

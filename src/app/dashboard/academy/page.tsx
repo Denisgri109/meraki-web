@@ -24,6 +24,8 @@ interface Course {
   title: string;
   description: string | null;
   price: number | null;
+  ios_product_id: string | null;
+  android_product_id: string | null;
   thumbnail_url: string | null;
   instructor_id: string | null;
   is_published: boolean | null;
@@ -73,7 +75,7 @@ function OwnerAcademyView() {
   // Create / Edit modal
   const [showModal, setShowModal] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
-  const [form, setForm] = useState({ title: '', description: '', price: '', thumbnail_url: '', is_published: false });
+  const [form, setForm] = useState({ title: '', description: '', price: '', thumbnail_url: '', is_published: false, ios_product_id: '', android_product_id: '' });
   const [saving, setSaving] = useState(false);
 
   // Delete
@@ -173,7 +175,7 @@ function OwnerAcademyView() {
 
   const openCreate = () => {
     setEditingCourse(null);
-    setForm({ title: '', description: '', price: '', thumbnail_url: '', is_published: false });
+    setForm({ title: '', description: '', price: '', thumbnail_url: '', is_published: false, ios_product_id: '', android_product_id: '' });
     setShowModal(true);
   };
 
@@ -185,6 +187,8 @@ function OwnerAcademyView() {
       price: c.price?.toString() || '',
       thumbnail_url: c.thumbnail_url || '',
       is_published: c.is_published || false,
+      ios_product_id: c.ios_product_id || '',
+      android_product_id: c.android_product_id || '',
     });
     setShowModal(true);
   };
@@ -200,6 +204,10 @@ function OwnerAcademyView() {
         thumbnail_url: form.thumbnail_url.trim() || null,
         is_published: form.is_published,
         instructor_id: user.id,
+        // Empty means "not sold in the apps": the store only knows SKUs, and
+        // the server refuses to enrol anyone for a course with no SKU mapped.
+        ios_product_id: form.ios_product_id.trim() || null,
+        android_product_id: form.android_product_id.trim() || null,
       };
 
       if (editingCourse) {
@@ -418,6 +426,48 @@ function OwnerAcademyView() {
                 <div>
                   <label className="text-sm font-semibold text-[var(--color-text-secondary)] mb-1 block">Price (€)</label>
                   <input className="input-glass w-full" type="number" min="0" step="0.01" placeholder="0.00" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
+                </div>
+              </div>
+
+              {/*
+                Apple Guideline 3.1.1 and the Google Play Payments policy require
+                a course bought inside the app to be sold through the store's own
+                billing, so each course needs a product created in App Store
+                Connect and in the Play Console. The website keeps selling the
+                same course through Stripe at the price above.
+              */}
+              <div className="rounded-xl border border-[var(--color-border)] p-4">
+                <p className="text-sm font-semibold text-[var(--color-text-primary)]">In-app purchase</p>
+                <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
+                  Create a matching non-consumable product in App Store Connect and Google Play, then paste
+                  its product ID here. Leave blank and the course is website-only. The store sets the price
+                  buyers see in the app.
+                </p>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label htmlFor="course-ios-sku" className="mb-1 block text-xs font-semibold text-[var(--color-text-secondary)]">
+                      App Store product ID
+                    </label>
+                    <input
+                      id="course-ios-sku"
+                      className="input-glass w-full"
+                      placeholder="com.meraki.app.course.nailart"
+                      value={form.ios_product_id}
+                      onChange={(e) => setForm({ ...form, ios_product_id: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="course-android-sku" className="mb-1 block text-xs font-semibold text-[var(--color-text-secondary)]">
+                      Google Play product ID
+                    </label>
+                    <input
+                      id="course-android-sku"
+                      className="input-glass w-full"
+                      placeholder="course_nailart"
+                      value={form.android_product_id}
+                      onChange={(e) => setForm({ ...form, android_product_id: e.target.value })}
+                    />
+                  </div>
                 </div>
                 <div>
                   <label className="text-sm font-semibold text-[var(--color-text-secondary)] mb-1 block">Thumbnail Image</label>

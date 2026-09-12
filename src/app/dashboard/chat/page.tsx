@@ -857,10 +857,10 @@ export default function ChatPage() {
                                 className="w-full bg-white/20 rounded-lg px-2 py-1 text-sm outline-none"
                               />
                               <div className="flex gap-2">
-                                <button onClick={saveEdit} className="p-1 hover:bg-white/20 rounded-md">
+                                <button aria-label="Confirm" onClick={saveEdit} className="p-1 hover:bg-white/20 rounded-md">
                                   <Check size={13} />
                                 </button>
-                                <button onClick={cancelEdit} className="p-1 hover:bg-white/20 rounded-md">
+                                <button aria-label="Cancel" onClick={cancelEdit} className="p-1 hover:bg-white/20 rounded-md">
                                   <X size={13} />
                                 </button>
                               </div>
@@ -923,7 +923,7 @@ export default function ChatPage() {
                         </>
                       ) : replyingTo.media_type === 'video' ? '🎥 Video' : '📷 Image'}
                     </span>
-                    <button onClick={cancelReply} className="p-0.5 hover:bg-[#D1C4E9]/40 rounded-md transition-colors">
+                    <button aria-label="Remove attachment" onClick={cancelReply} className="p-0.5 hover:bg-[#D1C4E9]/40 rounded-md transition-colors">
                       <X size={13} className="text-[var(--color-text-muted)]" />
                     </button>
                   </div>
@@ -966,7 +966,7 @@ export default function ChatPage() {
                     onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                     className="flex-1 bg-[var(--color-surface-light)] rounded-full px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[var(--color-brand-pink)]/25 transition-all placeholder:text-[var(--color-text-muted)]"
                   />
-                  <button
+                  <button aria-label="Send message"
                     onClick={handleSend}
                     disabled={!newMessage.trim()}
                     className="w-9 h-9 flex items-center justify-center rounded-full bg-gradient-to-br from-[var(--color-brand-pink)] to-[var(--color-secondary)] text-white hover:opacity-90 transition-all disabled:opacity-30 cursor-pointer shrink-0 shadow-sm"
